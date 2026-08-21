@@ -72,6 +72,37 @@ button:disabled {
   display: none !important;
 }
 
+/* Coordinate-reference grid overlay — toggled via #grid-toggle-btn so
+   cells (e.g. "c45") can be used to point at a spot on the page ("move X
+   from cell c45 to g32"). Click-through and semi-transparent so it never
+   blocks play or hides the content underneath. */
+#coord-grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.grid-cell {
+  position: relative;
+  border: 1px solid rgba(70, 150, 230, 0.35);
+  background: rgba(120, 190, 255, 0.12);
+}
+
+.grid-cell span {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: 9px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 700;
+  color: rgba(15, 65, 130, 0.75);
+  line-height: 1;
+  white-space: nowrap;
+}
+
 #game {
   max-width: 1200px;
   margin: 16px auto 40px;
@@ -121,6 +152,20 @@ button:disabled {
   font-size: 30px;
   bottom: -9px;
   right: 6px;
+}
+
+/* Timer: lives inside #active-tiles, appended right after scramble1's two
+   wildcard tiles (always the last two — see defaultOrderTiles/shuffleTiles
+   in game.js), matching their letter size so it reads as part of the row. */
+#active-tiles .active-timer {
+  font-size: 96px;
+  font-weight: 800;
+  line-height: 1;
+  color: #2b2620;
+}
+
+#active-tiles .active-timer.low-time {
+  color: #ff6b5e;
 }
 
 .tile.clickable-letter {
@@ -458,6 +503,10 @@ button:disabled {
   }
 
   #active-tiles .tile .letter {
+    font-size: 52px;
+  }
+
+  #active-tiles .active-timer {
     font-size: 52px;
   }
 

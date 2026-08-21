@@ -45,6 +45,89 @@ const HISTORY_KEY = 'manyWordsHistory';
 
 const el = (id) => document.getElementById(id);
 
+// The timer lives inside #active-tiles, right after scramble1's two
+// wildcard tiles (which always sort to the far right — see
+// defaultOrderTiles/shuffleTiles). That div is fully rebuilt by
+// renderTileEls() on every render/shuffle, so we keep one persistent
+// element here and re-append it after each rebuild rather than relying on
+// it surviving in the DOM.
+const timerEl = document.createElement('span');
+timerEl.id = 'timer';
+timerEl.className = 'active-timer';
+timerEl.textContent = '10:00';
+
+function reattachTimer() {
+  el('active-tiles').appendChild(timerEl);
+}
+
+// --- Coordinate-reference grid overlay ---
+// Toggled by #grid-toggle-btn. Purely a communication aid: lets the user
+// point at a spot on the page by cell label (e.g. "move X from c45 to
+// g32") instead of describing position in words. Click-through
+// (pointer-events: none) and semi-transparent so it never blocks play.
+const GRID_TARGET_CELLS = 300;
+let gridOverlayEl = null;
+let gridVisible = false;
+
+// Spreadsheet-style column labels: 0->a, 25->z, 26->aa, 27->ab, ...
+function colLabel(index) {
+  let n = index + 1;
+  let label = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(97 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+// Sizes cells so cols*rows lands near GRID_TARGET_CELLS while covering the
+// full scrollable page (not just the viewport), so labels stay valid as
+// the user scrolls.
+function buildGridOverlay() {
+  if (gridOverlayEl) gridOverlayEl.remove();
+
+  const docWidth = document.documentElement.scrollWidth;
+  const docHeight = document.documentElement.scrollHeight;
+  const cellSize = Math.sqrt((docWidth * docHeight) / GRID_TARGET_CELLS);
+  const cols = Math.max(1, Math.round(docWidth / cellSize));
+  const rows = Math.max(1, Math.round(docHeight / cellSize));
+
+  const overlay = document.createElement('div');
+  overlay.id = 'coord-grid-overlay';
+  overlay.style.width = `${docWidth}px`;
+  overlay.style.height = `${docHeight}px`;
+  overlay.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  overlay.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      cell.innerHTML = `<span>${colLabel(c)}${r + 1}</span>`;
+      overlay.appendChild(cell);
+    }
+  }
+
+  document.body.appendChild(overlay);
+  gridOverlayEl = overlay;
+}
+
+function refreshGridIfVisible() {
+  if (gridVisible) buildGridOverlay();
+}
+
+function toggleGrid() {
+  gridVisible = !gridVisible;
+  el('grid-toggle-btn').textContent = gridVisible ? 'Hide Grid' : 'Show Grid';
+  if (gridVisible) {
+    buildGridOverlay();
+  } else if (gridOverlayEl) {
+    gridOverlayEl.remove();
+    gridOverlayEl = null;
+  }
+}
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -141,6 +224,7 @@ function startGame() {
   clearInterval(timerHandle);
   timerHandle = setInterval(tick, 1000);
   updateTimerDisplay();
+  refreshGridIfVisible();
 }
 
 function tick() {
@@ -417,6 +501,7 @@ function renderActive() {
   renderTileEls(el('active-tiles'), scramble.displayTiles);
   const ctx = getActiveCtx();
   attachTileClickHandlers(ctx);
+  reattachTimer();
 
   const bestWordSpan = el('active-best-word');
   bestWordSpan.textContent = scramble.bestWord || 'no word yet';
@@ -538,6 +623,7 @@ el('active-shuffle-btn').addEventListener('click', () => {
   renderTileEls(el('active-tiles'), scramble.displayTiles);
   const ctx = getActiveCtx();
   attachTileClickHandlers(ctx);
+  reattachTimer();
   clearGuess(ctx);
 });
 
@@ -583,7 +669,10 @@ function endGame() {
 
   recordGameResult(score, highest.word, Math.max(highest.score, 0), longest);
   renderStatsPanel();
+  refreshGridIfVisible();
 }
 
 el('start-btn').addEventListener('click', startGame);
 el('play-again-btn').addEventListener('click', startGame);
+el('grid-toggle-btn').addEventListener('click', toggleGrid);
+window.addEventListener('resize', refreshGridIfVisible);
