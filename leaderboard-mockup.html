@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Many Words — leaderboard mockup</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #game-with-sidebar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 20px;
+    align-items: start;
+    max-width: 1180px;
+    margin: 16px auto 40px;
+    padding: 0 16px;
+  }
+
+  #mock-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mock-more {
+    text-align: center;
+    font-size: 13px;
+    color: #6b6355;
+    padding: 6px;
+  }
+
+  #leaderboard {
+    position: sticky;
+    top: 74px;
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  #leaderboard .lb-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+
+  #leaderboard .lb-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  #leaderboard .lb-count {
+    font-size: 12px;
+    color: #6b6355;
+  }
+
+  #leaderboard .lb-sub {
+    font-size: 12px;
+    color: #6b6355;
+    margin: 0 0 14px;
+  }
+
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 6px;
+  }
+
+  .lb-row .lb-rank {
+    width: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b6355;
+    text-align: right;
+  }
+
+  .lb-row .lb-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .lb-row .lb-delta {
+    font-size: 12px;
+    width: 14px;
+    text-align: center;
+  }
+
+  .lb-row .lb-score {
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 34px;
+    text-align: right;
+  }
+
+  .lb-row.lb-first {
+    background: #f7ecab;
+  }
+  .lb-row.lb-first .lb-rank {
+    color: #a3841a;
+  }
+
+  .lb-delta.up { color: #2f8f4e; }
+  .lb-delta.down { color: #c1443c; }
+  .lb-delta.flat { color: #b7ae9a; }
+
+  .lb-divider {
+    text-align: center;
+    font-size: 12px;
+    color: #b7ae9a;
+    margin: 6px 0;
+    letter-spacing: 2px;
+  }
+
+  .lb-row.lb-you {
+    background: #ece7db;
+    border: 1.5px solid #c9a24b;
+  }
+  .lb-row.lb-you .lb-rank,
+  .lb-row.lb-you .lb-name,
+  .lb-row.lb-you .lb-score {
+    color: #2b2620;
+  }
+
+  .lb-catchup {
+    font-size: 12px;
+    color: #6b6355;
+    margin: 8px 2px 0;
+  }
+
+  @media (max-width: 900px) {
+    #game-with-sidebar {
+      grid-template-columns: 1fr;
+    }
+    #leaderboard {
+      position: static;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header id="top-bar">
+  <div class="brand">Many Words</div>
+  <div class="stat"><span class="label">Score</span><span id="score">201</span></div>
+  <div class="stat"><span class="label">Rank</span><span id="rank">#14</span></div>
+  <div class="stat"><span class="label">Time</span><span id="timer">04:12</span></div>
+  <button id="start-btn">Restart</button>
+</header>
+
+<div id="game-with-sidebar">
+  <main id="game">
+    <div id="mock-rows">
+
+      <div class="row">
+        <div class="tiles-col">
+          <div class="tiles">
+            <div class="tile" data-pts="10"><span class="letter">J</span><span class="pts">10</span></div>
+            <div class="tile" data-pts="5"><span class="letter">V</span><span class="pts">5</span></div>
+            <div class="tile" data-pts="3"><span class="letter">G</span><span class="pts">3</span></div>
+            <div class="tile" data-pts="2"><span class="letter">C</span><span class="pts">2</span></div>
+            <div class="tile" data-pts="1"><span class="letter">T</span><span class="pts">1</span></div>
+            <div class="tile" data-pts="1"><span class="letter">A</span><span class="pts">1</span></div>
+            <div class="tile" data-pts="1"><span class="letter">O</span><span class="pts">1</span></div>
+            <div class="tile" data-pts="1"><span class="letter">N</span><span class="pts">1</span></div>
+            <div class="tile" data-pts="0"><span class="letter">?</span><span class="pts">0</span></div>
+            <div class="tile" data-pts="0"><span class="letter">?</span><span class="pts">0</span></div>
+          </div>
+          <div class="tile-controls">
+            <button type="button">Shuffle</button>
+            <button type="button">Default</button>
+          </div>
+        </div>
+        <div class="best">
+          <span class="best-word">WAGON</span>
+          <span class="best-score">9 pts</span>
+        </div>
+        <div class="guess-area">
+          <input type="text" class="guess-input" placeholder="Type a word…" maxlength="10">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="tiles-col">
+          <div class="tiles">
+            <div class="tile" data-pts="5"><span class="letter">F</span><span class="pts">5</span></div>
+            <div class="tile" data-pts="5"><span class="letter">W</span><span class="pts">5</span></div>
+            <div class="tile" data-pts="3"><span class="letter">H</span><span class="pts">3</span></div>
+            <div class="tile" data-pts="2"><span class="letter">D</span><span class="pts">2</span></div>
+            <div class="tile" data-pts="2"><span class="letter">L</span><span class="pts">2</span></div>
+            <div class="tile" data-pts="2"><span class="letter">U</span><span class="pts">2</span></div>
+            <div class="tile" data-pts="1"><span class="letter">I</span><span class="pts">1</span></div>
+            <div class="tile" data-pts="1"><span class="letter">E</span><span class="pts">1</span></div>
+            <div class="tile" data-pts="0"><span class="letter">?</span><span class="pts">0</span></div>
+            <div class="tile" data-pts="0"><span class="letter">?</span><span class="pts">0</span></div>
+          </div>
+          <div class="tile-controls">
+            <button type="button">Shuffle</button>
+            <button type="button">Default</button>
+          </div>
+        </div>
+        <div class="best">
+          <span class="best-word empty">no word yet</span>
+          <span class="best-score">0 pts</span>
+        </div>
+        <div class="guess-area">
+          <input type="text" class="guess-input" placeholder="Type a word…" maxlength="10">
+        </div>
+      </div>
+
+      <div class="mock-more">⋯ 4 more scrambles below ⋯</div>
+    </div>
+  </main>
+
+  <aside id="leaderboard">
+    <div class="lb-head">
+      <p class="lb-title">Leaderboard</p>
+      <span class="lb-count">30 playing</span>
+    </div>
+    <p class="lb-sub">Updates every few seconds</p>
+
+    <div class="lb-row lb-first">
+      <span class="lb-rank">1</span>
+      <span class="lb-name">Priya</span>
+      <span class="lb-delta flat">–</span>
+      <span class="lb-score">312</span>
+    </div>
+    <div class="lb-row">
+      <span class="lb-rank">2</span>
+      <span class="lb-name">DevWkr</span>
+      <span class="lb-delta up">▲</span>
+      <span class="lb-score">298</span>
+    </div>
+    <div class="lb-row">
+      <span class="lb-rank">3</span>
+      <span class="lb-name">lexi_q</span>
+      <span class="lb-delta down">▼</span>
+      <span class="lb-score">291</span>
+    </div>
+    <div class="lb-row">
+      <span class="lb-rank">4</span>
+      <span class="lb-name">tobias</span>
+      <span class="lb-delta flat">–</span>
+      <span class="lb-score">277</span>
+    </div>
+    <div class="lb-row">
+      <span class="lb-rank">5</span>
+      <span class="lb-name">Marcus</span>
+      <span class="lb-delta up">▲</span>
+      <span class="lb-score">265</span>
+    </div>
+
+    <div class="lb-divider">⋯</div>
+
+    <div class="lb-row lb-you">
+      <span class="lb-rank">14</span>
+      <span class="lb-name">You</span>
+      <span class="lb-delta up">▲</span>
+      <span class="lb-score">201</span>
+    </div>
+    <p class="lb-catchup">+12 pts to pass Jordan (#13)</p>
+  </aside>
+</div>
+
+</body>
+</html>

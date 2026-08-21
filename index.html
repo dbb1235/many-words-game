@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Many Words</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="top-bar">
+  <div class="brand">Many Words</div>
+  <div class="stat"><span class="label">Score</span><span id="score">0</span></div>
+  <div class="stat"><span class="label">Time</span><span id="timer">10:00</span></div>
+  <button id="start-btn">Start Game</button>
+  <button id="stop-btn" class="hidden">Stop Game</button>
+</header>
+
+<main id="game" class="hidden">
+  <section id="active-panel">
+    <div id="active-tiles-col">
+      <button id="active-shuffle-btn" type="button">Shuffle</button>
+      <div id="active-tiles" class="tiles"></div>
+    </div>
+    <div id="active-info">
+      <div class="best">
+        <span id="active-best-word" class="best-word empty">no word yet</span>
+        <span id="active-best-score" class="best-score">0 pts</span>
+      </div>
+      <div id="guess-area-col">
+        <div id="guess-tiles" class="tiles guess-tiles-strip"></div>
+        <input id="active-guess-input" type="text" class="guess-input" placeholder="Type a word, or click letters above…" maxlength="10">
+      </div>
+    </div>
+  </section>
+
+  <section id="lower-half">
+    <div id="other-scrambles"></div>
+    <div id="stats-panel"></div>
+  </section>
+</main>
+
+<div id="game-over" class="hidden">
+  <div class="panel">
+    <h2>Time's up!</h2>
+    <div id="final-stats"></div>
+    <button id="play-again-btn">Play Again</button>
+  </div>
+</div>
+
+<script src="words.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
