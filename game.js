@@ -127,9 +127,13 @@ function shuffle(arr) {
 const WAVELENGTH_RANK = { 2: 0, 3: 1, 1: 2, 4: 3, 5: 4, 0: 5, 10: 6, 7: 7 };
 
 // Default display order: by tile color, arranged in spectrum order
-// (matches WAVELENGTH_RANK) rather than by point value.
+// (matches WAVELENGTH_RANK) rather than by point value — but the two
+// wildcards always sit in the rightmost two spaces, same as after Shuffle.
 function defaultOrderTiles(tiles) {
-  return [...tiles].sort((a, b) => WAVELENGTH_RANK[a.points] - WAVELENGTH_RANK[b.points]);
+  const letters = tiles.filter((t) => t.letter !== '?');
+  const blanks = tiles.filter((t) => t.letter === '?');
+  letters.sort((a, b) => WAVELENGTH_RANK[a.points] - WAVELENGTH_RANK[b.points]);
+  return [...letters, ...blanks];
 }
 
 // Random display order, but the wildcard always sits at the far right.

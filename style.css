@@ -436,6 +436,7 @@ button:disabled {
   color: #2f8f4e;
   width: 110px;
   min-width: 110px;
+  margin-left: -48px;
   flex-shrink: 0;
 }
 
