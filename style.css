@@ -120,6 +120,15 @@ button:disabled {
   background-color: rgba(63, 118, 184, 0.08);
 }
 
+/* Rubber-band selection box, drawn while dragging across empty space. */
+#layout-marquee {
+  position: fixed;
+  border: 1.5px dashed #3f76b8;
+  background: rgba(63, 118, 184, 0.12);
+  z-index: 600;
+  pointer-events: none;
+}
+
 .layout-resize-handle {
   position: absolute;
   width: 14px;

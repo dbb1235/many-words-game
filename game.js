@@ -741,6 +741,65 @@ function clearLayoutSelection() {
   layoutSelected.clear();
 }
 
+// Rubber-band (marquee) selection — drag across empty space to select
+// everything the box touches, like a drawing/design program. Replaces the
+// current selection unless Shift is held (then it adds to it). Starting a
+// marquee on empty space with no drag at all just clears the selection,
+// same as clicking empty canvas in a drawing program.
+let marqueeState = null;
+let marqueeEl = null;
+
+function isOnDraggable(target) {
+  return target.closest && target.closest('.layout-draggable, .layout-resize-handle');
+}
+
+function marqueePointerDown(e) {
+  if (!layoutEditActive || isOnDraggable(e.target)) return;
+  if (!e.shiftKey) clearLayoutSelection();
+  marqueeState = { startX: e.clientX, startY: e.clientY, rect: null };
+  marqueeEl = document.createElement('div');
+  marqueeEl.id = 'layout-marquee';
+  document.body.appendChild(marqueeEl);
+  updateMarqueeRect(e.clientX, e.clientY);
+  document.addEventListener('pointermove', marqueePointerMove);
+  document.addEventListener('pointerup', marqueePointerUp);
+}
+
+function updateMarqueeRect(curX, curY) {
+  const x = Math.min(marqueeState.startX, curX);
+  const y = Math.min(marqueeState.startY, curY);
+  const w = Math.abs(curX - marqueeState.startX);
+  const h = Math.abs(curY - marqueeState.startY);
+  marqueeEl.style.left = `${x}px`;
+  marqueeEl.style.top = `${y}px`;
+  marqueeEl.style.width = `${w}px`;
+  marqueeEl.style.height = `${h}px`;
+  marqueeState.rect = { left: x, top: y, right: x + w, bottom: y + h };
+}
+
+function marqueePointerMove(e) {
+  if (!marqueeState) return;
+  updateMarqueeRect(e.clientX, e.clientY);
+}
+
+function marqueePointerUp() {
+  if (!marqueeState) return;
+  const m = marqueeState.rect;
+  document.querySelectorAll('.layout-draggable').forEach((elm) => {
+    const r = elm.getBoundingClientRect();
+    const intersects = !(r.right < m.left || r.left > m.right || r.bottom < m.top || r.top > m.bottom);
+    if (intersects) {
+      layoutSelected.add(elm);
+      elm.classList.add('layout-selected');
+    }
+  });
+  marqueeEl.remove();
+  marqueeEl = null;
+  marqueeState = null;
+  document.removeEventListener('pointermove', marqueePointerMove);
+  document.removeEventListener('pointerup', marqueePointerUp);
+}
+
 // Resizing — three handles per object: a corner (stretches both width and
 // height together), a right-edge handle (width only), and a bottom-edge
 // handle (height only) — "stretch" in one direction without changing the
@@ -838,12 +897,14 @@ function enableLayoutEdit() {
       target.appendChild(handle);
     });
   });
+  document.addEventListener('pointerdown', marqueePointerDown);
   layoutEditActive = true;
   el('layout-edit-btn').textContent = 'Exit Layout Edit';
   el('layout-edit-note').classList.remove('hidden');
 }
 
 function disableLayoutEdit() {
+  document.removeEventListener('pointerdown', marqueePointerDown);
   document.querySelectorAll('.layout-draggable').forEach((target) => {
     target.querySelectorAll('.layout-resize-handle').forEach((h) => h.remove());
     target.style.position = '';
