@@ -264,32 +264,31 @@ button:disabled {
   outline: none;
 }
 
-/* Capped to 4x4 tiles visible at once (26 letters need more than that, so
-   it scrolls vertically for the rest). */
+/* All 26 letters, no scrolling, kept under 3.5 standard tiles (48px each,
+   so 168px) wide and tall — a compact 6x5 grid with tight spacing. */
 .letter-menu {
   position: fixed;
   z-index: 50;
   display: grid;
-  grid-template-columns: repeat(4, 96px);
-  gap: 8px;
+  grid-template-columns: repeat(6, 24px);
+  grid-auto-rows: 29px;
+  gap: 2px;
   background: #fff;
   border: 1px solid #d8d2c2;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 8px;
+  padding: 6px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-  max-height: 432px;
-  overflow-y: auto;
 }
 
 .letter-menu button {
-  width: 96px;
-  height: 96px;
+  width: 24px;
+  height: 29px;
   padding: 0;
-  font-size: 45px;
+  font-size: 15px;
   font-weight: 700;
   background: #f4f1ea;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   color: #2b2620;
 }
 
