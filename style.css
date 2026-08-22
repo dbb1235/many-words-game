@@ -277,6 +277,7 @@ button:disabled {
   width: 48px;
   min-width: 48px;
   border-radius: 0;
+  border: 1.5px solid #000;
   display: flex;
   align-items: center;
   justify-content: center;
