@@ -264,27 +264,27 @@ button:disabled {
   outline: none;
 }
 
-/* All 26 letters, no scrolling, kept under 3.5 standard tiles (48px each,
-   so 168px) wide and tall — a compact 6x5 grid with tight spacing. */
+/* All 26 letters, no scrolling — a compact 6x5 grid, positioned right next
+   to the tile row (never over any row's tiles, see openLetterMenu). */
 .letter-menu {
   position: fixed;
   z-index: 50;
   display: grid;
-  grid-template-columns: repeat(6, 24px);
-  grid-auto-rows: 29px;
-  gap: 2px;
+  grid-template-columns: repeat(6, 43px);
+  grid-auto-rows: 52px;
+  gap: 4px;
   background: #fff;
   border: 1px solid #d8d2c2;
   border-radius: 8px;
-  padding: 6px;
+  padding: 10px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.2);
 }
 
 .letter-menu button {
-  width: 24px;
-  height: 29px;
+  width: 43px;
+  height: 52px;
   padding: 0;
-  font-size: 15px;
+  font-size: 30px;
   font-weight: 700;
   background: #f4f1ea;
   border: none;

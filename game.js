@@ -386,12 +386,32 @@ function openLetterMenu(ctx, tileEl) {
   }
   document.body.appendChild(menu);
 
-  const rect = tileEl.getBoundingClientRect();
-  let left = rect.left;
-  const maxLeft = window.innerWidth - menu.offsetWidth - 8;
-  if (left > maxLeft) left = Math.max(8, maxLeft);
-  menu.style.left = `${left}px`;
-  menu.style.top = `${rect.bottom + 6}px`;
+  // Anchor to the whole tile row (not just the clicked tile) and place the
+  // menu just outside it, left or right — every row's tiles share the same
+  // x-range, so this can never land on top of any row's letters.
+  const rowRect = (tileEl.closest('.row-tiles') || tileEl).getBoundingClientRect();
+  const tileRect = tileEl.getBoundingClientRect();
+  // getBoundingClientRect (not offsetWidth/Height, which ignore the page's
+  // CSS zoom) so this stays in the same coordinate space as rowRect/tileRect.
+  const menuBox = menu.getBoundingClientRect();
+  const gapX = 6;
+  let left = rowRect.right + gapX;
+  if (left + menuBox.width + 8 > window.innerWidth) {
+    left = rowRect.left - menuBox.width - gapX;
+  }
+  left = Math.max(8, left);
+
+  let top = tileRect.top;
+  const maxTop = window.innerHeight - menuBox.height - 8;
+  top = Math.min(Math.max(8, top), Math.max(8, maxTop));
+
+  // A `position:fixed` descendant of a zoomed ancestor has its left/top
+  // style re-multiplied by the zoom factor at render time, but left/top
+  // here were computed in already-zoomed getBoundingClientRect coordinates
+  // — divide back out so the two multiplications cancel.
+  const zoomFactor = parseFloat(getComputedStyle(document.body).zoom) || 1;
+  menu.style.left = `${left / zoomFactor}px`;
+  menu.style.top = `${top / zoomFactor}px`;
 
   setTimeout(() => {
     document.addEventListener('click', handleOutsideMenuClick);
