@@ -674,15 +674,18 @@ function layoutEditTargets() {
   targets.push({ name: 'Stop Game button', el: el('stop-btn') });
   targets.push({ name: 'Show Grid button', el: el('grid-toggle-btn') });
 
-  const ctx = scrambleCtxs[0];
-  if (ctx) {
-    targets.push({ name: 'Shuffle button', el: ctx.cardEl.querySelector('.row-shuffle-btn') });
-    targets.push({ name: 'Rack tiles (the scramble)', el: ctx.tilesEl });
-    targets.push({ name: 'Guess tiles (word being built)', el: ctx.guessTilesEl });
-    targets.push({ name: 'Live score', el: ctx.liveScoreEl });
-    targets.push({ name: 'Submit button', el: ctx.cardEl.querySelector('.submit-guess-btn') });
-    targets.push({ name: 'Start Over button', el: ctx.cardEl.querySelector('.start-over-btn') });
-  }
+  scrambleCtxs.forEach((ctx, i) => {
+    const n = i + 1;
+    targets.push({ name: `Scramble ${n}: Shuffle button`, el: ctx.cardEl.querySelector('.row-shuffle-btn') });
+    targets.push({ name: `Scramble ${n}: Rack tiles`, el: ctx.tilesEl });
+    targets.push({ name: `Scramble ${n}: Guess tiles`, el: ctx.guessTilesEl });
+    targets.push({ name: `Scramble ${n}: Live score`, el: ctx.liveScoreEl });
+    targets.push({ name: `Scramble ${n}: Submit button`, el: ctx.cardEl.querySelector('.submit-guess-btn') });
+    targets.push({ name: `Scramble ${n}: Start Over button`, el: ctx.cardEl.querySelector('.start-over-btn') });
+  });
+
+  targets.push({ name: 'Stats panel', el: el('stats-panel') });
+
   return targets.filter((t) => t.el);
 }
 
