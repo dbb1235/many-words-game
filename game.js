@@ -1,7 +1,10 @@
 // Many Words — emulator
 // Implements the rules from GAME_DESIGN.md:
-// - 6 scrambles (10 tiles each) drawn once at game start, all shown on one page
+// - 6 scrambles (10 tiles each) drawn once at game start, all shown on one
+//   page, all the SAME size — no enlarged "active" scramble anymore
 // - each rack has exactly two wildcard (blank) tiles, no more and no fewer
+// - every scramble is independently playable at all times: its own
+//   Shuffle button, its own clickable tiles, its own guess input
 // - each scramble tracks only its BEST scoring guess so far
 // - total score = sum of the 6 best scores, live-updated
 // - min word length 3, standard Scrabble letter values, dictionary-checked
@@ -11,10 +14,9 @@
 // - the game can be ended early at any time via the Stop Game button
 // - no more than 2 of any identical real letter per scramble (wildcards
 //   are exempt, and can still supply a 3rd+ copy of a letter in a guess)
-// - naming: the focused, playable rack is scramble1; its guess field is
-//   unscramble1. The other five (top to bottom in the sorted list) are
-//   scramble2-6 — informational only, not directly playable. Clicking one
-//   brings it into the scramble1 position.
+// - tiles are filled squares colored by point value (1-point tiles get a
+//   light brown square; every other value gets a richer, saturated fill)
+// - scrambles are not numbered
 
 const LETTER_DATA = {
   A: { count: 9, points: 1 }, B: { count: 2, points: 3 }, C: { count: 2, points: 2 },
@@ -35,30 +37,15 @@ const GAME_SECONDS = 10 * 60;
 const MAX_DUPLICATE_LETTERS = 2;
 
 let scrambles = [];      // { tiles, bestWord, bestScore, displayTiles, guessOrigins }
+let scrambleCtxs = [];   // per-card DOM element bundle, parallel to `scrambles`
 let score = 0;
 let secondsLeft = GAME_SECONDS;
 let timerHandle = null;
 let gameActive = false;
-let activeIndex = 0;     // which scramble (scramble1) is currently focused/enlarged
 
 const HISTORY_KEY = 'manyWordsHistory';
 
 const el = (id) => document.getElementById(id);
-
-// The timer lives inside #active-tiles, right after scramble1's two
-// wildcard tiles (which always sort to the far right — see
-// defaultOrderTiles/shuffleTiles). That div is fully rebuilt by
-// renderTileEls() on every render/shuffle, so we keep one persistent
-// element here and re-append it after each rebuild rather than relying on
-// it surviving in the DOM.
-const timerEl = document.createElement('span');
-timerEl.id = 'timer';
-timerEl.className = 'active-timer';
-timerEl.textContent = '10:00';
-
-function reattachTimer() {
-  el('active-tiles').appendChild(timerEl);
-}
 
 // --- Coordinate-reference grid overlay ---
 // Toggled by #grid-toggle-btn. Purely a communication aid: lets the user
@@ -211,15 +198,13 @@ function startGame() {
   score = 0;
   secondsLeft = GAME_SECONDS;
   gameActive = true;
-  activeIndex = 0;
 
   el('game').classList.remove('hidden');
   el('game-over').classList.add('hidden');
   el('start-btn').textContent = 'Restart';
   el('stop-btn').classList.remove('hidden');
   updateScore();
-  renderActive();
-  renderOtherList();
+  renderAllScrambles();
   renderStatsPanel();
   clearInterval(timerHandle);
   timerHandle = setInterval(tick, 1000);
@@ -288,24 +273,22 @@ function evaluateGuess(word, tiles) {
   return { valid: true, score: total, lengthBonus };
 }
 
-function renderTileEls(tilesDiv, tiles, { showPoints = true } = {}) {
+function renderTileEls(tilesDiv, tiles) {
   tilesDiv.innerHTML = '';
   tiles.forEach((t) => {
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.dataset.pts = t.points;
-    const letterHtml = `<span class="letter">${t.letter === '?' ? '?' : t.letter}</span>`;
-    const ptsHtml = showPoints ? `<span class="pts">${t.points}</span>` : '';
-    tile.innerHTML = letterHtml + ptsHtml;
+    tile.innerHTML = `<span class="letter">${t.letter === '?' ? '?' : t.letter}</span><span class="pts">${t.points}</span>`;
     tilesDiv.appendChild(tile);
   });
 }
 
 // --- Per-scramble guess building (typing + click-to-build) ---
-// A "ctx" bundles a scramble with the specific DOM elements currently
-// driving it (rack tiles, guess mirror strip, and text input), so the same
-// logic runs identically for the enlarged scramble1 (unscramble1) and every
-// compact scramble2-6 row (unscramble2-6).
+// A "ctx" bundles a scramble with the specific DOM elements that drive it.
+// Every scramble now gets its own permanent card (built once in
+// renderAllScrambles), so — unlike the old single "active" slot — there's
+// no need to reattach anything between renders.
 
 // Mirrors the guess input as individual letter tiles, so each letter can be
 // double-clicked (a plain <input>'s text can't be targeted per-character).
@@ -456,8 +439,6 @@ function clearGuess(ctx) {
   renderGuessTiles(ctx);
 }
 
-// Only scramble1 is ever played directly, so this always applies to the
-// active scramble.
 function submitGuess(ctx) {
   const scramble = ctx.scramble;
   const word = ctx.inputEl.value.trim().toUpperCase();
@@ -471,64 +452,41 @@ function submitGuess(ctx) {
   updateScore();
   clearGuess(ctx);
 
-  el('active-best-word').textContent = word;
-  el('active-best-word').classList.remove('empty');
-  el('active-best-score').textContent = `${scramble.bestScore} pts`;
+  ctx.bestWordEl.textContent = word;
+  ctx.bestWordEl.classList.remove('empty');
+  ctx.bestScoreEl.textContent = `${scramble.bestScore} pts`;
 
-  const panel = el('active-panel');
-  panel.classList.remove('just-improved');
-  void panel.offsetWidth;
-  panel.classList.add('just-improved');
+  ctx.cardEl.classList.remove('just-improved');
+  void ctx.cardEl.offsetWidth;
+  ctx.cardEl.classList.add('just-improved');
 }
 
-// scramble1: big tiles, unscramble1, and its own best word/score. Uses a
-// fixed set of DOM elements that persist across renders, so getActiveCtx()
-// always looks up the CURRENT active scramble rather than closing over a
-// stale one (important since these elements' event listeners are attached
-// only once, at script load).
-function getActiveCtx() {
-  return {
-    scramble: scrambles[activeIndex],
-    tilesEl: el('active-tiles'),
-    guessTilesEl: el('guess-tiles'),
-    inputEl: el('active-guess-input'),
-  };
-}
-
-function renderActive() {
+// Builds all 6 scramble cards from scratch — every scramble is its own
+// permanent, fully interactive card (own Shuffle button, own clickable
+// tiles, own guess input), no enlarged/focused one and no numbering.
+function renderAllScrambles() {
   closeLetterMenu();
-  const scramble = scrambles[activeIndex];
-  renderTileEls(el('active-tiles'), scramble.displayTiles);
-  const ctx = getActiveCtx();
-  attachTileClickHandlers(ctx);
-  reattachTimer();
-
-  const bestWordSpan = el('active-best-word');
-  bestWordSpan.textContent = scramble.bestWord || 'no word yet';
-  bestWordSpan.classList.toggle('empty', !scramble.bestWord);
-  clearGuess(ctx);
-}
-
-// scramble2-6: informational only — rack tiles and best word/score, not
-// interactive. Sorted by current best score, highest first. Click a row to
-// bring that scramble into the scramble1 position, where it becomes
-// playable via unscramble1.
-function renderOtherList() {
-  const container = el('other-scrambles');
+  const container = el('scrambles');
   container.innerHTML = '';
+  scrambleCtxs = [];
 
-  const others = scrambles
-    .map((scramble, idx) => ({ scramble, idx }))
-    .filter(({ idx }) => idx !== activeIndex)
-    .sort((a, b) => b.scramble.bestScore - a.scramble.bestScore);
+  scrambles.forEach((scramble) => {
+    const card = document.createElement('div');
+    card.className = 'scramble-card';
 
-  others.forEach(({ scramble, idx }) => {
-    const row = document.createElement('div');
-    row.className = 'other-row';
-
+    const top = document.createElement('div');
+    top.className = 'scramble-top';
+    const shuffleBtn = document.createElement('button');
+    shuffleBtn.type = 'button';
+    shuffleBtn.className = 'row-shuffle-btn';
+    shuffleBtn.textContent = 'Shuffle';
     const tilesDiv = document.createElement('div');
-    tilesDiv.className = 'tiles';
-    renderTileEls(tilesDiv, scramble.displayTiles, { showPoints: false });
+    tilesDiv.className = 'tiles row-tiles';
+    top.appendChild(shuffleBtn);
+    top.appendChild(tilesDiv);
+
+    const bottom = document.createElement('div');
+    bottom.className = 'scramble-bottom';
 
     const bestDiv = document.createElement('div');
     bestDiv.className = 'best';
@@ -541,16 +499,53 @@ function renderOtherList() {
     bestDiv.appendChild(bestWordSpan);
     bestDiv.appendChild(bestScoreSpan);
 
-    row.appendChild(tilesDiv);
-    row.appendChild(bestDiv);
-    row.addEventListener('click', () => {
-      clearGuess(getActiveCtx());
-      activeIndex = idx;
-      renderActive();
-      renderOtherList();
-    });
+    const guessCol = document.createElement('div');
+    guessCol.className = 'guess-area-col';
+    const guessTilesDiv = document.createElement('div');
+    guessTilesDiv.className = 'tiles guess-tiles-strip';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'guess-input';
+    input.placeholder = 'Type a word, or click letters above…';
+    input.maxLength = RACK_SIZE;
+    guessCol.appendChild(guessTilesDiv);
+    guessCol.appendChild(input);
 
-    container.appendChild(row);
+    bottom.appendChild(bestDiv);
+    bottom.appendChild(guessCol);
+    card.appendChild(top);
+    card.appendChild(bottom);
+    container.appendChild(card);
+
+    const ctx = {
+      scramble,
+      tilesEl: tilesDiv,
+      guessTilesEl: guessTilesDiv,
+      inputEl: input,
+      bestWordEl: bestWordSpan,
+      bestScoreEl: bestScoreSpan,
+      cardEl: card,
+    };
+    scrambleCtxs.push(ctx);
+
+    renderTileEls(tilesDiv, scramble.displayTiles);
+    attachTileClickHandlers(ctx);
+    clearGuess(ctx);
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      submitGuess(ctx);
+    });
+    input.addEventListener('input', (e) => {
+      syncGuessOriginsToLength(ctx, e.target.value.length);
+      renderGuessTiles(ctx);
+    });
+    shuffleBtn.addEventListener('click', () => {
+      scramble.displayTiles = shuffleTiles(scramble.tiles);
+      renderTileEls(tilesDiv, scramble.displayTiles);
+      attachTileClickHandlers(ctx);
+      clearGuess(ctx);
+    });
   });
 }
 
@@ -605,27 +600,6 @@ function renderStatsPanel() {
     <div class="stat-line"><span>Games played</span><span>${h.gamesPlayed}</span></div>
   `;
 }
-
-el('active-guess-input').addEventListener('keydown', (e) => {
-  if (e.key !== 'Enter') return;
-  submitGuess(getActiveCtx());
-});
-
-el('active-guess-input').addEventListener('input', (e) => {
-  const ctx = getActiveCtx();
-  syncGuessOriginsToLength(ctx, e.target.value.length);
-  renderGuessTiles(ctx);
-});
-
-el('active-shuffle-btn').addEventListener('click', () => {
-  const scramble = scrambles[activeIndex];
-  scramble.displayTiles = shuffleTiles(scramble.tiles);
-  renderTileEls(el('active-tiles'), scramble.displayTiles);
-  const ctx = getActiveCtx();
-  attachTileClickHandlers(ctx);
-  reattachTimer();
-  clearGuess(ctx);
-});
 
 el('stop-btn').addEventListener('click', () => {
   if (!gameActive) return;

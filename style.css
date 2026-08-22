@@ -109,63 +109,63 @@ button:disabled {
   padding: 0 16px;
 }
 
-/* Active (focused) scramble — the one currently being played. */
-#active-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 22px 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+/* All 6 scrambles, equal size, equally playable — no enlarged "active" one. */
+#scrambles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
   margin-bottom: 20px;
 }
 
-#active-panel.just-improved {
+.scramble-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.scramble-card.just-improved {
   animation: flash-green 0.6s ease;
 }
 
-#active-tiles-col {
+.scramble-top {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 20px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
-#active-tiles {
-  gap: 10px;
+.row-shuffle-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.row-tiles {
+  gap: 6px;
   flex-wrap: wrap;
 }
 
-#active-tiles .tile {
-  height: 130px;
-  min-width: 100px;
-  padding: 0 6px;
+.scramble-bottom {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 
-#active-tiles .tile .letter {
-  font-size: 96px;
+.scramble-bottom .best {
+  min-width: 140px;
 }
 
-#active-tiles .tile .pts {
-  font-size: 30px;
-  bottom: -9px;
-  right: 6px;
-}
-
-/* Timer: lives inside #active-tiles, appended right after scramble1's two
-   wildcard tiles (always the last two — see defaultOrderTiles/shuffleTiles
-   in game.js), matching their letter size so it reads as part of the row. */
-#active-tiles .active-timer {
-  font-size: 96px;
-  font-weight: 800;
-  line-height: 1;
-  color: #2b2620;
-}
-
-#active-tiles .active-timer.low-time {
-  color: #ff6b5e;
+.scramble-bottom .guess-area-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
 }
 
 .tile.clickable-letter {
@@ -214,40 +214,8 @@ button:disabled {
   background: #c9a24b;
 }
 
-#active-tiles-col #active-shuffle-btn {
-  padding: 8px 20px;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-#active-info {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  flex-wrap: wrap;
-}
-
-#active-info .best {
-  min-width: 200px;
-}
-
-#active-info .best-word {
-  font-size: 48px;
-}
-
-#active-info .best-score {
-  font-size: 32px;
-}
-
-#guess-area-col {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 0 0 auto;
-}
-
 .guess-tiles-strip {
-  min-height: 42px;
+  min-height: 34px;
   gap: 4px;
 }
 
@@ -260,56 +228,6 @@ button:disabled {
   outline: 2px solid #c1443c;
   outline-offset: 1px;
   border-radius: 6px;
-}
-
-#active-info .guess-input {
-  width: 19ch;
-  font-size: 48px;
-  padding: 14px 18px;
-  color: transparent;
-  caret-color: #2b2620;
-}
-
-#active-info .guess-input::placeholder {
-  color: #999087;
-}
-
-/* Bottom half: other scrambles (left, 2/3 width) + stats (right, 1/3 width). */
-#lower-half {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-  align-items: start;
-}
-
-#other-scrambles {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.other-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: #fff;
-  border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  cursor: pointer;
-}
-
-.other-row:hover {
-  background: #faf6ea;
-}
-
-.other-row .tiles {
-  gap: 2px;
-}
-
-.other-row .best {
-  margin-left: auto;
-  padding-left: 12px;
 }
 
 #stats-panel {
@@ -357,38 +275,49 @@ button:disabled {
 
 .tile {
   position: relative;
-  height: 42px;
-  min-width: 34px;
+  height: 48px;
+  width: 48px;
+  min-width: 48px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 2px;
   flex-shrink: 0;
+  background: #97a7b8; /* wildcard (0 pts) default */
 }
 
 .tile .letter {
-  font-size: 32px;
+  font-size: 22px;
   line-height: 1;
   font-weight: 800;
-  color: #2b2620;
+  color: #fff;
   text-transform: uppercase;
 }
 
 .tile .pts {
   position: absolute;
-  bottom: -3px;
-  right: 0;
+  bottom: 1px;
+  right: 3px;
   font-size: 8px;
   font-weight: 700;
-  opacity: 0.55;
+  color: #fff;
+  opacity: 0.75;
 }
 
-/* Letter color by point value. */
-.tile[data-pts="10"] .letter { color: #2f5fa8; }
-.tile[data-pts="7"] .letter { color: #8548a8; }
-.tile[data-pts="5"] .letter { color: #c1443c; }
-.tile[data-pts="3"] .letter { color: #2f8f4e; }
-.tile[data-pts="2"] .letter { color: #d97b25; }
+/* Every tile is a filled square colored by its point value. 1-point tiles
+   (by far the most common) get a light brown square with dark text for
+   contrast; every other value gets a richer, more saturated fill with
+   white text. */
+.tile[data-pts="1"] { background: #d9bf95; }
+.tile[data-pts="1"] .letter, .tile[data-pts="1"] .pts { color: #2b2620; }
+
+.tile[data-pts="2"] { background: #c1443c; }
+.tile[data-pts="3"] { background: #d97b25; }
+.tile[data-pts="4"] { background: #cdb02a; }
+.tile[data-pts="4"] .letter, .tile[data-pts="4"] .pts { color: #2b2620; }
+.tile[data-pts="5"] { background: #4f9a41; }
+.tile[data-pts="7"] { background: #8548a8; }
+.tile[data-pts="10"] { background: #2f5fa8; }
 
 .best {
   display: flex;
@@ -481,45 +410,14 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
-  #lower-half {
+  #scrambles {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 700px) {
-  .other-row {
+@media (max-width: 500px) {
+  .scramble-bottom {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .other-row .best {
-    margin-left: 0;
-    padding-left: 0;
-  }
-
-  #active-tiles .tile {
-    height: 76px;
-    min-width: 58px;
-  }
-
-  #active-tiles .tile .letter {
-    font-size: 52px;
-  }
-
-  #active-tiles .active-timer {
-    font-size: 52px;
-  }
-
-  #active-info .best-word {
-    font-size: 32px;
-  }
-
-  #active-info .best-score {
-    font-size: 22px;
-  }
-
-  #active-info .guess-input {
-    font-size: 28px;
-    min-width: 0;
   }
 }
