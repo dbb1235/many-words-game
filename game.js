@@ -43,8 +43,6 @@ let secondsLeft = GAME_SECONDS;
 let timerHandle = null;
 let gameActive = false;
 
-const HISTORY_KEY = 'manyWordsHistory';
-
 const el = (id) => document.getElementById(id);
 
 // --- Coordinate-reference grid overlay ---
@@ -208,7 +206,6 @@ function startGame() {
   el('stop-btn').classList.remove('hidden');
   updateScore();
   renderAllScrambles();
-  renderStatsPanel();
   clearInterval(timerHandle);
   timerHandle = setInterval(tick, 1000);
   updateTimerDisplay();
@@ -549,58 +546,6 @@ function renderAllScrambles() {
   });
 }
 
-function loadHistory() {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function recordGameResult(finalScore, highestWord, highestWordScore, longestWord) {
-  const h = loadHistory() || {
-    gamesPlayed: 0, bestScore: 0,
-    highestWord: '', highestWordScore: 0, longestWord: '', totalScoreSum: 0,
-  };
-  h.gamesPlayed += 1;
-  h.totalScoreSum += finalScore;
-  if (finalScore > h.bestScore) {
-    h.bestScore = finalScore;
-  }
-  if (highestWordScore > h.highestWordScore) {
-    h.highestWordScore = highestWordScore;
-    h.highestWord = highestWord;
-  }
-  if (longestWord.length > (h.longestWord || '').length) {
-    h.longestWord = longestWord;
-  }
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-}
-
-// Bottom-right panel: all-time best/average score, highest-scoring word,
-// and longest word.
-function renderStatsPanel() {
-  const h = loadHistory();
-  const panel = el('stats-panel');
-  if (!h || h.gamesPlayed === 0) {
-    panel.innerHTML = `
-      <h3>Your stats</h3>
-      <p class="stats-empty">Finish a game to start tracking your stats.</p>
-    `;
-    return;
-  }
-  const avg = Math.round(h.totalScoreSum / h.gamesPlayed);
-  panel.innerHTML = `
-    <h3>Your stats</h3>
-    <div class="stat-line"><span>Best game score</span><span>${h.bestScore}</span></div>
-    <div class="stat-line"><span>Highest-scoring word</span><span>${h.highestWord ? `${h.highestWord} (${h.highestWordScore})` : '—'}</span></div>
-    <div class="stat-line"><span>Longest word</span><span>${h.longestWord || '—'}</span></div>
-    <div class="stat-line"><span>Average score</span><span>${avg}</span></div>
-    <div class="stat-line"><span>Games played</span><span>${h.gamesPlayed}</span></div>
-  `;
-}
-
 el('stop-btn').addEventListener('click', () => {
   if (!gameActive) return;
   endGame();
@@ -641,8 +586,6 @@ function endGame() {
   el('game-over').classList.remove('hidden');
   el('stop-btn').classList.add('hidden');
 
-  recordGameResult(score, highest.word, Math.max(highest.score, 0), longest);
-  renderStatsPanel();
   refreshGridIfVisible();
 }
 
@@ -676,7 +619,6 @@ function layoutEditTargets() {
     targets.push({ name: `Scramble ${n}: Start Over button`, el: ctx.cardEl.querySelector('.start-over-btn') });
   });
 
-  targets.push({ name: 'Stats panel', el: el('stats-panel') });
   targets.push({ name: 'Info block 1', el: el('info-block-1') });
   targets.push({ name: 'Info block 2', el: el('info-block-2') });
   targets.push({ name: 'Info block 3', el: el('info-block-3') });
