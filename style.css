@@ -176,7 +176,6 @@ button:disabled {
 .tile.clickable-letter:hover {
   outline: 2px solid #c9a24b;
   outline-offset: 1px;
-  border-radius: 8px;
 }
 
 .tile.used-in-guess {
@@ -227,7 +226,6 @@ button:disabled {
 .guess-tiles-strip .tile:hover {
   outline: 2px solid #c1443c;
   outline-offset: 1px;
-  border-radius: 6px;
 }
 
 #stats-panel {
@@ -269,7 +267,7 @@ button:disabled {
 
 .tiles {
   display: flex;
-  gap: 6px;
+  gap: 0;
   flex-wrap: nowrap;
 }
 
@@ -278,7 +276,7 @@ button:disabled {
   height: 48px;
   width: 48px;
   min-width: 48px;
-  border-radius: 6px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -287,10 +285,10 @@ button:disabled {
 }
 
 .tile .letter {
-  font-size: 22px;
+  font-size: 33px;
   line-height: 1;
   font-weight: 800;
-  color: #fff;
+  color: #000;
   text-transform: uppercase;
 }
 
@@ -305,16 +303,15 @@ button:disabled {
 }
 
 /* Every tile is a filled square colored by its point value. 1-point tiles
-   (by far the most common) get a light brown square with dark text for
-   contrast; every other value gets a richer, more saturated fill with
-   white text. */
+   (by far the most common) get a light brown square; every other value
+   gets a richer, more saturated fill. Letters are always black. */
 .tile[data-pts="1"] { background: #d9bf95; }
-.tile[data-pts="1"] .letter, .tile[data-pts="1"] .pts { color: #2b2620; }
+.tile[data-pts="1"] .pts { color: #2b2620; }
 
 .tile[data-pts="2"] { background: #c1443c; }
 .tile[data-pts="3"] { background: #d97b25; }
 .tile[data-pts="4"] { background: #cdb02a; }
-.tile[data-pts="4"] .letter, .tile[data-pts="4"] .pts { color: #2b2620; }
+.tile[data-pts="4"] .pts { color: #2b2620; }
 .tile[data-pts="5"] { background: #4f9a41; }
 .tile[data-pts="7"] { background: #8548a8; }
 .tile[data-pts="10"] { background: #2f5fa8; }
