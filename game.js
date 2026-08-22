@@ -491,18 +491,22 @@ function renderAllScrambles() {
     const card = document.createElement('div');
     card.className = 'scramble-card';
 
-    // Everything lives in one row: Shuffle, the rack, the in-progress
-    // guess, its live score, Submit, and Start Over.
-    const row = document.createElement('div');
-    row.className = 'scramble-row';
-
+    // Row 1: the scramble — Shuffle + the rack.
+    const top = document.createElement('div');
+    top.className = 'scramble-top';
     const shuffleBtn = document.createElement('button');
     shuffleBtn.type = 'button';
     shuffleBtn.className = 'row-shuffle-btn';
     shuffleBtn.textContent = 'Shuffle';
     const tilesDiv = document.createElement('div');
     tilesDiv.className = 'tiles row-tiles';
+    top.appendChild(shuffleBtn);
+    top.appendChild(tilesDiv);
 
+    // Row 2: the unscramble — the in-progress guess, its live point score,
+    // and the control buttons.
+    const bottom = document.createElement('div');
+    bottom.className = 'scramble-bottom';
     const guessTilesDiv = document.createElement('div');
     guessTilesDiv.className = 'tiles guess-tiles-strip';
     const liveScoreSpan = document.createElement('span');
@@ -518,14 +522,13 @@ function renderAllScrambles() {
     const feedbackSpan = document.createElement('span');
     feedbackSpan.className = 'submit-feedback';
 
-    row.appendChild(shuffleBtn);
-    row.appendChild(tilesDiv);
-    row.appendChild(guessTilesDiv);
-    row.appendChild(liveScoreSpan);
-    row.appendChild(submitBtn);
-    row.appendChild(startOverBtn);
-    row.appendChild(feedbackSpan);
-    card.appendChild(row);
+    bottom.appendChild(guessTilesDiv);
+    bottom.appendChild(liveScoreSpan);
+    bottom.appendChild(submitBtn);
+    bottom.appendChild(startOverBtn);
+    bottom.appendChild(feedbackSpan);
+    card.appendChild(top);
+    card.appendChild(bottom);
     container.appendChild(card);
 
     const ctx = {
