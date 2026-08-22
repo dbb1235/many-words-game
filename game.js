@@ -295,14 +295,21 @@ function renderTileEls(tilesDiv, tiles) {
 
 // Mirrors the in-progress guess as individual letter tiles, so each one can
 // be double-clicked to remove it. This is the ONLY way a guess is built —
-// there is no text entry, click-only.
+// there is no text entry, click-only. Each mirrored tile keeps the same
+// color/point value as the rack tile it came from, rather than looking
+// generic. Also clears any leftover submit feedback ("Invalid word" etc.)
+// since the guess is changing.
 function renderGuessTiles(ctx) {
+  ctx.feedbackEl.textContent = '';
   const strip = ctx.guessTilesEl;
   strip.innerHTML = '';
   Array.from(ctx.guessValue).forEach((ch, i) => {
     const tile = document.createElement('div');
     tile.className = 'tile';
-    tile.innerHTML = `<span class="letter">${ch}</span>`;
+    const origin = ctx.scramble.guessOrigins[i];
+    const pts = origin ? origin.dataset.pts : '0';
+    tile.dataset.pts = pts;
+    tile.innerHTML = `<span class="letter">${ch}</span><span class="pts">${pts}</span>`;
     tile.addEventListener('dblclick', () => removeGuessChar(ctx, i));
     strip.appendChild(tile);
   });
@@ -433,7 +440,14 @@ function submitGuess(ctx) {
   const word = ctx.guessValue.trim().toUpperCase();
   if (!word) return;
   const result = evaluateGuess(word, scramble.tiles);
-  if (!result.valid || result.score <= scramble.bestScore) return;
+  if (!result.valid) {
+    ctx.feedbackEl.textContent = 'Invalid word';
+    return;
+  }
+  if (result.score <= scramble.bestScore) {
+    ctx.feedbackEl.textContent = "Doesn't beat your best score";
+    return;
+  }
 
   score += result.score - scramble.bestScore;
   scramble.bestWord = word;
@@ -492,12 +506,23 @@ function renderAllScrambles() {
     guessCol.className = 'guess-area-col';
     const guessTilesDiv = document.createElement('div');
     guessTilesDiv.className = 'tiles guess-tiles-strip';
+    const submitRow = document.createElement('div');
+    submitRow.className = 'submit-row';
     const submitBtn = document.createElement('button');
     submitBtn.type = 'button';
     submitBtn.className = 'submit-guess-btn';
     submitBtn.textContent = 'Submit';
+    const startOverBtn = document.createElement('button');
+    startOverBtn.type = 'button';
+    startOverBtn.className = 'start-over-btn';
+    startOverBtn.textContent = 'Start Over';
+    const feedbackSpan = document.createElement('span');
+    feedbackSpan.className = 'submit-feedback';
+    submitRow.appendChild(submitBtn);
+    submitRow.appendChild(startOverBtn);
+    submitRow.appendChild(feedbackSpan);
     guessCol.appendChild(guessTilesDiv);
-    guessCol.appendChild(submitBtn);
+    guessCol.appendChild(submitRow);
 
     bottom.appendChild(bestDiv);
     bottom.appendChild(guessCol);
@@ -513,6 +538,7 @@ function renderAllScrambles() {
       bestWordEl: bestWordSpan,
       bestScoreEl: bestScoreSpan,
       cardEl: card,
+      feedbackEl: feedbackSpan,
     };
     scrambleCtxs.push(ctx);
 
@@ -521,6 +547,7 @@ function renderAllScrambles() {
     clearGuess(ctx);
 
     submitBtn.addEventListener('click', () => submitGuess(ctx));
+    startOverBtn.addEventListener('click', () => clearGuess(ctx));
     shuffleBtn.addEventListener('click', () => {
       scramble.displayTiles = shuffleTiles(scramble.tiles);
       renderTileEls(tilesDiv, scramble.displayTiles);

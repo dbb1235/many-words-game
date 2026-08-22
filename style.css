@@ -338,8 +338,26 @@ button:disabled {
   opacity: 0.65;
 }
 
+.submit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .submit-guess-btn {
   align-self: flex-start;
+}
+
+.start-over-btn {
+  align-self: flex-start;
+  background: #e8e3d6;
+  color: #6b6355;
+}
+
+.submit-feedback {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c1443c;
 }
 
 @keyframes flash-green {
