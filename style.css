@@ -439,20 +439,10 @@ button:disabled {
   flex-shrink: 0;
 }
 
-.submit-guess-btn {
-  flex-shrink: 0;
-}
-
 .start-over-btn {
   flex-shrink: 0;
   background: #e8e3d6;
   color: #6b6355;
-}
-
-.submit-feedback {
-  font-size: 13px;
-  font-weight: 600;
-  color: #c1443c;
 }
 
 @keyframes flash-green {

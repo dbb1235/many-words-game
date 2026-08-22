@@ -297,10 +297,8 @@ function renderTileEls(tilesDiv, tiles) {
 // Mirrors the in-progress guess as plain text — no tile boxes, no color —
 // one letter per span so each can still be double-clicked to remove it.
 // This is the ONLY way a guess is built — there is no text entry,
-// click-only. Also clears any leftover submit feedback ("Invalid word"
-// etc.) since the guess is changing.
+// click-only.
 function renderGuessTiles(ctx) {
-  ctx.feedbackEl.textContent = '';
   const strip = ctx.guessTilesEl;
   strip.innerHTML = '';
   Array.from(ctx.guessValue).forEach((ch, i) => {
@@ -315,9 +313,11 @@ function renderGuessTiles(ctx) {
 }
 
 // Live score preview: as soon as the letters clicked so far spell a valid
-// word, shows what it would score — updating with every click — without
-// waiting for Submit. Shows nothing while the in-progress guess isn't a
-// real word yet.
+// word, shows what it would score — updating with every click. The moment
+// that score beats the scramble's current best, it's locked in immediately
+// (no Submit button) — the guess stays in place so the player can keep
+// clicking to try to extend it into an even better word. Shows nothing
+// while the in-progress guess isn't a real word yet.
 function updateLiveScore(ctx) {
   const word = ctx.guessValue.toUpperCase();
   const result = evaluateGuess(word, ctx.scramble.tiles);
@@ -326,6 +326,16 @@ function updateLiveScore(ctx) {
     return;
   }
   ctx.liveScoreEl.textContent = `${result.score} pts`;
+
+  if (result.score > ctx.scramble.bestScore) {
+    score += result.score - ctx.scramble.bestScore;
+    ctx.scramble.bestWord = word;
+    ctx.scramble.bestScore = result.score;
+    updateScore();
+    ctx.cardEl.classList.remove('just-improved');
+    void ctx.cardEl.offsetWidth;
+    ctx.cardEl.classList.add('just-improved');
+  }
 }
 
 // Marks rack tiles clickable (single click = append their letter to the
@@ -468,31 +478,6 @@ function clearGuess(ctx) {
   renderGuessTiles(ctx);
 }
 
-function submitGuess(ctx) {
-  const scramble = ctx.scramble;
-  const word = ctx.guessValue.trim().toUpperCase();
-  if (!word) return;
-  const result = evaluateGuess(word, scramble.tiles);
-  if (!result.valid) {
-    ctx.feedbackEl.textContent = 'Invalid word';
-    return;
-  }
-  if (result.score <= scramble.bestScore) {
-    ctx.feedbackEl.textContent = "Doesn't beat your best score";
-    return;
-  }
-
-  score += result.score - scramble.bestScore;
-  scramble.bestWord = word;
-  scramble.bestScore = result.score;
-  updateScore();
-  clearGuess(ctx);
-
-  ctx.cardEl.classList.remove('just-improved');
-  void ctx.cardEl.offsetWidth;
-  ctx.cardEl.classList.add('just-improved');
-}
-
 // Builds all 6 scramble cards from scratch — every scramble is its own
 // permanent, fully interactive card (own Shuffle button, own clickable
 // tiles, own guess input), no enlarged/focused one and no numbering.
@@ -507,8 +492,9 @@ function renderAllScrambles() {
     card.className = 'scramble-card';
 
     // One row: Shuffle, the rack (the scramble), Start Over, the word being
-    // built (as plain text — no boxes/colors), its live point value, then
-    // Submit at the far right.
+    // built (as plain text — no boxes/colors), then its live point value.
+    // No Submit button — a valid word that beats the scramble's best is
+    // locked in automatically the moment it's formed (see updateLiveScore).
     const top = document.createElement('div');
     top.className = 'scramble-top';
     const shuffleBtn = document.createElement('button');
@@ -525,20 +511,12 @@ function renderAllScrambles() {
     startOverBtn.type = 'button';
     startOverBtn.className = 'start-over-btn';
     startOverBtn.textContent = 'Start Over';
-    const submitBtn = document.createElement('button');
-    submitBtn.type = 'button';
-    submitBtn.className = 'submit-guess-btn';
-    submitBtn.textContent = 'Submit';
-    const feedbackSpan = document.createElement('span');
-    feedbackSpan.className = 'submit-feedback';
 
     top.appendChild(shuffleBtn);
     top.appendChild(tilesDiv);
     top.appendChild(startOverBtn);
     top.appendChild(guessTilesDiv);
     top.appendChild(liveScoreSpan);
-    top.appendChild(submitBtn);
-    top.appendChild(feedbackSpan);
     card.appendChild(top);
     container.appendChild(card);
 
@@ -548,7 +526,6 @@ function renderAllScrambles() {
       guessTilesEl: guessTilesDiv,
       guessValue: '',
       cardEl: card,
-      feedbackEl: feedbackSpan,
       liveScoreEl: liveScoreSpan,
     };
     scrambleCtxs.push(ctx);
@@ -557,7 +534,6 @@ function renderAllScrambles() {
     attachTileClickHandlers(ctx);
     clearGuess(ctx);
 
-    submitBtn.addEventListener('click', () => submitGuess(ctx));
     startOverBtn.addEventListener('click', () => clearGuess(ctx));
     shuffleBtn.addEventListener('click', () => {
       scramble.displayTiles = shuffleTiles(scramble.tiles);
@@ -637,7 +613,6 @@ function layoutEditTargets() {
     targets.push({ name: `Scramble ${n}: Rack tiles`, el: ctx.tilesEl });
     targets.push({ name: `Scramble ${n}: Guess tiles`, el: ctx.guessTilesEl });
     targets.push({ name: `Scramble ${n}: Live score`, el: ctx.liveScoreEl });
-    targets.push({ name: `Scramble ${n}: Submit button`, el: ctx.cardEl.querySelector('.submit-guess-btn') });
     targets.push({ name: `Scramble ${n}: Start Over button`, el: ctx.cardEl.querySelector('.start-over-btn') });
   });
 
