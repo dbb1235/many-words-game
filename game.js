@@ -763,18 +763,31 @@ function layoutResizePointerDown(e) {
   handle.setPointerCapture(e.pointerId);
 }
 
+// Resizing scales the object with a CSS transform rather than changing its
+// box width/height directly — a plain width/height change on a tile row
+// just gives it more empty space without the tiles themselves changing
+// size. Scaling transforms everything inside proportionally (letters,
+// colors, borders, font sizes, all of it), for every kind of object.
 function layoutResizePointerMove(e) {
   if (!layoutResizeState || e.currentTarget.parentElement !== layoutResizeState.target) return;
   e.stopPropagation();
   const s = layoutResizeState;
+  const target = s.target;
+  const naturalW = parseFloat(target.dataset.naturalW);
+  const naturalH = parseFloat(target.dataset.naturalH);
+  let scaleX = parseFloat(target.dataset.scaleX || '1');
+  let scaleY = parseFloat(target.dataset.scaleY || '1');
   if (s.mode !== 'height') {
     const w = Math.max(LAYOUT_MIN_SIZE, s.startW + (e.clientX - s.startX));
-    s.target.style.width = `${w}px`;
+    scaleX = w / naturalW;
   }
   if (s.mode !== 'width') {
     const h = Math.max(LAYOUT_MIN_SIZE, s.startH + (e.clientY - s.startY));
-    s.target.style.height = `${h}px`;
+    scaleY = h / naturalH;
   }
+  target.dataset.scaleX = scaleX;
+  target.dataset.scaleY = scaleY;
+  target.style.transform = `scale(${scaleX}, ${scaleY})`;
 }
 
 function layoutResizePointerUp(e) {
@@ -794,6 +807,10 @@ function enableLayoutEdit() {
   const measured = targets.map(({ name, el: target }) => ({ name, target, rect: target.getBoundingClientRect() }));
   measured.forEach(({ name, target, rect }) => {
     target.dataset.layoutName = name;
+    target.dataset.naturalW = rect.width;
+    target.dataset.naturalH = rect.height;
+    target.dataset.scaleX = '1';
+    target.dataset.scaleY = '1';
     target.classList.add('layout-draggable');
     target.style.position = 'fixed';
     target.style.left = `${rect.left}px`;
@@ -802,6 +819,7 @@ function enableLayoutEdit() {
     target.style.height = `${rect.height}px`;
     target.style.margin = '0';
     target.style.zIndex = '500';
+    target.style.transformOrigin = 'top left';
     target.addEventListener('pointerdown', layoutDragPointerDown);
     target.addEventListener('pointermove', layoutDragPointerMove);
     target.addEventListener('pointerup', layoutDragPointerUp);
@@ -835,6 +853,12 @@ function disableLayoutEdit() {
     target.style.height = '';
     target.style.margin = '';
     target.style.zIndex = '';
+    target.style.transform = '';
+    target.style.transformOrigin = '';
+    delete target.dataset.naturalW;
+    delete target.dataset.naturalH;
+    delete target.dataset.scaleX;
+    delete target.dataset.scaleY;
     target.classList.remove('layout-draggable', 'dragging-layout', 'layout-selected');
     target.removeEventListener('pointerdown', layoutDragPointerDown);
     target.removeEventListener('pointermove', layoutDragPointerMove);
