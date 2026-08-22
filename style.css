@@ -296,22 +296,19 @@ button:disabled {
   position: absolute;
   bottom: 1px;
   right: 3px;
-  font-size: 8px;
+  font-size: 16px;
   font-weight: 700;
-  color: #fff;
-  opacity: 0.75;
+  color: #000;
 }
 
 /* Every tile is a filled square colored by its point value. 1-point tiles
    (by far the most common) get a light brown square; every other value
-   gets a richer, more saturated fill. Letters are always black. */
+   gets a richer, more saturated fill. Letters and point values are
+   always black. */
 .tile[data-pts="1"] { background: #d9bf95; }
-.tile[data-pts="1"] .pts { color: #2b2620; }
-
 .tile[data-pts="2"] { background: #c1443c; }
 .tile[data-pts="3"] { background: #d97b25; }
 .tile[data-pts="4"] { background: #cdb02a; }
-.tile[data-pts="4"] .pts { color: #2b2620; }
 .tile[data-pts="5"] { background: #4f9a41; }
 .tile[data-pts="7"] { background: #8548a8; }
 .tile[data-pts="10"] { background: #2f5fa8; }
