@@ -313,6 +313,24 @@ function renderGuessTiles(ctx) {
     tile.addEventListener('dblclick', () => removeGuessChar(ctx, i));
     strip.appendChild(tile);
   });
+
+  updateLiveScore(ctx);
+}
+
+// Live score preview: as soon as the letters clicked so far spell a valid
+// word, shows what it would score — updating with every click — without
+// waiting for Submit. Green once it beats the current best, otherwise
+// neutral. Shows nothing while the in-progress guess isn't a real word yet.
+function updateLiveScore(ctx) {
+  const word = ctx.guessValue.toUpperCase();
+  const result = evaluateGuess(word, ctx.scramble.tiles);
+  if (!result.valid) {
+    ctx.liveScoreEl.textContent = '';
+    ctx.liveScoreEl.classList.remove('beats-best');
+    return;
+  }
+  ctx.liveScoreEl.textContent = `${result.score} pts`;
+  ctx.liveScoreEl.classList.toggle('beats-best', result.score > ctx.scramble.bestScore);
 }
 
 // Marks rack tiles clickable (single click = append their letter to the
@@ -504,8 +522,14 @@ function renderAllScrambles() {
 
     const guessCol = document.createElement('div');
     guessCol.className = 'guess-area-col';
+    const guessTilesRow = document.createElement('div');
+    guessTilesRow.className = 'guess-tiles-row';
     const guessTilesDiv = document.createElement('div');
     guessTilesDiv.className = 'tiles guess-tiles-strip';
+    const liveScoreSpan = document.createElement('span');
+    liveScoreSpan.className = 'live-score';
+    guessTilesRow.appendChild(guessTilesDiv);
+    guessTilesRow.appendChild(liveScoreSpan);
     const submitRow = document.createElement('div');
     submitRow.className = 'submit-row';
     const submitBtn = document.createElement('button');
@@ -521,7 +545,7 @@ function renderAllScrambles() {
     submitRow.appendChild(submitBtn);
     submitRow.appendChild(startOverBtn);
     submitRow.appendChild(feedbackSpan);
-    guessCol.appendChild(guessTilesDiv);
+    guessCol.appendChild(guessTilesRow);
     guessCol.appendChild(submitRow);
 
     bottom.appendChild(bestDiv);
@@ -539,6 +563,7 @@ function renderAllScrambles() {
       bestScoreEl: bestScoreSpan,
       cardEl: card,
       feedbackEl: feedbackSpan,
+      liveScoreEl: liveScoreSpan,
     };
     scrambleCtxs.push(ctx);
 

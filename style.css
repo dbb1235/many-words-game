@@ -338,6 +338,22 @@ button:disabled {
   opacity: 0.65;
 }
 
+.guess-tiles-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.live-score {
+  font-size: 15px;
+  font-weight: 700;
+  color: #6b6355;
+}
+
+.live-score.beats-best {
+  color: #2f8f4e;
+}
+
 .submit-row {
   display: flex;
   align-items: center;
