@@ -473,10 +473,6 @@ function submitGuess(ctx) {
   updateScore();
   clearGuess(ctx);
 
-  ctx.bestWordEl.textContent = word;
-  ctx.bestWordEl.classList.remove('empty');
-  ctx.bestScoreEl.textContent = `${scramble.bestScore} pts`;
-
   ctx.cardEl.classList.remove('just-improved');
   void ctx.cardEl.offsetWidth;
   ctx.cardEl.classList.add('just-improved');
@@ -495,43 +491,22 @@ function renderAllScrambles() {
     const card = document.createElement('div');
     card.className = 'scramble-card';
 
-    const top = document.createElement('div');
-    top.className = 'scramble-top';
+    // Everything lives in one row: Shuffle, the rack, the in-progress
+    // guess, its live score, Submit, and Start Over.
+    const row = document.createElement('div');
+    row.className = 'scramble-row';
+
     const shuffleBtn = document.createElement('button');
     shuffleBtn.type = 'button';
     shuffleBtn.className = 'row-shuffle-btn';
     shuffleBtn.textContent = 'Shuffle';
     const tilesDiv = document.createElement('div');
     tilesDiv.className = 'tiles row-tiles';
-    top.appendChild(shuffleBtn);
-    top.appendChild(tilesDiv);
 
-    const bottom = document.createElement('div');
-    bottom.className = 'scramble-bottom';
-
-    const bestDiv = document.createElement('div');
-    bestDiv.className = 'best';
-    const bestWordSpan = document.createElement('span');
-    bestWordSpan.className = `best-word ${scramble.bestWord ? '' : 'empty'}`;
-    bestWordSpan.textContent = scramble.bestWord || 'no word yet';
-    const bestScoreSpan = document.createElement('span');
-    bestScoreSpan.className = 'best-score';
-    bestScoreSpan.textContent = `${scramble.bestScore} pts`;
-    bestDiv.appendChild(bestWordSpan);
-    bestDiv.appendChild(bestScoreSpan);
-
-    const guessCol = document.createElement('div');
-    guessCol.className = 'guess-area-col';
-    const guessTilesRow = document.createElement('div');
-    guessTilesRow.className = 'guess-tiles-row';
     const guessTilesDiv = document.createElement('div');
     guessTilesDiv.className = 'tiles guess-tiles-strip';
     const liveScoreSpan = document.createElement('span');
     liveScoreSpan.className = 'live-score';
-    guessTilesRow.appendChild(guessTilesDiv);
-    guessTilesRow.appendChild(liveScoreSpan);
-    const submitRow = document.createElement('div');
-    submitRow.className = 'submit-row';
     const submitBtn = document.createElement('button');
     submitBtn.type = 'button';
     submitBtn.className = 'submit-guess-btn';
@@ -542,16 +517,15 @@ function renderAllScrambles() {
     startOverBtn.textContent = 'Start Over';
     const feedbackSpan = document.createElement('span');
     feedbackSpan.className = 'submit-feedback';
-    submitRow.appendChild(submitBtn);
-    submitRow.appendChild(startOverBtn);
-    submitRow.appendChild(feedbackSpan);
-    guessCol.appendChild(guessTilesRow);
-    guessCol.appendChild(submitRow);
 
-    bottom.appendChild(bestDiv);
-    bottom.appendChild(guessCol);
-    card.appendChild(top);
-    card.appendChild(bottom);
+    row.appendChild(shuffleBtn);
+    row.appendChild(tilesDiv);
+    row.appendChild(guessTilesDiv);
+    row.appendChild(liveScoreSpan);
+    row.appendChild(submitBtn);
+    row.appendChild(startOverBtn);
+    row.appendChild(feedbackSpan);
+    card.appendChild(row);
     container.appendChild(card);
 
     const ctx = {
@@ -559,8 +533,6 @@ function renderAllScrambles() {
       tilesEl: tilesDiv,
       guessTilesEl: guessTilesDiv,
       guessValue: '',
-      bestWordEl: bestWordSpan,
-      bestScoreEl: bestScoreSpan,
       cardEl: card,
       feedbackEl: feedbackSpan,
       liveScoreEl: liveScoreSpan,

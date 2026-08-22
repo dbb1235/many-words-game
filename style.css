@@ -109,33 +109,37 @@ button:disabled {
   padding: 0 16px;
 }
 
-/* All 6 scrambles, equal size, equally playable — no enlarged "active" one. */
+/* All 6 scrambles, equal size, equally playable — no enlarged "active" one.
+   Single column: each scramble's row is wide (rack + in-progress guess +
+   controls all together), so it needs the full width. */
 #scrambles {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 20px;
 }
 
 .scramble-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
   background: #fff;
   border-radius: 12px;
-  padding: 16px 18px;
+  padding: 14px 18px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  overflow-x: auto;
 }
 
 .scramble-card.just-improved {
   animation: flash-green 0.6s ease;
 }
 
-.scramble-top {
+/* Everything for one scramble — Shuffle, rack, in-progress guess, live
+   score, Submit, Start Over — in a single row. */
+.scramble-row {
   display: flex;
   align-items: center;
   gap: 14px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  width: max-content;
+  min-width: 100%;
 }
 
 .row-shuffle-btn {
@@ -146,26 +150,6 @@ button:disabled {
 
 .row-tiles {
   gap: 6px;
-  flex-wrap: wrap;
-}
-
-.scramble-bottom {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-
-.scramble-bottom .best {
-  min-width: 140px;
-}
-
-.scramble-bottom .guess-area-col {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-width: 160px;
 }
 
 .tile.clickable-letter {
@@ -314,58 +298,23 @@ button:disabled {
 .tile[data-pts="7"] { background: #aa85d3; }
 .tile[data-pts="10"] { background: #6597df; }
 
-.best {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 100px;
-}
-
-.best .best-word {
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.5px;
-}
-
-.best .best-word.empty {
-  opacity: 0.4;
-  font-weight: 400;
-  font-style: italic;
-}
-
-.best .best-score {
-  font-size: 12px;
-  opacity: 0.65;
-}
-
-.guess-tiles-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .live-score {
   font-size: 15px;
   font-weight: 700;
   color: #6b6355;
+  flex-shrink: 0;
 }
 
 .live-score.beats-best {
   color: #2f8f4e;
 }
 
-.submit-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .submit-guess-btn {
-  align-self: flex-start;
+  flex-shrink: 0;
 }
 
 .start-over-btn {
-  align-self: flex-start;
+  flex-shrink: 0;
   background: #e8e3d6;
   color: #6b6355;
 }
@@ -432,9 +381,3 @@ button:disabled {
   }
 }
 
-@media (max-width: 500px) {
-  .scramble-bottom {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
