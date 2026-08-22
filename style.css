@@ -95,7 +95,7 @@ button:disabled {
   position: absolute;
   top: 1px;
   left: 2px;
-  font-size: 9px;
+  font-size: 27px;
   font-family: "SF Mono", Menlo, Consolas, monospace;
   font-weight: 700;
   color: rgba(15, 65, 130, 0.75);
