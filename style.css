@@ -306,7 +306,7 @@ button:disabled {
    gets a richer, more saturated fill. Letters and point values are
    always black. */
 .tile[data-pts="1"] { background: #d9bf95; }
-.tile[data-pts="2"] { background: #c9506f; }
+.tile[data-pts="2"] { background: #c94f8c; }
 .tile[data-pts="3"] { background: #d97b25; }
 .tile[data-pts="4"] { background: #cdb02a; }
 .tile[data-pts="5"] { background: #71ac62; }
