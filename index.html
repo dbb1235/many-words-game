@@ -2,38 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Many Words</title>
+<title>ChrisWerds</title>
 <link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
 
 <header id="top-bar">
-  <div class="brand">Many Words</div>
+  <div class="brand">ChrisWerds</div>
   <div class="stat"><span class="label">Score</span><span id="score">0</span></div>
   <div class="stat"><span class="label">Time</span><span id="timer">10:00</span></div>
   <button id="start-btn">Start Game</button>
   <button id="stop-btn" class="hidden">Stop Game</button>
-  <button id="grid-toggle-btn" type="button">Show Grid</button>
-  <button id="layout-edit-btn" type="button">Edit Layout</button>
 </header>
-
-<div id="layout-edit-note" class="hidden">
-  Drag any highlighted piece to move it. Click one or more pieces — or
-  drag a box across empty space to select everything it touches, like a
-  drawing program (hold Shift to add to the selection instead of
-  replacing it) — dragging any selected piece then moves the whole group
-  together. Each piece has 3 red handles: the corner scales both
-  directions, the edge handles stretch just width or just height. Click
-  <strong>Export Layout</strong> when you're happy with it, then paste the
-  result back into the chat.
-  <button id="clear-selection-btn" type="button">Clear Selection</button>
-  <button id="export-layout-btn" type="button">Export Layout</button>
-</div>
-
-<div id="layout-export-panel" class="hidden">
-  <h3>Copy this and paste it back into the chat:</h3>
-  <textarea id="layout-export-text" readonly></textarea>
-</div>
 
 <main id="game" class="hidden">
   <div id="scrambles"></div>
@@ -60,6 +40,6 @@
 </div>
 
 <script src="words.js"></script>
-<script src="game.js?v=30"></script>
+<script src="game.js?v=31"></script>
 </body>
 </html>

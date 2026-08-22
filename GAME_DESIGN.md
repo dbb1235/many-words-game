@@ -1,4 +1,4 @@
-# Many Words — Game Design Document
+# ChrisWerds — Game Design Document
 
 ## 1. Concept
 
