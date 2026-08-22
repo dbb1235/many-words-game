@@ -343,6 +343,36 @@ button:disabled {
   overflow: hidden;
 }
 
+/* Live stat blocks (time left / score) — not placeholders, so no italic
+   gray text; a small label above a large bold value, like the header
+   stats but bigger. */
+.info-block-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-style: normal;
+}
+
+.info-block-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b6355;
+}
+
+.info-block-value {
+  font-size: 30px;
+  font-weight: 700;
+  color: #2b2620;
+}
+
+.info-block-value.low-time {
+  color: #c1443c;
+}
+
 .tiles-col {
   display: flex;
   flex-direction: column;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Many Words</title>
-<link rel="stylesheet" href="style.css?v=35">
+<link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
 
@@ -40,8 +40,14 @@
   <div id="info-blocks">
     <div class="info-block" id="info-block-1">Info block 1</div>
     <div class="info-block" id="info-block-2">Info block 2</div>
-    <div class="info-block" id="info-block-3">Info block 3</div>
-    <div class="info-block" id="info-block-4">Info block 4</div>
+    <div class="info-block info-block-stat" id="info-block-3">
+      <div class="info-block-label">Time Left</div>
+      <div class="info-block-value" id="info-timer">10:00</div>
+    </div>
+    <div class="info-block info-block-stat" id="info-block-4">
+      <div class="info-block-label">Score</div>
+      <div class="info-block-value" id="info-score">0</div>
+    </div>
   </div>
 </main>
 
@@ -54,6 +60,6 @@
 </div>
 
 <script src="words.js"></script>
-<script src="game.js?v=27"></script>
+<script src="game.js?v=28"></script>
 </body>
 </html>

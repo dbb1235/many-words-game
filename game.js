@@ -227,12 +227,16 @@ function tick() {
 function updateTimerDisplay() {
   const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
   const s = (secondsLeft % 60).toString().padStart(2, '0');
-  el('timer').textContent = `${m}:${s}`;
+  const text = `${m}:${s}`;
+  el('timer').textContent = text;
   el('timer').classList.toggle('low-time', secondsLeft <= 30);
+  el('info-timer').textContent = text;
+  el('info-timer').classList.toggle('low-time', secondsLeft <= 30);
 }
 
 function updateScore() {
   el('score').textContent = score;
+  el('info-score').textContent = score;
 }
 
 // Given a word and a scramble's tiles, determine if the word can be formed
