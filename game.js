@@ -293,25 +293,21 @@ function renderTileEls(tilesDiv, tiles) {
 // renderAllScrambles), so — unlike the old single "active" slot — there's
 // no need to reattach anything between renders.
 
-// Mirrors the in-progress guess as individual letter tiles, so each one can
-// be double-clicked to remove it. This is the ONLY way a guess is built —
-// there is no text entry, click-only. Each mirrored tile keeps the same
-// color/point value as the rack tile it came from, rather than looking
-// generic. Also clears any leftover submit feedback ("Invalid word" etc.)
-// since the guess is changing.
+// Mirrors the in-progress guess as plain text — no tile boxes, no color —
+// one letter per span so each can still be double-clicked to remove it.
+// This is the ONLY way a guess is built — there is no text entry,
+// click-only. Also clears any leftover submit feedback ("Invalid word"
+// etc.) since the guess is changing.
 function renderGuessTiles(ctx) {
   ctx.feedbackEl.textContent = '';
   const strip = ctx.guessTilesEl;
   strip.innerHTML = '';
   Array.from(ctx.guessValue).forEach((ch, i) => {
-    const tile = document.createElement('div');
-    tile.className = 'tile';
-    const origin = ctx.scramble.guessOrigins[i];
-    const pts = origin ? origin.dataset.pts : '0';
-    tile.dataset.pts = pts;
-    tile.innerHTML = `<span class="letter">${ch}</span><span class="pts">${pts}</span>`;
-    tile.addEventListener('dblclick', () => removeGuessChar(ctx, i));
-    strip.appendChild(tile);
+    const span = document.createElement('span');
+    span.className = 'guess-letter';
+    span.textContent = ch;
+    span.addEventListener('dblclick', () => removeGuessChar(ctx, i));
+    strip.appendChild(span);
   });
 
   updateLiveScore(ctx);
@@ -491,19 +487,9 @@ function renderAllScrambles() {
     const card = document.createElement('div');
     card.className = 'scramble-card';
 
-    // Row 1 (top): the word being built — guess tiles + its live score,
-    // indented to sit above roughly where the rack tiles start.
-    const guessRow = document.createElement('div');
-    guessRow.className = 'scramble-guess-row';
-    const guessTilesDiv = document.createElement('div');
-    guessTilesDiv.className = 'tiles guess-tiles-strip';
-    const liveScoreSpan = document.createElement('span');
-    liveScoreSpan.className = 'live-score';
-    guessRow.appendChild(guessTilesDiv);
-    guessRow.appendChild(liveScoreSpan);
-
-    // Row 2 (bottom): the scramble — Shuffle + the rack, with Start Over
-    // then Submit pushed to the far right.
+    // One row: Shuffle, the rack (the scramble), the word being built (as
+    // plain text — no boxes/colors), its live point value, then Start Over
+    // and Submit at the far right.
     const top = document.createElement('div');
     top.className = 'scramble-top';
     const shuffleBtn = document.createElement('button');
@@ -512,6 +498,10 @@ function renderAllScrambles() {
     shuffleBtn.textContent = 'Shuffle';
     const tilesDiv = document.createElement('div');
     tilesDiv.className = 'tiles row-tiles';
+    const guessTilesDiv = document.createElement('div');
+    guessTilesDiv.className = 'guess-tiles-strip';
+    const liveScoreSpan = document.createElement('span');
+    liveScoreSpan.className = 'live-score';
     const startOverBtn = document.createElement('button');
     startOverBtn.type = 'button';
     startOverBtn.className = 'start-over-btn';
@@ -525,10 +515,11 @@ function renderAllScrambles() {
 
     top.appendChild(shuffleBtn);
     top.appendChild(tilesDiv);
+    top.appendChild(guessTilesDiv);
+    top.appendChild(liveScoreSpan);
     top.appendChild(startOverBtn);
     top.appendChild(submitBtn);
     top.appendChild(feedbackSpan);
-    card.appendChild(guessRow);
     card.appendChild(top);
     container.appendChild(card);
 

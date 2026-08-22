@@ -172,18 +172,9 @@ button:disabled {
   animation: flash-green 0.6s ease;
 }
 
-/* Row 1 (top): the word being built — guess tiles + live score, indented
-   to sit above roughly where the rack tiles start below. */
-.scramble-guess-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: 95px;
-  min-height: 34px;
-}
-
-/* Row 2 (bottom): the scramble — Shuffle + the rack, with Start Over then
-   Submit pushed to the far right via margin-left:auto on Start Over. */
+/* One row: Shuffle, the rack, the word being built (plain text), its
+   point value, then Start Over/Submit pushed to the far right via
+   margin-left:auto on Start Over. */
 .scramble-top {
   display: flex;
   align-items: center;
@@ -251,19 +242,29 @@ button:disabled {
   background: #c9a24b;
 }
 
+/* The word being built, as plain text — no tile boxes, no color. Each
+   letter is still its own span so double-clicking one removes just that
+   letter (matches how the rack tiles work). */
 .guess-tiles-strip {
+  display: flex;
+  align-items: center;
   min-height: 34px;
-  gap: 4px;
+  min-width: 40px;
+  gap: 1px;
 }
 
-.guess-tiles-strip .tile {
+.guess-letter {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2b2620;
+  text-transform: uppercase;
   cursor: pointer;
   user-select: none;
 }
 
-.guess-tiles-strip .tile:hover {
-  outline: 2px solid #c1443c;
-  outline-offset: 1px;
+.guess-letter:hover {
+  color: #c1443c;
+  text-decoration: underline;
 }
 
 #stats-panel {
