@@ -123,12 +123,15 @@ function shuffle(arr) {
   return arr;
 }
 
-// Default display order: highest point value first (stable for ties).
-// The wildcard always sits at the far right.
+// Tile colors run in spectrum (wavelength) order — see the
+// data-pts color rules in style.css: red(2) orange(3) tan(1) yellow(4)
+// green(5) teal/wildcard(0) blue(10) purple(7), long wavelength to short.
+const WAVELENGTH_RANK = { 2: 0, 3: 1, 1: 2, 4: 3, 5: 4, 0: 5, 10: 6, 7: 7 };
+
+// Default display order: by tile color, arranged in spectrum order
+// (matches WAVELENGTH_RANK) rather than by point value.
 function defaultOrderTiles(tiles) {
-  const letters = tiles.filter((t) => t.letter !== '?').sort((a, b) => b.points - a.points);
-  const blanks = tiles.filter((t) => t.letter === '?');
-  return [...letters, ...blanks];
+  return [...tiles].sort((a, b) => WAVELENGTH_RANK[a.points] - WAVELENGTH_RANK[b.points]);
 }
 
 // Random display order, but the wildcard always sits at the far right.
