@@ -491,7 +491,19 @@ function renderAllScrambles() {
     const card = document.createElement('div');
     card.className = 'scramble-card';
 
-    // Row 1: the scramble — Shuffle + the rack.
+    // Row 1 (top): the word being built — guess tiles + its live score,
+    // indented to sit above roughly where the rack tiles start.
+    const guessRow = document.createElement('div');
+    guessRow.className = 'scramble-guess-row';
+    const guessTilesDiv = document.createElement('div');
+    guessTilesDiv.className = 'tiles guess-tiles-strip';
+    const liveScoreSpan = document.createElement('span');
+    liveScoreSpan.className = 'live-score';
+    guessRow.appendChild(guessTilesDiv);
+    guessRow.appendChild(liveScoreSpan);
+
+    // Row 2 (bottom): the scramble — Shuffle + the rack, with Start Over
+    // then Submit pushed to the far right.
     const top = document.createElement('div');
     top.className = 'scramble-top';
     const shuffleBtn = document.createElement('button');
@@ -500,35 +512,24 @@ function renderAllScrambles() {
     shuffleBtn.textContent = 'Shuffle';
     const tilesDiv = document.createElement('div');
     tilesDiv.className = 'tiles row-tiles';
-    top.appendChild(shuffleBtn);
-    top.appendChild(tilesDiv);
-
-    // Row 2: the unscramble — the in-progress guess, its live point score,
-    // and the control buttons.
-    const bottom = document.createElement('div');
-    bottom.className = 'scramble-bottom';
-    const guessTilesDiv = document.createElement('div');
-    guessTilesDiv.className = 'tiles guess-tiles-strip';
-    const liveScoreSpan = document.createElement('span');
-    liveScoreSpan.className = 'live-score';
-    const submitBtn = document.createElement('button');
-    submitBtn.type = 'button';
-    submitBtn.className = 'submit-guess-btn';
-    submitBtn.textContent = 'Submit';
     const startOverBtn = document.createElement('button');
     startOverBtn.type = 'button';
     startOverBtn.className = 'start-over-btn';
     startOverBtn.textContent = 'Start Over';
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.className = 'submit-guess-btn';
+    submitBtn.textContent = 'Submit';
     const feedbackSpan = document.createElement('span');
     feedbackSpan.className = 'submit-feedback';
 
-    bottom.appendChild(guessTilesDiv);
-    bottom.appendChild(liveScoreSpan);
-    bottom.appendChild(submitBtn);
-    bottom.appendChild(startOverBtn);
-    bottom.appendChild(feedbackSpan);
+    top.appendChild(shuffleBtn);
+    top.appendChild(tilesDiv);
+    top.appendChild(startOverBtn);
+    top.appendChild(submitBtn);
+    top.appendChild(feedbackSpan);
+    card.appendChild(guessRow);
     card.appendChild(top);
-    card.appendChild(bottom);
     container.appendChild(card);
 
     const ctx = {

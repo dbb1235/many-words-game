@@ -172,13 +172,28 @@ button:disabled {
   animation: flash-green 0.6s ease;
 }
 
-/* Row 1: the scramble — Shuffle + the rack. */
+/* Row 1 (top): the word being built — guess tiles + live score, indented
+   to sit above roughly where the rack tiles start below. */
+.scramble-guess-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 95px;
+  min-height: 34px;
+}
+
+/* Row 2 (bottom): the scramble — Shuffle + the rack, with Start Over then
+   Submit pushed to the far right via margin-left:auto on Start Over. */
 .scramble-top {
   display: flex;
   align-items: center;
   gap: 14px;
   width: max-content;
   min-width: 100%;
+}
+
+.scramble-top .start-over-btn {
+  margin-left: auto;
 }
 
 .row-shuffle-btn {
@@ -189,15 +204,6 @@ button:disabled {
 
 .row-tiles {
   gap: 6px;
-}
-
-/* Row 2: the unscramble — in-progress guess, live score, controls. */
-.scramble-bottom {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: max-content;
-  min-width: 100%;
 }
 
 .tile.clickable-letter {
