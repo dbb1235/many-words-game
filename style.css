@@ -281,7 +281,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #97a7b8; /* wildcard (0 pts) default */
+  background: #7ec8be; /* wildcard (0 pts) default */
 }
 
 .tile .letter {
