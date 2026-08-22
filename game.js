@@ -706,6 +706,39 @@ function layoutDragPointerUp(e) {
   }
 }
 
+// Resizing — a small handle in the bottom-right corner of each draggable
+// object. Separate pointer capture from the move-drag handle, with
+// stopPropagation so grabbing the resize handle never also starts a move.
+let layoutResizeState = null;
+const LAYOUT_MIN_SIZE = 20;
+
+function layoutResizePointerDown(e) {
+  e.stopPropagation();
+  const handle = e.currentTarget;
+  const target = handle.parentElement;
+  const rect = target.getBoundingClientRect();
+  layoutResizeState = { target, startX: e.clientX, startY: e.clientY, startW: rect.width, startH: rect.height };
+  target.classList.add('dragging-layout');
+  handle.setPointerCapture(e.pointerId);
+}
+
+function layoutResizePointerMove(e) {
+  if (!layoutResizeState || e.currentTarget.parentElement !== layoutResizeState.target) return;
+  e.stopPropagation();
+  const w = Math.max(LAYOUT_MIN_SIZE, layoutResizeState.startW + (e.clientX - layoutResizeState.startX));
+  const h = Math.max(LAYOUT_MIN_SIZE, layoutResizeState.startH + (e.clientY - layoutResizeState.startY));
+  layoutResizeState.target.style.width = `${w}px`;
+  layoutResizeState.target.style.height = `${h}px`;
+}
+
+function layoutResizePointerUp(e) {
+  if (layoutResizeState && e.currentTarget.parentElement === layoutResizeState.target) {
+    e.stopPropagation();
+    layoutResizeState.target.classList.remove('dragging-layout');
+    layoutResizeState = null;
+  }
+}
+
 function enableLayoutEdit() {
   const targets = layoutEditTargets();
   // Measure every element's position FIRST, in one pass — pulling an
@@ -719,11 +752,20 @@ function enableLayoutEdit() {
     target.style.position = 'fixed';
     target.style.left = `${rect.left}px`;
     target.style.top = `${rect.top}px`;
+    target.style.width = `${rect.width}px`;
+    target.style.height = `${rect.height}px`;
     target.style.margin = '0';
     target.style.zIndex = '500';
     target.addEventListener('pointerdown', layoutDragPointerDown);
     target.addEventListener('pointermove', layoutDragPointerMove);
     target.addEventListener('pointerup', layoutDragPointerUp);
+
+    const handle = document.createElement('div');
+    handle.className = 'layout-resize-handle';
+    handle.addEventListener('pointerdown', layoutResizePointerDown);
+    handle.addEventListener('pointermove', layoutResizePointerMove);
+    handle.addEventListener('pointerup', layoutResizePointerUp);
+    target.appendChild(handle);
   });
   layoutEditActive = true;
   el('layout-edit-btn').textContent = 'Exit Layout Edit';
@@ -732,9 +774,13 @@ function enableLayoutEdit() {
 
 function disableLayoutEdit() {
   document.querySelectorAll('.layout-draggable').forEach((target) => {
+    const handle = target.querySelector('.layout-resize-handle');
+    if (handle) handle.remove();
     target.style.position = '';
     target.style.left = '';
     target.style.top = '';
+    target.style.width = '';
+    target.style.height = '';
     target.style.margin = '';
     target.style.zIndex = '';
     target.classList.remove('layout-draggable', 'dragging-layout');

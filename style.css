@@ -112,6 +112,19 @@ button:disabled {
   outline-color: #c1443c;
 }
 
+.layout-resize-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  background: #c1443c;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  z-index: 501;
+}
+
 /* Coordinate-reference grid overlay — toggled via #grid-toggle-btn so
    cells (e.g. "c45") can be used to point at a spot on the page ("move X
    from cell c45 to g32"). Click-through and semi-transparent so it never
