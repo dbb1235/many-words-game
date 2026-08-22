@@ -677,6 +677,10 @@ function layoutEditTargets() {
   });
 
   targets.push({ name: 'Stats panel', el: el('stats-panel') });
+  targets.push({ name: 'Info block 1', el: el('info-block-1') });
+  targets.push({ name: 'Info block 2', el: el('info-block-2') });
+  targets.push({ name: 'Info block 3', el: el('info-block-3') });
+  targets.push({ name: 'Info block 4', el: el('info-block-4') });
 
   return targets.filter((t) => t.el);
 }
