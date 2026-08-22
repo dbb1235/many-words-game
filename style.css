@@ -95,10 +95,10 @@ button:disabled {
   position: absolute;
   top: 1px;
   left: 2px;
-  font-size: 27px;
+  font-size: 18px;
   font-family: "SF Mono", Menlo, Consolas, monospace;
   font-weight: 700;
-  color: rgba(15, 65, 130, 0.75);
+  color: rgba(60, 110, 170, 0.45);
   line-height: 1;
   white-space: nowrap;
 }
