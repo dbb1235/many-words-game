@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Many Words</title>
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 
@@ -18,11 +18,13 @@
 </header>
 
 <div id="layout-edit-note" class="hidden">
-  Drag any highlighted piece to where you want it — the header controls,
-  every scramble's Shuffle/tiles/guess area/Submit/Start Over, and the
-  stats panel are all movable. Click <strong>Export Layout</strong> when
-  you're happy with it, then paste the result back into the chat — I'll
-  place things where you put them and clean up spacing/alignment.
+  Drag any highlighted piece to move it. Click one or more pieces to
+  select them (they'll highlight blue) — dragging any selected piece then
+  moves the whole group together. Each piece has 3 red handles: the
+  corner stretches both directions, the edge handles stretch just width
+  or just height. Click <strong>Export Layout</strong> when you're happy
+  with it, then paste the result back into the chat.
+  <button id="clear-selection-btn" type="button">Clear Selection</button>
   <button id="export-layout-btn" type="button">Export Layout</button>
 </div>
 
@@ -51,6 +53,6 @@
 </div>
 
 <script src="words.js"></script>
-<script src="game.js?v=19"></script>
+<script src="game.js?v=20"></script>
 </body>
 </html>

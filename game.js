@@ -685,30 +685,68 @@ function layoutEditTargets() {
   return targets.filter((t) => t.el);
 }
 
+// Dragging doubles as selecting: a plain click (pointerdown+up with barely
+// any movement) toggles the object in/out of a multi-select set instead of
+// moving it. Dragging a SELECTED object moves every selected object
+// together, by the same delta; dragging an unselected one moves just that
+// one, same as before. DRAG_THRESHOLD tells a click apart from a drag.
+const layoutSelected = new Set();
+const DRAG_THRESHOLD = 4;
+
 function layoutDragPointerDown(e) {
   const target = e.currentTarget;
-  const rect = target.getBoundingClientRect();
-  layoutDragState = { target, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
-  target.classList.add('dragging-layout');
+  const participants = layoutSelected.has(target) ? Array.from(layoutSelected) : [target];
+  const snapshot = new Map(participants.map((elm) => {
+    const r = elm.getBoundingClientRect();
+    return [elm, { left: r.left, top: r.top }];
+  }));
+  layoutDragState = { target, startX: e.clientX, startY: e.clientY, moved: false, snapshot };
   target.setPointerCapture(e.pointerId);
 }
 
 function layoutDragPointerMove(e) {
   if (!layoutDragState || layoutDragState.target !== e.currentTarget) return;
-  layoutDragState.target.style.left = `${e.clientX - layoutDragState.offsetX}px`;
-  layoutDragState.target.style.top = `${e.clientY - layoutDragState.offsetY}px`;
+  const dx = e.clientX - layoutDragState.startX;
+  const dy = e.clientY - layoutDragState.startY;
+  if (!layoutDragState.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+    layoutDragState.moved = true;
+    layoutDragState.snapshot.forEach((pos, elm) => elm.classList.add('dragging-layout'));
+  }
+  if (!layoutDragState.moved) return;
+  layoutDragState.snapshot.forEach((pos, elm) => {
+    elm.style.left = `${pos.left + dx}px`;
+    elm.style.top = `${pos.top + dy}px`;
+  });
 }
 
 function layoutDragPointerUp(e) {
-  if (layoutDragState && layoutDragState.target === e.currentTarget) {
-    layoutDragState.target.classList.remove('dragging-layout');
-    layoutDragState = null;
+  if (!layoutDragState || layoutDragState.target !== e.currentTarget) return;
+  const state = layoutDragState;
+  state.snapshot.forEach((pos, elm) => elm.classList.remove('dragging-layout'));
+  if (!state.moved) {
+    // A real click, not a drag: toggle this object's selection.
+    if (layoutSelected.has(state.target)) {
+      layoutSelected.delete(state.target);
+      state.target.classList.remove('layout-selected');
+    } else {
+      layoutSelected.add(state.target);
+      state.target.classList.add('layout-selected');
+    }
   }
+  layoutDragState = null;
 }
 
-// Resizing — a small handle in the bottom-right corner of each draggable
-// object. Separate pointer capture from the move-drag handle, with
-// stopPropagation so grabbing the resize handle never also starts a move.
+function clearLayoutSelection() {
+  layoutSelected.forEach((elm) => elm.classList.remove('layout-selected'));
+  layoutSelected.clear();
+}
+
+// Resizing — three handles per object: a corner (stretches both width and
+// height together), a right-edge handle (width only), and a bottom-edge
+// handle (height only) — "stretch" in one direction without changing the
+// other. Separate pointer capture from the move-drag handle, with
+// stopPropagation so grabbing any resize handle never also starts a move
+// or a selection click.
 let layoutResizeState = null;
 const LAYOUT_MIN_SIZE = 20;
 
@@ -717,7 +755,10 @@ function layoutResizePointerDown(e) {
   const handle = e.currentTarget;
   const target = handle.parentElement;
   const rect = target.getBoundingClientRect();
-  layoutResizeState = { target, startX: e.clientX, startY: e.clientY, startW: rect.width, startH: rect.height };
+  layoutResizeState = {
+    target, mode: handle.dataset.resizeMode,
+    startX: e.clientX, startY: e.clientY, startW: rect.width, startH: rect.height,
+  };
   target.classList.add('dragging-layout');
   handle.setPointerCapture(e.pointerId);
 }
@@ -725,10 +766,15 @@ function layoutResizePointerDown(e) {
 function layoutResizePointerMove(e) {
   if (!layoutResizeState || e.currentTarget.parentElement !== layoutResizeState.target) return;
   e.stopPropagation();
-  const w = Math.max(LAYOUT_MIN_SIZE, layoutResizeState.startW + (e.clientX - layoutResizeState.startX));
-  const h = Math.max(LAYOUT_MIN_SIZE, layoutResizeState.startH + (e.clientY - layoutResizeState.startY));
-  layoutResizeState.target.style.width = `${w}px`;
-  layoutResizeState.target.style.height = `${h}px`;
+  const s = layoutResizeState;
+  if (s.mode !== 'height') {
+    const w = Math.max(LAYOUT_MIN_SIZE, s.startW + (e.clientX - s.startX));
+    s.target.style.width = `${w}px`;
+  }
+  if (s.mode !== 'width') {
+    const h = Math.max(LAYOUT_MIN_SIZE, s.startH + (e.clientY - s.startY));
+    s.target.style.height = `${h}px`;
+  }
 }
 
 function layoutResizePointerUp(e) {
@@ -760,12 +806,19 @@ function enableLayoutEdit() {
     target.addEventListener('pointermove', layoutDragPointerMove);
     target.addEventListener('pointerup', layoutDragPointerUp);
 
-    const handle = document.createElement('div');
-    handle.className = 'layout-resize-handle';
-    handle.addEventListener('pointerdown', layoutResizePointerDown);
-    handle.addEventListener('pointermove', layoutResizePointerMove);
-    handle.addEventListener('pointerup', layoutResizePointerUp);
-    target.appendChild(handle);
+    [
+      ['both', 'layout-resize-handle corner'],
+      ['width', 'layout-resize-handle edge-right'],
+      ['height', 'layout-resize-handle edge-bottom'],
+    ].forEach(([mode, className]) => {
+      const handle = document.createElement('div');
+      handle.className = className;
+      handle.dataset.resizeMode = mode;
+      handle.addEventListener('pointerdown', layoutResizePointerDown);
+      handle.addEventListener('pointermove', layoutResizePointerMove);
+      handle.addEventListener('pointerup', layoutResizePointerUp);
+      target.appendChild(handle);
+    });
   });
   layoutEditActive = true;
   el('layout-edit-btn').textContent = 'Exit Layout Edit';
@@ -774,8 +827,7 @@ function enableLayoutEdit() {
 
 function disableLayoutEdit() {
   document.querySelectorAll('.layout-draggable').forEach((target) => {
-    const handle = target.querySelector('.layout-resize-handle');
-    if (handle) handle.remove();
+    target.querySelectorAll('.layout-resize-handle').forEach((h) => h.remove());
     target.style.position = '';
     target.style.left = '';
     target.style.top = '';
@@ -783,11 +835,12 @@ function disableLayoutEdit() {
     target.style.height = '';
     target.style.margin = '';
     target.style.zIndex = '';
-    target.classList.remove('layout-draggable', 'dragging-layout');
+    target.classList.remove('layout-draggable', 'dragging-layout', 'layout-selected');
     target.removeEventListener('pointerdown', layoutDragPointerDown);
     target.removeEventListener('pointermove', layoutDragPointerMove);
     target.removeEventListener('pointerup', layoutDragPointerUp);
   });
+  clearLayoutSelection();
   layoutEditActive = false;
   el('layout-edit-btn').textContent = 'Edit Layout';
   el('layout-edit-note').classList.add('hidden');
@@ -808,6 +861,7 @@ el('layout-edit-btn').addEventListener('click', () => {
   else enableLayoutEdit();
 });
 el('export-layout-btn').addEventListener('click', exportLayout);
+el('clear-selection-btn').addEventListener('click', clearLayoutSelection);
 
 el('start-btn').addEventListener('click', startGame);
 el('play-again-btn').addEventListener('click', startGame);

@@ -112,17 +112,45 @@ button:disabled {
   outline-color: #c1443c;
 }
 
+/* Selected (multi-select for group-dragging) — layered on top of the
+   normal gold dashed outline with a solid blue one. */
+.layout-draggable.layout-selected {
+  outline: 3px solid #3f76b8;
+  outline-offset: 2px;
+  background-color: rgba(63, 118, 184, 0.08);
+}
+
 .layout-resize-handle {
   position: absolute;
-  right: -6px;
-  bottom: -6px;
   width: 14px;
   height: 14px;
   background: #c1443c;
   border: 2px solid #fff;
   border-radius: 50%;
-  cursor: nwse-resize;
   z-index: 501;
+}
+
+/* Corner handle: stretches width + height together. */
+.layout-resize-handle.corner {
+  right: -6px;
+  bottom: -6px;
+  cursor: nwse-resize;
+}
+
+/* Right-edge handle: stretches width only. */
+.layout-resize-handle.edge-right {
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+/* Bottom-edge handle: stretches height only. */
+.layout-resize-handle.edge-bottom {
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: ns-resize;
 }
 
 /* Coordinate-reference grid overlay — toggled via #grid-toggle-btn so
@@ -303,8 +331,9 @@ button:disabled {
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   color: #999087;
   font-style: italic;
-  min-width: 160px;
-  min-height: 60px;
+  width: 160px;
+  height: 60px;
+  overflow: hidden;
 }
 
 #stats-panel h3 {
