@@ -264,17 +264,21 @@ button:disabled {
   outline: none;
 }
 
+/* Capped to 4x4 tiles visible at once (26 letters need more than that, so
+   it scrolls vertically for the rest). */
 .letter-menu {
   position: fixed;
   z-index: 50;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(4, 96px);
   gap: 8px;
   background: #fff;
   border: 1px solid #d8d2c2;
   border-radius: 10px;
   padding: 12px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  max-height: 432px;
+  overflow-y: auto;
 }
 
 .letter-menu button {
