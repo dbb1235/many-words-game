@@ -312,18 +312,16 @@ function renderGuessTiles(ctx) {
 
 // Live score preview: as soon as the letters clicked so far spell a valid
 // word, shows what it would score — updating with every click — without
-// waiting for Submit. Green once it beats the current best, otherwise
-// neutral. Shows nothing while the in-progress guess isn't a real word yet.
+// waiting for Submit. Shows nothing while the in-progress guess isn't a
+// real word yet.
 function updateLiveScore(ctx) {
   const word = ctx.guessValue.toUpperCase();
   const result = evaluateGuess(word, ctx.scramble.tiles);
   if (!result.valid) {
     ctx.liveScoreEl.textContent = '';
-    ctx.liveScoreEl.classList.remove('beats-best');
     return;
   }
   ctx.liveScoreEl.textContent = `${result.score} pts`;
-  ctx.liveScoreEl.classList.toggle('beats-best', result.score > ctx.scramble.bestScore);
 }
 
 // Marks rack tiles clickable (single click = append their letter to the
@@ -504,9 +502,9 @@ function renderAllScrambles() {
     const card = document.createElement('div');
     card.className = 'scramble-card';
 
-    // One row: Shuffle, the rack (the scramble), the word being built (as
-    // plain text — no boxes/colors), its live point value, then Start Over
-    // and Submit at the far right.
+    // One row: Shuffle, the rack (the scramble), Start Over, the word being
+    // built (as plain text — no boxes/colors), its live point value, then
+    // Submit at the far right.
     const top = document.createElement('div');
     top.className = 'scramble-top';
     const shuffleBtn = document.createElement('button');
@@ -532,9 +530,9 @@ function renderAllScrambles() {
 
     top.appendChild(shuffleBtn);
     top.appendChild(tilesDiv);
+    top.appendChild(startOverBtn);
     top.appendChild(guessTilesDiv);
     top.appendChild(liveScoreSpan);
-    top.appendChild(startOverBtn);
     top.appendChild(submitBtn);
     top.appendChild(feedbackSpan);
     card.appendChild(top);

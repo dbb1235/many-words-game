@@ -234,9 +234,6 @@ button:disabled {
   min-width: 100%;
 }
 
-.scramble-top .start-over-btn {
-  margin-left: auto;
-}
 
 .row-shuffle-btn {
   padding: 8px 16px;
@@ -308,7 +305,7 @@ button:disabled {
 }
 
 .guess-letter {
-  font-size: 22px;
+  font-size: 27.5px;
   font-weight: 700;
   color: #2b2620;
   text-transform: uppercase;
@@ -398,14 +395,10 @@ button:disabled {
 .tile[data-pts="10"] { background: #6597df; }
 
 .live-score {
-  font-size: 15px;
+  font-size: 27.5px;
   font-weight: 700;
-  color: #6b6355;
-  flex-shrink: 0;
-}
-
-.live-score.beats-best {
   color: #2f8f4e;
+  flex-shrink: 0;
 }
 
 .submit-guess-btn {
