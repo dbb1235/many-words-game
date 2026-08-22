@@ -305,13 +305,13 @@ button:disabled {
    (by far the most common) get a light brown square; every other value
    gets a richer, more saturated fill. Letters and point values are
    always black. */
-.tile[data-pts="1"] { background: #d9bf95; }
-.tile[data-pts="2"] { background: #c94f8c; }
-.tile[data-pts="3"] { background: #d97b25; }
-.tile[data-pts="4"] { background: #cdb02a; }
-.tile[data-pts="5"] { background: #71ac62; }
-.tile[data-pts="7"] { background: #a06bc0; }
-.tile[data-pts="10"] { background: #5183c4; }
+.tile[data-pts="1"] { background: #dfc9a5; }
+.tile[data-pts="2"] { background: #d1699d; }
+.tile[data-pts="3"] { background: #df8f46; }
+.tile[data-pts="4"] { background: #d5bc4a; }
+.tile[data-pts="5"] { background: #86b87a; }
+.tile[data-pts="7"] { background: #ae81c9; }
+.tile[data-pts="10"] { background: #6b96cd; }
 
 .best {
   display: flex;
