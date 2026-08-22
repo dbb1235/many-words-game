@@ -338,20 +338,8 @@ button:disabled {
   opacity: 0.65;
 }
 
-.guess-input {
-  flex: 1;
-  min-width: 0;
-  padding: 7px 10px;
-  border: 1.5px solid #d8d2c2;
-  border-radius: 6px;
-  font-size: 16px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.guess-input:focus {
-  outline: none;
-  border-color: #c9a24b;
+.submit-guess-btn {
+  align-self: flex-start;
 }
 
 @keyframes flash-green {

@@ -293,13 +293,13 @@ function renderTileEls(tilesDiv, tiles) {
 // renderAllScrambles), so — unlike the old single "active" slot — there's
 // no need to reattach anything between renders.
 
-// Mirrors the guess input as individual letter tiles, so each letter can be
-// double-clicked (a plain <input>'s text can't be targeted per-character).
+// Mirrors the in-progress guess as individual letter tiles, so each one can
+// be double-clicked to remove it. This is the ONLY way a guess is built —
+// there is no text entry, click-only.
 function renderGuessTiles(ctx) {
   const strip = ctx.guessTilesEl;
   strip.innerHTML = '';
-  const value = ctx.inputEl.value;
-  Array.from(value).forEach((ch, i) => {
+  Array.from(ctx.guessValue).forEach((ch, i) => {
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.innerHTML = `<span class="letter">${ch}</span>`;
@@ -400,7 +400,7 @@ function handleMenuEscape(e) {
 }
 
 function appendGuessLetter(ctx, letter, originTile) {
-  ctx.inputEl.value += letter;
+  ctx.guessValue += letter;
   ctx.scramble.guessOrigins.push(originTile || null);
   if (originTile) originTile.classList.add('used-in-guess');
   renderGuessTiles(ctx);
@@ -409,27 +409,13 @@ function appendGuessLetter(ctx, letter, originTile) {
 // Removes one character (by position) from the guess — used when
 // double-clicking a guess tile. Restores the rack tile it came from, if any.
 function removeGuessChar(ctx, index) {
-  const chars = Array.from(ctx.inputEl.value);
+  const chars = Array.from(ctx.guessValue);
   const origin = ctx.scramble.guessOrigins[index];
   chars.splice(index, 1);
   ctx.scramble.guessOrigins.splice(index, 1);
-  ctx.inputEl.value = chars.join('');
+  ctx.guessValue = chars.join('');
   if (origin) origin.classList.remove('used-in-guess');
   renderGuessTiles(ctx);
-}
-
-// Keeps guessOrigins the same length as the input's value after ordinary
-// typing (as opposed to clicks, which update it directly). Assumes edits
-// happen at the end, which covers normal typing/backspacing.
-function syncGuessOriginsToLength(ctx, newLength) {
-  const origins = ctx.scramble.guessOrigins;
-  while (origins.length > newLength) {
-    const removed = origins.pop();
-    if (removed) removed.classList.remove('used-in-guess');
-  }
-  while (origins.length < newLength) {
-    origins.push(null);
-  }
 }
 
 function clearGuess(ctx) {
@@ -438,13 +424,13 @@ function clearGuess(ctx) {
     if (origin) origin.classList.remove('used-in-guess');
   });
   ctx.scramble.guessOrigins = [];
-  ctx.inputEl.value = '';
+  ctx.guessValue = '';
   renderGuessTiles(ctx);
 }
 
 function submitGuess(ctx) {
   const scramble = ctx.scramble;
-  const word = ctx.inputEl.value.trim().toUpperCase();
+  const word = ctx.guessValue.trim().toUpperCase();
   if (!word) return;
   const result = evaluateGuess(word, scramble.tiles);
   if (!result.valid || result.score <= scramble.bestScore) return;
@@ -506,13 +492,12 @@ function renderAllScrambles() {
     guessCol.className = 'guess-area-col';
     const guessTilesDiv = document.createElement('div');
     guessTilesDiv.className = 'tiles guess-tiles-strip';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'guess-input';
-    input.placeholder = 'Type a word, or click letters above…';
-    input.maxLength = RACK_SIZE;
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.className = 'submit-guess-btn';
+    submitBtn.textContent = 'Submit';
     guessCol.appendChild(guessTilesDiv);
-    guessCol.appendChild(input);
+    guessCol.appendChild(submitBtn);
 
     bottom.appendChild(bestDiv);
     bottom.appendChild(guessCol);
@@ -524,7 +509,7 @@ function renderAllScrambles() {
       scramble,
       tilesEl: tilesDiv,
       guessTilesEl: guessTilesDiv,
-      inputEl: input,
+      guessValue: '',
       bestWordEl: bestWordSpan,
       bestScoreEl: bestScoreSpan,
       cardEl: card,
@@ -535,14 +520,7 @@ function renderAllScrambles() {
     attachTileClickHandlers(ctx);
     clearGuess(ctx);
 
-    input.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      submitGuess(ctx);
-    });
-    input.addEventListener('input', (e) => {
-      syncGuessOriginsToLength(ctx, e.target.value.length);
-      renderGuessTiles(ctx);
-    });
+    submitBtn.addEventListener('click', () => submitGuess(ctx));
     shuffleBtn.addEventListener('click', () => {
       scramble.displayTiles = shuffleTiles(scramble.tiles);
       renderTileEls(tilesDiv, scramble.displayTiles);
