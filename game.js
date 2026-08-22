@@ -654,6 +654,116 @@ function endGame() {
   refreshGridIfVisible();
 }
 
+// --- Layout Edit mode ---
+// Drags the game's OWN real rendered elements (real header controls, real
+// tiles on whatever rack actually got dealt) rather than a separate mockup,
+// so what you see while dragging is exactly what the game looks like.
+// Only the first scramble's row is made draggable — all 6 share the same
+// layout, so editing one is enough. Export Layout reads back each edited
+// element's final on-screen position/size as plain text.
+let layoutEditActive = false;
+let layoutDragState = null;
+
+function layoutEditTargets() {
+  const targets = [];
+  const stats = document.querySelectorAll('#top-bar .stat');
+  targets.push({ name: 'Brand / title', el: document.querySelector('#top-bar .brand') });
+  targets.push({ name: 'Score box', el: stats[0] });
+  targets.push({ name: 'Timer box', el: stats[1] });
+  targets.push({ name: 'Start Game button', el: el('start-btn') });
+  targets.push({ name: 'Stop Game button', el: el('stop-btn') });
+  targets.push({ name: 'Show Grid button', el: el('grid-toggle-btn') });
+
+  const ctx = scrambleCtxs[0];
+  if (ctx) {
+    targets.push({ name: 'Shuffle button', el: ctx.cardEl.querySelector('.row-shuffle-btn') });
+    targets.push({ name: 'Rack tiles (the scramble)', el: ctx.tilesEl });
+    targets.push({ name: 'Guess tiles (word being built)', el: ctx.guessTilesEl });
+    targets.push({ name: 'Live score', el: ctx.liveScoreEl });
+    targets.push({ name: 'Submit button', el: ctx.cardEl.querySelector('.submit-guess-btn') });
+    targets.push({ name: 'Start Over button', el: ctx.cardEl.querySelector('.start-over-btn') });
+  }
+  return targets.filter((t) => t.el);
+}
+
+function layoutDragPointerDown(e) {
+  const target = e.currentTarget;
+  const rect = target.getBoundingClientRect();
+  layoutDragState = { target, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+  target.classList.add('dragging-layout');
+  target.setPointerCapture(e.pointerId);
+}
+
+function layoutDragPointerMove(e) {
+  if (!layoutDragState || layoutDragState.target !== e.currentTarget) return;
+  layoutDragState.target.style.left = `${e.clientX - layoutDragState.offsetX}px`;
+  layoutDragState.target.style.top = `${e.clientY - layoutDragState.offsetY}px`;
+}
+
+function layoutDragPointerUp(e) {
+  if (layoutDragState && layoutDragState.target === e.currentTarget) {
+    layoutDragState.target.classList.remove('dragging-layout');
+    layoutDragState = null;
+  }
+}
+
+function enableLayoutEdit() {
+  const targets = layoutEditTargets();
+  // Measure every element's position FIRST, in one pass — pulling an
+  // element out of flow (position:fixed) reflows everything after it, so
+  // measuring-then-immediately-repositioning one at a time would corrupt
+  // the measurements of whatever comes next.
+  const measured = targets.map(({ name, el: target }) => ({ name, target, rect: target.getBoundingClientRect() }));
+  measured.forEach(({ name, target, rect }) => {
+    target.dataset.layoutName = name;
+    target.classList.add('layout-draggable');
+    target.style.position = 'fixed';
+    target.style.left = `${rect.left}px`;
+    target.style.top = `${rect.top}px`;
+    target.style.margin = '0';
+    target.style.zIndex = '500';
+    target.addEventListener('pointerdown', layoutDragPointerDown);
+    target.addEventListener('pointermove', layoutDragPointerMove);
+    target.addEventListener('pointerup', layoutDragPointerUp);
+  });
+  layoutEditActive = true;
+  el('layout-edit-btn').textContent = 'Exit Layout Edit';
+  el('layout-edit-note').classList.remove('hidden');
+}
+
+function disableLayoutEdit() {
+  document.querySelectorAll('.layout-draggable').forEach((target) => {
+    target.style.position = '';
+    target.style.left = '';
+    target.style.top = '';
+    target.style.margin = '';
+    target.style.zIndex = '';
+    target.classList.remove('layout-draggable', 'dragging-layout');
+    target.removeEventListener('pointerdown', layoutDragPointerDown);
+    target.removeEventListener('pointermove', layoutDragPointerMove);
+    target.removeEventListener('pointerup', layoutDragPointerUp);
+  });
+  layoutEditActive = false;
+  el('layout-edit-btn').textContent = 'Edit Layout';
+  el('layout-edit-note').classList.add('hidden');
+  el('layout-export-panel').classList.add('hidden');
+}
+
+function exportLayout() {
+  const lines = Array.from(document.querySelectorAll('.layout-draggable')).map((target) => {
+    const r = target.getBoundingClientRect();
+    return `${target.dataset.layoutName}: x=${Math.round(r.left)}, y=${Math.round(r.top)}, w=${Math.round(r.width)}, h=${Math.round(r.height)}`;
+  });
+  el('layout-export-text').value = lines.join('\n');
+  el('layout-export-panel').classList.remove('hidden');
+}
+
+el('layout-edit-btn').addEventListener('click', () => {
+  if (layoutEditActive) disableLayoutEdit();
+  else enableLayoutEdit();
+});
+el('export-layout-btn').addEventListener('click', exportLayout);
+
 el('start-btn').addEventListener('click', startGame);
 el('play-again-btn').addEventListener('click', startGame);
 el('grid-toggle-btn').addEventListener('click', toggleGrid);

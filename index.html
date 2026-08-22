@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Many Words</title>
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 
@@ -14,7 +14,22 @@
   <button id="start-btn">Start Game</button>
   <button id="stop-btn" class="hidden">Stop Game</button>
   <button id="grid-toggle-btn" type="button">Show Grid</button>
+  <button id="layout-edit-btn" type="button">Edit Layout</button>
 </header>
+
+<div id="layout-edit-note" class="hidden">
+  Drag any highlighted piece to where you want it. This edits the header
+  controls plus the first scramble's row (Shuffle, tiles, guess area,
+  Submit, Start Over) — the other scrambles share the same layout, so one
+  is enough. Click <strong>Export Layout</strong> when you're happy with
+  it, then paste the result back into the chat.
+  <button id="export-layout-btn" type="button">Export Layout</button>
+</div>
+
+<div id="layout-export-panel" class="hidden">
+  <h3>Copy this and paste it back into the chat:</h3>
+  <textarea id="layout-export-text" readonly></textarea>
+</div>
 
 <main id="game" class="hidden">
   <div id="scrambles"></div>
@@ -30,6 +45,6 @@
 </div>
 
 <script src="words.js"></script>
-<script src="game.js?v=12"></script>
+<script src="game.js?v=14"></script>
 </body>
 </html>
