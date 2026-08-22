@@ -295,12 +295,16 @@ button:disabled {
 
 /* The word being built, as plain text — no tile boxes, no color. Each
    letter is still its own span so double-clicking one removes just that
-   letter (matches how the rack tiles work). */
+   letter (matches how the rack tiles work). Fixed width (room for 10
+   letters) so this column — and everything after it — lines up across
+   every scramble row regardless of how many letters are in the guess. */
 .guess-tiles-strip {
   display: flex;
   align-items: center;
   min-height: 34px;
-  min-width: 40px;
+  width: 285px;
+  min-width: 285px;
+  flex-shrink: 0;
   gap: 1px;
 }
 
@@ -394,10 +398,14 @@ button:disabled {
 .tile[data-pts="7"] { background: #aa85d3; }
 .tile[data-pts="10"] { background: #6597df; }
 
+/* Fixed width (room for 3 digits + " pts") so this column stays aligned
+   across every scramble row, same reasoning as .guess-tiles-strip. */
 .live-score {
   font-size: 27.5px;
   font-weight: 700;
   color: #2f8f4e;
+  width: 110px;
+  min-width: 110px;
   flex-shrink: 0;
 }
 
