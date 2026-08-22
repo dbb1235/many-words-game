@@ -281,7 +281,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #7ec8be; /* wildcard (0 pts) default */
+  background: #91d0c8; /* wildcard (0 pts) default */
 }
 
 .tile .letter {
@@ -305,13 +305,13 @@ button:disabled {
    (by far the most common) get a light brown square; every other value
    gets a richer, more saturated fill. Letters and point values are
    always black. */
-.tile[data-pts="1"] { background: #dfc9a5; }
-.tile[data-pts="2"] { background: #d1699d; }
-.tile[data-pts="3"] { background: #df8f46; }
-.tile[data-pts="4"] { background: #d5bc4a; }
-.tile[data-pts="5"] { background: #86b87a; }
-.tile[data-pts="7"] { background: #ae81c9; }
-.tile[data-pts="10"] { background: #6b96cd; }
+.tile[data-pts="1"] { background: #e4d1b3; }
+.tile[data-pts="2"] { background: #d880ac; }
+.tile[data-pts="3"] { background: #e4a062; }
+.tile[data-pts="4"] { background: #dbc665; }
+.tile[data-pts="5"] { background: #98c38e; }
+.tile[data-pts="7"] { background: #ba94d1; }
+.tile[data-pts="10"] { background: #81a6d5; }
 
 .best {
   display: flex;
