@@ -1,12 +1,12 @@
 // ChrisWerds — emulator
 // Implements the rules from GAME_DESIGN.md:
-// - 3 scrambles (14 tiles each) drawn once at game start, all shown on one
+// - 6 scrambles (10 tiles each) drawn once at game start, all shown on one
 //   page, all the SAME size — no enlarged "active" scramble anymore
 // - each rack has exactly two wildcard (blank) tiles, no more and no fewer
 // - every scramble is independently playable at all times: its own
 //   Shuffle button, its own clickable tiles, its own guess input
 // - each scramble tracks only its BEST scoring guess so far
-// - total score = sum of the 3 best scores, live-updated
+// - total score = sum of the 6 best scores, live-updated
 // - min word length 3, standard Scrabble letter values, dictionary-checked
 // - same word may be reused as best word across multiple scrambles
 // - no time penalty for invalid or non-improving guesses
@@ -30,8 +30,8 @@ const LETTER_DATA = {
   Y: { count: 2, points: 3 }, Z: { count: 1, points: 7 }, '?': { count: 2, points: 0 },
 };
 
-const RACK_SIZE = 14;
-const NUM_SCRAMBLES = 3;
+const RACK_SIZE = 10;
+const NUM_SCRAMBLES = 6;
 const MIN_WORD_LEN = 3;
 const GAME_SECONDS = 10 * 60;
 const MAX_DUPLICATE_LETTERS = 2;

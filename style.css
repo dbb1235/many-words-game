@@ -174,15 +174,15 @@ button:disabled {
 
 /* The word being built, as plain text — no tile boxes, no color. Each
    letter is still its own span so double-clicking one removes just that
-   letter (matches how the rack tiles work). Fixed width (room for all 14
-   rack tiles) so this column — and everything after it — lines up across
+   letter (matches how the rack tiles work). Fixed width (room for 10
+   letters) so this column — and everything after it — lines up across
    every scramble row regardless of how many letters are in the guess. */
 .guess-tiles-strip {
   display: flex;
   align-items: center;
   min-height: 34px;
-  width: 398px;
-  min-width: 398px;
+  width: 285px;
+  min-width: 285px;
   flex-shrink: 0;
   gap: 1px;
 }
