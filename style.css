@@ -325,6 +325,30 @@ button:disabled {
   color: #6b6355;
 }
 
+/* Announces this scramble's bonus rule: whichever letter lands on the
+   Nth position of the guess word scores double/triple. Randomized per
+   scramble, fixed for the whole game once dealt. */
+.bonus-badge {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #a67c1e;
+  background: #fbf0d9;
+  border: 1px solid #e8cf8a;
+  border-radius: 6px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+/* Highlights the actual letter, once typed, that's sitting in the bonus
+   position — visual confirmation the multiplier is being applied. */
+.guess-letter.bonus-letter {
+  color: #a67c1e;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
 @keyframes flash-green {
   0% { background: #dff3e3; }
   100% { background: #fff; }

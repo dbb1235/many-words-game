@@ -35,6 +35,7 @@ const NUM_SCRAMBLES = 6;
 const MIN_WORD_LEN = 3;
 const GAME_SECONDS = 10 * 60;
 const MAX_DUPLICATE_LETTERS = 2;
+const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th'];
 
 let scrambles = [];      // { tiles, bestWord, bestScore, displayTiles, guessOrigins }
 let scrambleCtxs = [];   // per-card DOM element bundle, parallel to `scrambles`
@@ -120,9 +121,15 @@ function startGame() {
     tiles.push({ letter: '?', points: 0 });
     tiles.push({ letter: '?', points: 0 });
     shuffle(tiles);
+    // Bonus square, ChrisWerds-style: since there's no shared board, the
+    // multiplier applies to whichever LETTER ends up in a given position
+    // of the guess word (1st-5th), not to any specific tile. Randomized
+    // per scramble, fixed for the whole game once dealt.
     scrambles.push({
       tiles, bestWord: '', bestScore: 0,
       displayTiles: alphabeticalOrderTiles(tiles), guessOrigins: [], isShuffled: false,
+      bonusPosition: 1 + Math.floor(Math.random() * 5),
+      bonusMultiplier: Math.random() < 0.5 ? 2 : 3,
     });
   }
 
@@ -171,8 +178,11 @@ function updateScore() {
 // Given a word and a scramble's tiles, determine if the word can be formed
 // (respecting duplicate letter counts, with blanks as 0-point wildcards),
 // preferring real tiles over blanks for every letter (maximizes score).
-// Returns the raw letter-value score, or null if it can't be formed.
-function scoreIfFormable(word, tiles) {
+// Whichever letter lands on the scramble's bonus position (1st-5th letter
+// of the guess) has its value multiplied — a property of the POSITION in
+// the word being built, not of any specific tile. Returns the raw
+// letter-value score (bonus included), or null if it can't be formed.
+function scoreIfFormable(word, tiles, bonusPosition, bonusMultiplier) {
   const available = {};
   let blanks = 0;
   for (const t of tiles) {
@@ -180,23 +190,27 @@ function scoreIfFormable(word, tiles) {
     else available[t.letter] = (available[t.letter] || 0) + 1;
   }
   let raw = 0;
-  for (const ch of word) {
+  for (let i = 0; i < word.length; i++) {
+    const ch = word[i];
+    let pts;
     if (available[ch] > 0) {
       available[ch]--;
-      raw += LETTER_DATA[ch].points;
+      pts = LETTER_DATA[ch].points;
     } else if (blanks > 0) {
       blanks--;
-      // blank contributes 0 points
+      pts = 0; // blank contributes 0 points
     } else {
       return null;
     }
+    if (i === bonusPosition - 1) pts *= bonusMultiplier;
+    raw += pts;
   }
   return raw;
 }
 
-function evaluateGuess(word, tiles) {
+function evaluateGuess(word, scramble) {
   if (word.length < MIN_WORD_LEN) return { valid: false };
-  const raw = scoreIfFormable(word, tiles);
+  const raw = scoreIfFormable(word, scramble.tiles, scramble.bonusPosition, scramble.bonusMultiplier);
   if (raw === null) return { valid: false };
   if (!WORD_LIST.has(word)) return { valid: false };
 
@@ -230,6 +244,7 @@ function renderGuessTiles(ctx) {
   Array.from(ctx.guessValue).forEach((ch, i) => {
     const span = document.createElement('span');
     span.className = 'guess-letter';
+    if (i === ctx.scramble.bonusPosition - 1) span.classList.add('bonus-letter');
     span.textContent = ch;
     span.addEventListener('dblclick', () => removeGuessChar(ctx, i));
     strip.appendChild(span);
@@ -246,7 +261,7 @@ function renderGuessTiles(ctx) {
 // while the in-progress guess isn't a real word yet.
 function updateLiveScore(ctx) {
   const word = ctx.guessValue.toUpperCase();
-  const result = evaluateGuess(word, ctx.scramble.tiles);
+  const result = evaluateGuess(word, ctx.scramble);
   if (!result.valid) {
     ctx.liveScoreEl.textContent = '';
     return;
@@ -429,6 +444,9 @@ function renderAllScrambles() {
     shuffleBtn.textContent = 'Shuffle';
     const tilesDiv = document.createElement('div');
     tilesDiv.className = 'tiles row-tiles';
+    const bonusBadge = document.createElement('span');
+    bonusBadge.className = 'bonus-badge';
+    bonusBadge.textContent = `${ORDINALS[scramble.bonusPosition - 1]} letter ×${scramble.bonusMultiplier}`;
     const guessTilesDiv = document.createElement('div');
     guessTilesDiv.className = 'guess-tiles-strip';
     const liveScoreSpan = document.createElement('span');
@@ -440,6 +458,7 @@ function renderAllScrambles() {
 
     top.appendChild(shuffleBtn);
     top.appendChild(tilesDiv);
+    top.appendChild(bonusBadge);
     top.appendChild(startOverBtn);
     top.appendChild(guessTilesDiv);
     top.appendChild(liveScoreSpan);
