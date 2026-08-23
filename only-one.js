@@ -215,10 +215,11 @@ function renderTileEls(tilesDiv, tiles) {
 
 // Each bottom-row cell independently has an 8% chance of being a 2L
 // bonus square; of whichever cells that leaves, each independently has
-// an 8% chance of being 3L. Same 8% both times, applied per-cell rather
-// than picking a fixed count — so the number of bonus cells in any given
-// row varies (could be zero, one of each, several, etc.).
-const BONUS_CHANCE = 0.08;
+// a 4% chance of being 3L. Applied per-cell rather than picking a fixed
+// count — so the number of bonus cells in any given row varies (could
+// be zero, one of each, several, etc.).
+const DOUBLE_LETTER_CHANCE = 0.08;
+const TRIPLE_LETTER_CHANCE = 0.04;
 
 // Same squares (same size/shape/color, driven by data-pts), but with no
 // letter or point number inside — used for the blank duplicate row. Also
@@ -232,9 +233,9 @@ function renderBlankTileEls(tilesDiv, tiles) {
     tile.dataset.pts = t.points;
     tilesDiv.appendChild(tile);
 
-    if (Math.random() < BONUS_CHANCE) {
+    if (Math.random() < DOUBLE_LETTER_CHANCE) {
       tile.dataset.bonus = '2L';
-    } else if (Math.random() < BONUS_CHANCE) {
+    } else if (Math.random() < TRIPLE_LETTER_CHANCE) {
       tile.dataset.bonus = '3L';
     }
     renderBottomBonusLabel(tile);
