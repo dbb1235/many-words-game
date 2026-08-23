@@ -380,6 +380,29 @@ function vacateBottomCell(cellEl) {
   cellEl.draggable = false;
 }
 
+// Wildcards always carry 0 points, no matter what letter has been chosen
+// for them, so points === 0 is the durable "this cell is a wildcard" test
+// — unlike checking for '?', it survives the letter being picked, and
+// survives the tile being moved, swapped, or dragged back up top.
+function isWildcardCell(cellEl) {
+  return cellEl.dataset.letter !== undefined && cellEl.dataset.pts === '0';
+}
+
+// Opens the same A-Z pulldown used on rack wildcards, but picking a
+// letter here just updates this bottom-row cell's own displayed letter
+// (still worth 0 points) rather than building a guess. Re-openable at any
+// time to change the pick.
+function toggleBottomWildcardMenu(ctx, cellEl) {
+  if (openMenuTile === cellEl) {
+    closeLetterMenu();
+    return;
+  }
+  openLetterMenu(ctx, cellEl, (letter) => {
+    cellEl.dataset.letter = letter;
+    cellEl.innerHTML = `<span class="letter">${letter}</span><span class="pts">0</span>`;
+  });
+}
+
 // Makes every cell in the blank bottom row both a drop target and (once
 // filled) a drag source, so tiles can land there from the top row and then
 // be freely rearranged among the bottom row's own cells afterward.
@@ -390,6 +413,14 @@ function attachBottomCellHandlers(ctx) {
   const cellEls = Array.from(ctx.tilesEl2.children);
   cellEls.forEach((cellEl) => {
     cellEl.draggable = false;
+
+    // Wildcard cells (0 points) stay clickable to pick/re-pick their letter,
+    // same as an unresolved '?' tile up in the top row.
+    cellEl.addEventListener('click', (e) => {
+      if (!isWildcardCell(cellEl)) return;
+      e.stopPropagation();
+      toggleBottomWildcardMenu(ctx, cellEl);
+    });
 
     cellEl.addEventListener('dragstart', (e) => {
       if (!cellEl.dataset.letter) {
@@ -456,12 +487,15 @@ function toggleLetterMenu(ctx, tileEl) {
     closeLetterMenu();
     return;
   }
-  openLetterMenu(ctx, tileEl);
+  openLetterMenu(ctx, tileEl, (letter) => appendGuessLetter(ctx, letter, tileEl));
 }
 
 // Pulldown of A-Z shown when a wildcard tile is clicked, so the player can
-// pick which letter that blank should spell in the guess.
-function openLetterMenu(ctx, tileEl) {
+// pick which letter that blank should spell. onSelect(letter) decides what
+// picking a letter actually does — the top row's rack tiles append it to
+// the in-progress guess, while a wildcard sitting in the bottom row just
+// updates its own displayed letter (see toggleBottomWildcardMenu below).
+function openLetterMenu(ctx, tileEl, onSelect) {
   closeLetterMenu();
   openMenuTile = tileEl;
   openMenuCtx = ctx;
@@ -476,7 +510,7 @@ function openLetterMenu(ctx, tileEl) {
     btn.textContent = letter;
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      appendGuessLetter(ctx, letter, tileEl);
+      onSelect(letter);
       closeLetterMenu();
     });
     menu.appendChild(btn);
