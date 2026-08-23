@@ -66,6 +66,17 @@
   font-size: 14px;
 }
 
+/* Colors a tile's point-value subscript by whichever bonus cell it's
+   sitting on — the cell's data-bonus attribute persists whether or not
+   a tile currently covers it, so this needs no JS: it just naturally
+   applies/reverts as tiles move on and off these cells. */
+.tile[data-bonus="2L"] .pts {
+  color: #d32f2f;
+}
+.tile[data-bonus="3L"] .pts {
+  color: #1565c0;
+}
+
 /* Hides the header's Score/Time stats — they're redundant with the Score
    and Time Left info blocks already shown lower on the page. Kept in the
    DOM (not removed from only-one.html) since only-one.js still updates
