@@ -2,6 +2,13 @@
    the shared style.css. Kept in its own file so nothing here ever touches
    the main ChrisWerds game. */
 
+/* Page background — overrides the shared cream background. Same
+   selector/specificity as style.css's rule, so normal cascade order
+   (this file loads after it) is enough to win. */
+body {
+  background: #1565c0;
+}
+
 /* Stacks the original tile row and its duplicate, with a small gap
    between them — 20% of a tile's 48px side (9.6px). */
 .tiles-stack {
@@ -17,11 +24,11 @@
   background: #fff !important;
 }
 
-/* Every top-row tile is tan (same tan style.css uses for 1-point tiles),
-   overriding the shared per-point-value coloring — filled bottom-row
-   cells get the same tan directly in JS (see TILE_FILL_COLOR). */
+/* Every top-row tile is white, overriding the shared per-point-value
+   coloring — filled bottom-row cells get the same white directly in JS
+   (see TILE_FILL_COLOR). */
 .tiles-stack > .tiles:not(.tiles-duplicate) .tile {
-  background: #dfc8a3 !important;
+  background: #fff !important;
 }
 
 /* Keeps the top row a valid drop target even once every tile has been

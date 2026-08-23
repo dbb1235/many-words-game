@@ -336,10 +336,9 @@ function attachTileClickHandlers(ctx) {
   });
 }
 
-// Every tile in this game is tan, regardless of point value — same tan
-// style.css already uses for 1-point tiles, applied uniformly instead of
-// varying by point value. See also the top-row override in only-one.css.
-const TILE_FILL_COLOR = '#dfc8a3';
+// Every tile in this game is white, regardless of point value. See also
+// the top-row override in only-one.css.
+const TILE_FILL_COLOR = '#fff';
 
 // The top-row tile element currently being dragged, so the drop handler
 // can empty it out once its contents land in the bottom row.
