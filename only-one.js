@@ -428,6 +428,12 @@ function renderAllScrambles() {
     shuffleBtn.textContent = 'Shuffle';
     const tilesDiv = document.createElement('div');
     tilesDiv.className = 'tiles row-tiles';
+    const tilesDiv2 = document.createElement('div');
+    tilesDiv2.className = 'tiles row-tiles tiles-duplicate';
+    const tilesStack = document.createElement('div');
+    tilesStack.className = 'tiles-stack';
+    tilesStack.appendChild(tilesDiv);
+    tilesStack.appendChild(tilesDiv2);
     const bonusBadge = document.createElement('span');
     bonusBadge.className = 'bonus-badge';
     bonusBadge.textContent = `${ORDINALS[scramble.bonusPosition - 1]} letter ×${scramble.bonusMultiplier}`;
@@ -441,7 +447,7 @@ function renderAllScrambles() {
     startOverBtn.textContent = 'Start Over';
 
     top.appendChild(shuffleBtn);
-    top.appendChild(tilesDiv);
+    top.appendChild(tilesStack);
     top.appendChild(bonusBadge);
     top.appendChild(startOverBtn);
     top.appendChild(guessTilesDiv);
@@ -460,6 +466,7 @@ function renderAllScrambles() {
     scrambleCtxs.push(ctx);
 
     renderTileEls(tilesDiv, scramble.displayTiles);
+    renderTileEls(tilesDiv2, scramble.displayTiles);
     attachTileClickHandlers(ctx);
     clearGuess(ctx);
 
@@ -475,6 +482,7 @@ function renderAllScrambles() {
         scramble.isShuffled = true;
       }
       renderTileEls(tilesDiv, scramble.displayTiles);
+      renderTileEls(tilesDiv2, scramble.displayTiles);
       attachTileClickHandlers(ctx);
       clearGuess(ctx);
     });

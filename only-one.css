@@ -1,0 +1,17 @@
+/* Only One — styling additions specific to this game, layered on top of
+   the shared style.css. Kept in its own file so nothing here ever touches
+   the main ChrisWerds game. */
+
+/* Stacks the original tile row and its duplicate directly on top of each
+   other, no gap, so the two rows read as one contiguous block. */
+.tiles-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Overlaps the shared 1.5px tile border between the two rows so they
+   share a single border line instead of a doubled-up one. */
+.tiles-stack .tiles-duplicate {
+  margin-top: -1.5px;
+}
