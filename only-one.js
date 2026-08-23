@@ -375,9 +375,14 @@ function attachBottomCellHandlers(ctx) {
       }));
     });
 
+    // dropEffect must match the source's effectAllowed ('copy' from the
+    // top row, 'move' from within the bottom row) or real browsers refuse
+    // the drop outright — a mismatch here silently blocked every top-row
+    // drag once any bottom-row rearrange had run.
     cellEl.addEventListener('dragover', (e) => {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
+      const fromBottomRow = dragSourceEl && dragSourceEl.parentElement === ctx.tilesEl2;
+      e.dataTransfer.dropEffect = fromBottomRow ? 'move' : 'copy';
     });
 
     cellEl.addEventListener('drop', (e) => {
