@@ -121,7 +121,6 @@ function startGame() {
   gameActive = true;
 
   el('game').classList.remove('hidden');
-  el('game-over').classList.add('hidden');
   el('start-btn').textContent = 'Restart';
   el('stop-btn').classList.remove('hidden');
   updateScore();
@@ -774,37 +773,7 @@ function endGame() {
   gameActive = false;
   clearInterval(timerHandle);
   closeLetterMenu();
-
-  let longest = '';
-  let highest = { word: '', score: -1 };
-
-  scrambles.forEach((s) => {
-    if (s.bestWord.length > longest.length) longest = s.bestWord;
-    if (s.bestScore > highest.score) highest = { word: s.bestWord, score: s.bestScore };
-  });
-
-  const rowsHtml = scrambles.map((s, i) => `
-    <tr>
-      <td>#${i + 1}</td>
-      <td>${s.tiles.map((t) => (t.letter === '?' ? '_' : t.letter)).join('')}</td>
-      <td>${s.bestWord || '—'}</td>
-      <td>${s.bestScore}</td>
-    </tr>
-  `).join('');
-
-  const stats = el('final-stats');
-  stats.innerHTML = `
-    <div class="stat-line"><span>Final score</span><span>${score}</span></div>
-    <div class="stat-line"><span>Longest best word</span><span>${longest || '—'}</span></div>
-    <div class="stat-line"><span>Highest-scoring word</span><span>${highest.word ? `${highest.word} (${highest.score})` : '—'}</span></div>
-    <table>
-      <thead><tr><th>#</th><th>Scramble</th><th>Best word</th><th>Score</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-  `;
-  el('game-over').classList.remove('hidden');
   el('stop-btn').classList.add('hidden');
 }
 
 el('start-btn').addEventListener('click', startGame);
-el('play-again-btn').addEventListener('click', startGame);
