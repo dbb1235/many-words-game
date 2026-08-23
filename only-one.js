@@ -311,31 +311,6 @@ function updateLiveScore(ctx) {
   }
 }
 
-// Marks rack tiles clickable (single click = append their letter to the
-// guess). Wildcards open a pulldown menu to choose which letter they stand
-// in for. Stops propagation so clicking a tile never also triggers a
-// parent row's "make this scramble active" click handler.
-function attachTileClickHandlers(ctx) {
-  const tileEls = Array.from(ctx.tilesEl.children);
-  tileEls.forEach((tileEl, i) => {
-    const tile = ctx.topTiles[i];
-    tileEl.classList.add('clickable-letter');
-    if (tile.letter === '?') {
-      tileEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (tileEl.classList.contains('used-in-guess')) return;
-        toggleLetterMenu(ctx, tileEl);
-      });
-    } else {
-      tileEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (tileEl.classList.contains('used-in-guess')) return;
-        appendGuessLetter(ctx, tile.letter, tileEl);
-      });
-    }
-  });
-}
-
 // Every tile in this game is white, regardless of point value. See also
 // the top-row override in only-one.css.
 const TILE_FILL_COLOR = '#fff';
@@ -345,13 +320,14 @@ const TILE_FILL_COLOR = '#fff';
 let dragSourceEl = null;
 
 // Lets every top-row tile be picked up and dragged (native HTML5 drag and
-// drop). Doesn't interfere with the existing click-to-append behavior —
-// dragstart and click are separate events.
+// drop) — the only way to interact with a top-row tile; clicking or
+// double-clicking one does nothing.
 function attachTileDragHandlers(ctx) {
   const tileEls = Array.from(ctx.tilesEl.children);
   tileEls.forEach((tileEl, i) => {
     const tile = ctx.topTiles[i];
     tileEl.draggable = true;
+    tileEl.classList.add('clickable-letter'); // cursor/hover styling only, no click handler
     tileEl.addEventListener('dragstart', (e) => {
       dragSourceEl = tileEl;
       e.dataTransfer.effectAllowed = 'copy';
@@ -367,12 +343,11 @@ function attachTileDragHandlers(ctx) {
 }
 
 // Rebuilds the top row from ctx.topTiles (the tiles still remaining up
-// there) and reattaches click/drag handlers. Used both for the initial
-// render and after a tile is dragged out, so the remaining tiles always
-// sit contiguous on the left with no gap left behind.
+// there) and reattaches drag handlers. Used both for the initial render
+// and after a tile is dragged out, so the remaining tiles always sit
+// contiguous on the left with no gap left behind.
 function renderTopRow(ctx) {
   renderTileEls(ctx.tilesEl, ctx.topTiles);
-  attachTileClickHandlers(ctx);
   attachTileDragHandlers(ctx);
 }
 
@@ -582,14 +557,6 @@ function attachBottomCellHandlers(ctx) {
 let openMenuTile = null;
 let openMenuCtx = null;
 
-function toggleLetterMenu(ctx, tileEl) {
-  if (openMenuTile === tileEl) {
-    closeLetterMenu();
-    return;
-  }
-  openLetterMenu(ctx, tileEl, (letter) => appendGuessLetter(ctx, letter, tileEl));
-}
-
 // Pulldown of A-Z shown when a wildcard tile is clicked, so the player can
 // pick which letter that blank should spell. onSelect(letter) decides what
 // picking a letter actually does — the top row's rack tiles append it to
@@ -666,13 +633,6 @@ function handleOutsideMenuClick(e) {
 
 function handleMenuEscape(e) {
   if (e.key === 'Escape') closeLetterMenu();
-}
-
-function appendGuessLetter(ctx, letter, originTile) {
-  ctx.guessValue += letter;
-  ctx.scramble.guessOrigins.push(originTile || null);
-  if (originTile) originTile.classList.add('used-in-guess');
-  renderGuessTiles(ctx);
 }
 
 // Removes one character (by position) from the guess — used when
