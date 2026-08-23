@@ -148,18 +148,9 @@ body {
   background: #f4f1ea;
 }
 
-.guess-summary-row.active {
-  background: #1565c0;
-  color: #fff;
-}
-
 .guess-summary-num {
   color: #6b6355;
   font-weight: 400;
-}
-
-.guess-summary-row.active .guess-summary-num {
-  color: #cfe0f7;
 }
 
 /* That scramble's fixed original letters — smaller/muted than the guess
@@ -172,10 +163,6 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.guess-summary-row.active .guess-summary-scramble {
-  color: #cfe0f7;
 }
 
 /* Blank until a word's been started in that guess row (see

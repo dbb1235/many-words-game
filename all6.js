@@ -596,13 +596,15 @@ function handleMenuEscape(e) {
 
 // Shows only the active scramble's tray/guess pair; the other 5 stay
 // dealt and rendered (so dragged tiles, wildcard picks, and scores all
-// stay intact) but hidden. Also updates which line is highlighted in the
-// summary list.
+// stay intact) but hidden. The summary list mirrors this the other way
+// around — it always lists the other 5 (never the one currently shown
+// above), so switching active scrambles both swaps which pair is
+// displayed and which row drops out of / reappears in the list.
 function setActiveScramble(index) {
   activeScrambleIndex = index;
   scrambleCtxs.forEach((ctx, i) => {
     ctx.cardEl.classList.toggle('hidden', i !== index);
-    ctx.summaryRowEl.classList.toggle('active', i === index);
+    ctx.summaryRowEl.classList.toggle('hidden', i === index);
   });
 }
 
