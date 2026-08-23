@@ -287,13 +287,13 @@ function attachTileClickHandlers(ctx) {
     if (tile.letter === '?') {
       tileEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (tileEl.classList.contains('used-in-guess')) return;
+        if (tileEl.classList.contains('used-in-guess') || tileEl.classList.contains('emptied')) return;
         toggleLetterMenu(ctx, tileEl);
       });
     } else {
       tileEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (tileEl.classList.contains('used-in-guess')) return;
+        if (tileEl.classList.contains('used-in-guess') || tileEl.classList.contains('emptied')) return;
         appendGuessLetter(ctx, tile.letter, tileEl);
       });
     }
@@ -308,15 +308,25 @@ const TILE_FILL_COLORS = {
   5: '#85be74', 7: '#aa85d3', 10: '#6597df',
 };
 
+// The top-row tile element currently being dragged, so the drop handler
+// can empty it out once its contents land in the bottom row.
+let dragSourceEl = null;
+
 // Lets every top-row tile be picked up and dragged (native HTML5 drag and
 // drop). Doesn't interfere with the existing click-to-append behavior —
-// dragstart and click are separate events.
+// dragstart and click are separate events. A tile already emptied by a
+// previous drag can't be dragged again — there's nothing left to move.
 function attachTileDragHandlers(ctx) {
   const tileEls = Array.from(ctx.tilesEl.children);
   tileEls.forEach((tileEl, i) => {
     const tile = ctx.scramble.displayTiles[i];
     tileEl.draggable = true;
     tileEl.addEventListener('dragstart', (e) => {
+      if (tileEl.classList.contains('emptied')) {
+        e.preventDefault();
+        return;
+      }
+      dragSourceEl = tileEl;
       e.dataTransfer.effectAllowed = 'copy';
       e.dataTransfer.setData('application/json', JSON.stringify(tile));
     });
@@ -325,7 +335,8 @@ function attachTileDragHandlers(ctx) {
 
 // Makes every cell in the blank bottom row a drop target — dropping a top
 // tile onto one copies that tile's letter, point number, and color into
-// the dropped-on cell.
+// the dropped-on cell, then empties out the specific top-row cell it came
+// from (just that cell, not the whole row).
 function attachBottomDropHandlers(ctx) {
   const cellEls = Array.from(ctx.tilesEl2.children);
   cellEls.forEach((cellEl) => {
@@ -339,6 +350,13 @@ function attachBottomDropHandlers(ctx) {
       cellEl.dataset.pts = tile.points;
       cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${tile.points}</span>`;
       cellEl.style.setProperty('background', TILE_FILL_COLORS[tile.points] ?? '#fff', 'important');
+
+      if (dragSourceEl) {
+        dragSourceEl.innerHTML = '';
+        dragSourceEl.classList.add('emptied');
+        dragSourceEl.style.setProperty('background', '#fff', 'important');
+        dragSourceEl = null;
+      }
     });
   });
 }
