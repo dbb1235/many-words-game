@@ -333,28 +333,69 @@ function attachTileDragHandlers(ctx) {
   });
 }
 
-// Makes every cell in the blank bottom row a drop target — dropping a top
-// tile onto one copies that tile's letter, point number, and color into
-// the dropped-on cell, then empties out the specific top-row cell it came
-// from (just that cell, not the whole row).
-function attachBottomDropHandlers(ctx) {
+// Puts a tile's letter/points/color into a bottom-row cell — used both for
+// a fresh drop from the top row and for rearranging within the bottom row.
+function fillBottomCell(cellEl, tile) {
+  cellEl.dataset.pts = tile.points;
+  cellEl.dataset.letter = tile.letter;
+  cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${tile.points}</span>`;
+  cellEl.style.setProperty('background', TILE_FILL_COLORS[tile.points] ?? '#fff', 'important');
+  cellEl.draggable = true;
+}
+
+// Clears a bottom-row cell back to vacant/white and un-draggable.
+function vacateBottomCell(cellEl) {
+  cellEl.innerHTML = '';
+  delete cellEl.dataset.letter;
+  cellEl.style.setProperty('background', '#fff', 'important');
+  cellEl.draggable = false;
+}
+
+// Makes every cell in the blank bottom row both a drop target and (once
+// filled) a drag source, so tiles can land there from the top row and then
+// be freely rearranged among the bottom row's own cells afterward.
+// Dropping a top-row tile always lands (overwriting whatever was there);
+// dragging a bottom-row tile onto another bottom-row cell only lands if
+// that cell is vacant — that's the "move to any vacant cell" rule.
+function attachBottomCellHandlers(ctx) {
   const cellEls = Array.from(ctx.tilesEl2.children);
   cellEls.forEach((cellEl) => {
+    cellEl.draggable = false;
+
+    cellEl.addEventListener('dragstart', (e) => {
+      if (!cellEl.dataset.letter) {
+        e.preventDefault();
+        return;
+      }
+      dragSourceEl = cellEl;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('application/json', JSON.stringify({
+        letter: cellEl.dataset.letter,
+        points: Number(cellEl.dataset.pts),
+      }));
+    });
+
     cellEl.addEventListener('dragover', (e) => {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
+      e.dataTransfer.dropEffect = 'move';
     });
+
     cellEl.addEventListener('drop', (e) => {
       e.preventDefault();
+      const fromBottomRow = dragSourceEl && dragSourceEl.parentElement === ctx.tilesEl2;
+      if (fromBottomRow && cellEl.dataset.letter) return; // target must be vacant
+
       const tile = JSON.parse(e.dataTransfer.getData('application/json'));
-      cellEl.dataset.pts = tile.points;
-      cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${tile.points}</span>`;
-      cellEl.style.setProperty('background', TILE_FILL_COLORS[tile.points] ?? '#fff', 'important');
+      fillBottomCell(cellEl, tile);
 
       if (dragSourceEl) {
-        dragSourceEl.innerHTML = '';
-        dragSourceEl.classList.add('emptied');
-        dragSourceEl.style.setProperty('background', '#fff', 'important');
+        if (fromBottomRow) {
+          vacateBottomCell(dragSourceEl);
+        } else {
+          dragSourceEl.innerHTML = '';
+          dragSourceEl.classList.add('emptied');
+          dragSourceEl.style.setProperty('background', '#fff', 'important');
+        }
         dragSourceEl = null;
       }
     });
@@ -543,7 +584,7 @@ function renderAllScrambles() {
     renderBlankTileEls(tilesDiv2, scramble.displayTiles);
     attachTileClickHandlers(ctx);
     attachTileDragHandlers(ctx);
-    attachBottomDropHandlers(ctx);
+    attachBottomCellHandlers(ctx);
     clearGuess(ctx);
 
     startOverBtn.addEventListener('click', () => clearGuess(ctx));
@@ -561,7 +602,7 @@ function renderAllScrambles() {
       renderBlankTileEls(tilesDiv2, scramble.displayTiles);
       attachTileClickHandlers(ctx);
       attachTileDragHandlers(ctx);
-      attachBottomDropHandlers(ctx);
+      attachBottomCellHandlers(ctx);
       clearGuess(ctx);
     });
   });
