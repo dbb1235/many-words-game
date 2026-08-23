@@ -372,6 +372,14 @@ function renderTopRow(ctx) {
   attachTileDragHandlers(ctx);
 }
 
+// A wildcard (0 points) reverts to an unresolved '?' whenever it lands
+// back in the top row — whatever letter was picked for it while it sat
+// in the bottom row only applied there, same as it never touched the
+// underlying tile object for a top-row wildcard in the first place.
+function asTopRowTile(tile) {
+  return tile.points === 0 ? { letter: '?', points: 0 } : tile;
+}
+
 // Makes the top row itself (the container, not any one cell) a drop
 // target, so a tile can be dragged back up from the bottom row. The top
 // row compacts and has no fixed empty slots to return a tile to, so it
@@ -389,7 +397,7 @@ function attachTopRowDropHandler(ctx) {
     if (!dragSourceEl || dragSourceEl.parentElement !== ctx.tilesEl2) return;
     e.preventDefault();
     const tile = JSON.parse(e.dataTransfer.getData('application/json'));
-    ctx.topTiles.push(tile);
+    ctx.topTiles.push(asTopRowTile(tile));
     vacateBottomCell(dragSourceEl);
     dragSourceEl = null;
     renderTopRow(ctx);
@@ -547,7 +555,7 @@ function attachBottomCellHandlers(ctx) {
       }
 
       if (displaced) {
-        ctx.topTiles.push(displaced);
+        ctx.topTiles.push(asTopRowTile(displaced));
         topRowChanged = true;
       }
 
