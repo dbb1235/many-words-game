@@ -1,0 +1,117 @@
+/* ALL6 — builds on Only One's styling (only-one.css): same theme, same
+   layered-on-top-of-style.css approach, but with 6 scramble cards
+   stacked vertically instead of 1. Kept in its own file so nothing here
+   ever touches the main ChrisWerds game or Only One. */
+
+/* Page background — overrides the shared cream background. Same
+   selector/specificity as style.css's rule, so normal cascade order
+   (this file loads after it) is enough to win. */
+body {
+  background: #1565c0;
+}
+
+/* Removes the shared white "card" box behind each scramble's tile rows
+   so the blue page background touches the tiles directly instead of
+   stopping at a white panel around them. */
+.scramble-card {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Stacks a scramble's original tile row and its duplicate, with a small
+   gap between them — 20% of a tile's 48px side (9.6px). */
+.tiles-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 9.6px;
+}
+
+/* White/blank squares — overrides the shared per-point-value coloring
+   (.tile[data-pts="N"]) from style.css, which has equal selector
+   specificity, so !important is needed to win regardless of rule order. */
+.tiles-stack .tiles-duplicate .tile {
+  background: #fff !important;
+}
+
+/* Every top-row tile is white, overriding the shared per-point-value
+   coloring — filled bottom-row cells get the same white directly in JS
+   (see TILE_FILL_COLOR). */
+.tiles-stack > .tiles:not(.tiles-duplicate) .tile {
+  background: #fff !important;
+}
+
+/* Keeps a scramble's top row a valid drop target even once every tile
+   has been dragged out of it and it has no children left to give it
+   height. */
+.tiles-stack > .tiles:not(.tiles-duplicate) {
+  min-height: 48px;
+}
+
+/* Bonus-square label (2L/3L) on an uncovered bottom-row cell — same font
+   size as the point numbers in the corner of the top-row tiles (16px).
+   The cell itself is already a centering flex container (shared .tile
+   rule), so this just needs its own size/weight/color. */
+.bottom-bonus-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #6b6355;
+}
+
+/* Live score for whatever word is currently spelled out in a scramble's
+   bottom row — 0 by default/while invalid, else the sum of the placed
+   letters' point values (wildcards always contribute 0). Sits
+   immediately to the right of that scramble's two tile rows. */
+.bottom-word-score {
+  font-size: 27.5px;
+  font-weight: 700;
+  color: #fff;
+  margin-left: 14px;
+}
+
+/* Dims a tile for the duration of an active drag (see attachTileDragHandlers
+   / attachBottomCellHandlers) so the source doesn't read as a second, extra
+   tile next to the browser's native drag-ghost image following the cursor. */
+.tile-lifted {
+  opacity: 0.35;
+}
+
+/* Point-value subscript on every tile, 12% smaller than the shared
+   style.css default (16px -> ~14px). Same selector/specificity as the
+   shared rule, so normal cascade order (this file loads after style.css)
+   is enough to win — no !important needed. */
+.tile .pts {
+  font-size: 14px;
+}
+
+/* Colors a tile's letter AND point-value subscript by whichever bonus
+   cell it's sitting on — the cell's data-bonus attribute persists
+   whether or not a tile currently covers it, so this needs no JS: it
+   just naturally applies/reverts as tiles move on and off these cells. */
+.tile[data-bonus="2L"] .letter,
+.tile[data-bonus="2L"] .pts {
+  color: #d32f2f;
+}
+.tile[data-bonus="3L"] .letter,
+.tile[data-bonus="3L"] .pts {
+  color: #1565c0;
+}
+
+/* Shuffle button background — overrides the shared gold button color. */
+.row-shuffle-btn {
+  background: #ffeb3b;
+}
+
+/* Hides the header's Score/Time stats — they're redundant with the Score
+   and Time Left info blocks already shown lower on the page. Kept in the
+   DOM (not removed from all6.html) since all6.js still updates
+   #score/#timer every tick; just visually gone. */
+#top-bar .stat {
+  display: none;
+}
+
+/* Space between the 6 stacked scramble cards, since the shared #scrambles
+   gap (12px) was tuned for the denser 6-card ChrisWerds layout — a
+   little extra room reads better with two rows + word score per card. */
+#scrambles {
+  gap: 20px;
+}
