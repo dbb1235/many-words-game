@@ -28,3 +28,13 @@
 .tiles-stack > .tiles:not(.tiles-duplicate) {
   min-height: 48px;
 }
+
+/* Bonus-square label (2W/3L) on an uncovered bottom-row cell — same font
+   size as the point numbers in the corner of the top-row tiles (16px).
+   The cell itself is already a centering flex container (shared .tile
+   rule), so this just needs its own size/weight/color. */
+.bottom-bonus-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #6b6355;
+}

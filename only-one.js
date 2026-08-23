@@ -215,15 +215,43 @@ function renderTileEls(tilesDiv, tiles) {
 }
 
 // Same squares (same size/shape/color, driven by data-pts), but with no
-// letter or point number inside — used for the blank duplicate row.
+// letter or point number inside — used for the blank duplicate row. Also
+// randomly marks two distinct cells as bonus squares (2W / 3L, Scrabble-
+// board style) — see renderBottomBonusLabel.
 function renderBlankTileEls(tilesDiv, tiles) {
   tilesDiv.innerHTML = '';
-  tiles.forEach((t) => {
+  const cells = tiles.map((t) => {
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.dataset.pts = t.points;
     tilesDiv.appendChild(tile);
+    return tile;
   });
+
+  const [wordCellIdx, letterCellIdx] = pickTwoDistinctIndices(cells.length);
+  cells[wordCellIdx].dataset.bonus = '2W';
+  cells[letterCellIdx].dataset.bonus = '3L';
+  renderBottomBonusLabel(cells[wordCellIdx]);
+  renderBottomBonusLabel(cells[letterCellIdx]);
+}
+
+// Picks two different random indices in [0, total).
+function pickTwoDistinctIndices(total) {
+  const first = Math.floor(Math.random() * total);
+  let second = Math.floor(Math.random() * total);
+  while (second === first) second = Math.floor(Math.random() * total);
+  return [first, second];
+}
+
+// Shows a bottom-row cell's bonus label (2W/3L), same small font as the
+// point numbers on the top-row tiles. A no-op if the cell has no bonus.
+function renderBottomBonusLabel(cellEl) {
+  if (!cellEl.dataset.bonus) return;
+  cellEl.innerHTML = '';
+  const span = document.createElement('span');
+  span.className = 'bottom-bonus-label';
+  span.textContent = cellEl.dataset.bonus;
+  cellEl.appendChild(span);
 }
 
 // --- Per-scramble guess building (click-to-build only, no typing) ---
@@ -371,12 +399,15 @@ function fillBottomCell(cellEl, tile) {
   cellEl.draggable = true;
 }
 
-// Clears a bottom-row cell back to vacant/white and un-draggable.
+// Clears a bottom-row cell back to vacant/white and un-draggable. If this
+// cell is a bonus square, its 2W/3L label reappears now that nothing
+// covers it — same as an uncovered bonus square on a Scrabble board.
 function vacateBottomCell(cellEl) {
   cellEl.innerHTML = '';
   delete cellEl.dataset.letter;
   cellEl.style.setProperty('background', '#fff', 'important');
   cellEl.draggable = false;
+  renderBottomBonusLabel(cellEl);
 }
 
 // Wildcards always carry 0 points, no matter what letter has been chosen
