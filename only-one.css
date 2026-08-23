@@ -62,7 +62,7 @@ body {
 .bottom-word-score {
   font-size: 27.5px;
   font-weight: 700;
-  color: #2f8f4e;
+  color: #fff;
   margin-left: 14px;
 }
 
@@ -92,6 +92,11 @@ body {
 .tile[data-bonus="3L"] .letter,
 .tile[data-bonus="3L"] .pts {
   color: #1565c0;
+}
+
+/* Shuffle button background — overrides the shared gold button color. */
+.row-shuffle-btn {
+  background: #ffeb3b;
 }
 
 /* Hides the header's Score/Time stats — they're redundant with the Score
