@@ -300,6 +300,49 @@ function attachTileClickHandlers(ctx) {
   });
 }
 
+// Maps a tile's point value to the same fill color style.css uses for
+// .tile[data-pts="N"], so a tile dropped into the blank bottom row looks
+// identical to its source tile in the top row (0 = wildcard's default).
+const TILE_FILL_COLORS = {
+  0: '#76cdc1', 1: '#dfc8a3', 2: '#da748e', 3: '#e59c5a', 4: '#dfcb65',
+  5: '#85be74', 7: '#aa85d3', 10: '#6597df',
+};
+
+// Lets every top-row tile be picked up and dragged (native HTML5 drag and
+// drop). Doesn't interfere with the existing click-to-append behavior —
+// dragstart and click are separate events.
+function attachTileDragHandlers(ctx) {
+  const tileEls = Array.from(ctx.tilesEl.children);
+  tileEls.forEach((tileEl, i) => {
+    const tile = ctx.scramble.displayTiles[i];
+    tileEl.draggable = true;
+    tileEl.addEventListener('dragstart', (e) => {
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('application/json', JSON.stringify(tile));
+    });
+  });
+}
+
+// Makes every cell in the blank bottom row a drop target — dropping a top
+// tile onto one copies that tile's letter, point number, and color into
+// the dropped-on cell.
+function attachBottomDropHandlers(ctx) {
+  const cellEls = Array.from(ctx.tilesEl2.children);
+  cellEls.forEach((cellEl) => {
+    cellEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    cellEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const tile = JSON.parse(e.dataTransfer.getData('application/json'));
+      cellEl.dataset.pts = tile.points;
+      cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${tile.points}</span>`;
+      cellEl.style.setProperty('background', TILE_FILL_COLORS[tile.points] ?? '#fff', 'important');
+    });
+  });
+}
+
 let openMenuTile = null;
 let openMenuCtx = null;
 
@@ -470,6 +513,7 @@ function renderAllScrambles() {
     const ctx = {
       scramble,
       tilesEl: tilesDiv,
+      tilesEl2: tilesDiv2,
       guessTilesEl: guessTilesDiv,
       guessValue: '',
       cardEl: card,
@@ -480,6 +524,8 @@ function renderAllScrambles() {
     renderTileEls(tilesDiv, scramble.displayTiles);
     renderBlankTileEls(tilesDiv2, scramble.displayTiles);
     attachTileClickHandlers(ctx);
+    attachTileDragHandlers(ctx);
+    attachBottomDropHandlers(ctx);
     clearGuess(ctx);
 
     startOverBtn.addEventListener('click', () => clearGuess(ctx));
@@ -496,6 +542,8 @@ function renderAllScrambles() {
       renderTileEls(tilesDiv, scramble.displayTiles);
       renderBlankTileEls(tilesDiv2, scramble.displayTiles);
       attachTileClickHandlers(ctx);
+      attachTileDragHandlers(ctx);
+      attachBottomDropHandlers(ctx);
       clearGuess(ctx);
     });
   });
