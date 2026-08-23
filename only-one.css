@@ -15,3 +15,10 @@
 .tiles-stack .tiles-duplicate {
   margin-top: -1.5px;
 }
+
+/* White/blank squares — overrides the shared per-point-value coloring
+   (.tile[data-pts="N"]) from style.css, which has equal selector
+   specificity, so !important is needed to win regardless of rule order. */
+.tiles-stack .tiles-duplicate .tile {
+  background: #fff !important;
+}
