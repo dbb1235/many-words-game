@@ -215,6 +215,18 @@ function renderTileEls(tilesDiv, tiles) {
   });
 }
 
+// Same squares (same size/shape/color, driven by data-pts), but with no
+// letter or point number inside — used for the blank duplicate row.
+function renderBlankTileEls(tilesDiv, tiles) {
+  tilesDiv.innerHTML = '';
+  tiles.forEach((t) => {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.dataset.pts = t.points;
+    tilesDiv.appendChild(tile);
+  });
+}
+
 // --- Per-scramble guess building (click-to-build only, no typing) ---
 // A "ctx" bundles a scramble with the specific DOM elements that drive it.
 
@@ -466,7 +478,7 @@ function renderAllScrambles() {
     scrambleCtxs.push(ctx);
 
     renderTileEls(tilesDiv, scramble.displayTiles);
-    renderTileEls(tilesDiv2, scramble.displayTiles);
+    renderBlankTileEls(tilesDiv2, scramble.displayTiles);
     attachTileClickHandlers(ctx);
     clearGuess(ctx);
 
@@ -482,7 +494,7 @@ function renderAllScrambles() {
         scramble.isShuffled = true;
       }
       renderTileEls(tilesDiv, scramble.displayTiles);
-      renderTileEls(tilesDiv2, scramble.displayTiles);
+      renderBlankTileEls(tilesDiv2, scramble.displayTiles);
       attachTileClickHandlers(ctx);
       clearGuess(ctx);
     });
