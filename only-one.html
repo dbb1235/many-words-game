@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Only One</title>
+<link rel="stylesheet" href="style.css?v=41">
+</head>
+<body>
+
+<header id="top-bar">
+  <div class="brand">Only One</div>
+  <div class="stat"><span class="label">Score</span><span id="score">0</span></div>
+  <div class="stat"><span class="label">Time</span><span id="timer">10:00</span></div>
+  <button id="start-btn">Start Game</button>
+  <button id="stop-btn" class="hidden">Stop Game</button>
+</header>
+
+<main id="game" class="hidden">
+  <div id="scrambles"></div>
+  <div id="info-blocks">
+    <div class="info-block" id="info-block-1">Info block 1</div>
+    <div class="info-block" id="info-block-2">Info block 2</div>
+    <div class="info-block info-block-stat" id="info-block-3">
+      <div class="info-block-label">Time Left</div>
+      <div class="info-block-value" id="info-timer">10:00</div>
+    </div>
+    <div class="info-block info-block-stat" id="info-block-4">
+      <div class="info-block-label">Score</div>
+      <div class="info-block-value" id="info-score">0</div>
+    </div>
+  </div>
+</main>
+
+<div id="game-over" class="hidden">
+  <div class="panel">
+    <h2>Time's up!</h2>
+    <div id="final-stats"></div>
+    <button id="play-again-btn">Play Again</button>
+  </div>
+</div>
+
+<script src="words.js"></script>
+<script src="only-one.js?v=1"></script>
+</body>
+</html>
