@@ -58,6 +58,14 @@
   opacity: 0.35;
 }
 
+/* Point-value subscript on every tile, 12% smaller than the shared
+   style.css default (16px -> ~14px). Same selector/specificity as the
+   shared rule, so normal cascade order (this file loads after style.css)
+   is enough to win — no !important needed. */
+.tile .pts {
+  font-size: 14px;
+}
+
 /* Hides the header's Score/Time stats — they're redundant with the Score
    and Time Left info blocks already shown lower on the page. Kept in the
    DOM (not removed from only-one.html) since only-one.js still updates
