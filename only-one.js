@@ -332,13 +332,10 @@ function attachTileClickHandlers(ctx) {
   });
 }
 
-// Maps a tile's point value to the same fill color style.css uses for
-// .tile[data-pts="N"], so a tile dropped into the blank bottom row looks
-// identical to its source tile in the top row (0 = wildcard's default).
-const TILE_FILL_COLORS = {
-  0: '#76cdc1', 1: '#dfc8a3', 2: '#da748e', 3: '#e59c5a', 4: '#dfcb65',
-  5: '#85be74', 7: '#aa85d3', 10: '#6597df',
-};
+// Every tile in this game is tan, regardless of point value — same tan
+// style.css already uses for 1-point tiles, applied uniformly instead of
+// varying by point value. See also the top-row override in only-one.css.
+const TILE_FILL_COLOR = '#dfc8a3';
 
 // The top-row tile element currently being dragged, so the drop handler
 // can empty it out once its contents land in the bottom row.
@@ -400,7 +397,7 @@ function fillBottomCell(cellEl, tile) {
   cellEl.dataset.pts = tile.points;
   cellEl.dataset.letter = tile.letter;
   cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${tile.points}</span>`;
-  cellEl.style.setProperty('background', TILE_FILL_COLORS[tile.points] ?? '#fff', 'important');
+  cellEl.style.setProperty('background', TILE_FILL_COLOR, 'important');
   cellEl.draggable = true;
   updateBottomWordScore();
 }

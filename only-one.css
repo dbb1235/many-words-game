@@ -17,6 +17,13 @@
   background: #fff !important;
 }
 
+/* Every top-row tile is tan (same tan style.css uses for 1-point tiles),
+   overriding the shared per-point-value coloring — filled bottom-row
+   cells get the same tan directly in JS (see TILE_FILL_COLOR). */
+.tiles-stack > .tiles:not(.tiles-duplicate) .tile {
+  background: #dfc8a3 !important;
+}
+
 /* Keeps the top row a valid drop target even once every tile has been
    dragged out of it and it has no children left to give it height. */
 .tiles-stack > .tiles:not(.tiles-duplicate) {
