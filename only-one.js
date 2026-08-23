@@ -412,6 +412,11 @@ function fillBottomCell(cellEl, tile) {
   cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${tile.points}</span>`;
   cellEl.style.setProperty('background', TILE_FILL_COLOR, 'important');
   cellEl.draggable = true;
+  // Defensive: a cell being filled is never still mid-drag itself, so any
+  // leftover dim-while-dragging state (see attachTileDragHandlers) can't
+  // legitimately still apply here — clear it rather than risk it getting
+  // stuck faded if a 'dragend' was ever missed.
+  cellEl.classList.remove('tile-lifted');
   updateBottomWordScore();
 }
 
@@ -423,6 +428,7 @@ function vacateBottomCell(cellEl) {
   delete cellEl.dataset.letter;
   cellEl.style.setProperty('background', '#fff', 'important');
   cellEl.draggable = false;
+  cellEl.classList.remove('tile-lifted');
   renderBottomBonusLabel(cellEl);
   updateBottomWordScore();
 }
