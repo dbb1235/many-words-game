@@ -38,3 +38,11 @@
   font-weight: 700;
   color: #6b6355;
 }
+
+/* Hides the header's Score/Time stats — they're redundant with the Score
+   and Time Left info blocks already shown lower on the page. Kept in the
+   DOM (not removed from only-one.html) since only-one.js still updates
+   #score/#timer every tick; just visually gone. */
+#top-bar .stat {
+  display: none;
+}
