@@ -353,7 +353,13 @@ function attachTileDragHandlers(ctx) {
       dragSourceEl = tileEl;
       e.dataTransfer.effectAllowed = 'copy';
       e.dataTransfer.setData('application/json', JSON.stringify(tile));
+      // Dims the source tile for the duration of the drag so it reads as
+      // "picked up" rather than duplicated — the browser's native drag
+      // image already shows a copy following the cursor, so without this
+      // the original sitting in place looks like a second, extra tile.
+      tileEl.classList.add('tile-lifted');
     });
+    tileEl.addEventListener('dragend', () => tileEl.classList.remove('tile-lifted'));
   });
 }
 
@@ -496,7 +502,12 @@ function attachBottomCellHandlers(ctx) {
         letter: cellEl.dataset.letter,
         points: Number(cellEl.dataset.pts),
       }));
+      // See attachTileDragHandlers — dims the source for the drag's
+      // duration so it doesn't look like a second, extra tile next to the
+      // browser's native drag-ghost image following the cursor.
+      cellEl.classList.add('tile-lifted');
     });
+    cellEl.addEventListener('dragend', () => cellEl.classList.remove('tile-lifted'));
 
     // dropEffect must match the source's effectAllowed ('copy' from the
     // top row, 'move' from within the bottom row) or real browsers refuse
@@ -513,40 +524,35 @@ function attachBottomCellHandlers(ctx) {
       const fromBottomRow = dragSourceEl && dragSourceEl.parentElement === ctx.tilesEl2;
       const tile = JSON.parse(e.dataTransfer.getData('application/json'));
 
-      // Bottom-row tile dropped onto an already-occupied bottom cell:
-      // swap the two tiles' contents instead of refusing the drop.
-      if (fromBottomRow && cellEl.dataset.letter) {
-        const targetTile = { letter: cellEl.dataset.letter, points: Number(cellEl.dataset.pts) };
-        fillBottomCell(cellEl, tile);
-        fillBottomCell(dragSourceEl, targetTile);
-        dragSourceEl = null;
-        return;
-      }
-
-      // A top-row tile dropped onto an already-occupied bottom cell: the
-      // cell's previous occupant would otherwise just be overwritten and
-      // lost, so send it back up to the top row instead — the two trade
-      // places rather than one silently vanishing.
-      const displacedFromBottom = (!fromBottomRow && cellEl.dataset.letter)
+      // Whatever already occupied the target cell is displaced back up to
+      // the top row (never lost, never swapped into the drag source) —
+      // so wherever you dragged FROM always ends up blank, whether that
+      // source was the top row or another bottom cell.
+      const displaced = cellEl.dataset.letter
         ? { letter: cellEl.dataset.letter, points: Number(cellEl.dataset.pts) }
         : null;
 
       fillBottomCell(cellEl, tile);
 
+      let topRowChanged = false;
       if (dragSourceEl) {
         if (fromBottomRow) {
-          // Bottom-row rearranges onto a vacant cell leave it empty behind.
           vacateBottomCell(dragSourceEl);
         } else {
-          // Top-row tiles don't leave a gap — remove it from the list and
-          // rebuild the row so the rest slide left to close the space.
+          // Top-row tiles don't leave a gap — remove it from the list so
+          // the rest slide left to close the space.
           const idx = Array.from(ctx.tilesEl.children).indexOf(dragSourceEl);
-          if (idx !== -1) ctx.topTiles.splice(idx, 1);
-          if (displacedFromBottom) ctx.topTiles.push(displacedFromBottom);
-          renderTopRow(ctx);
+          if (idx !== -1) { ctx.topTiles.splice(idx, 1); topRowChanged = true; }
         }
         dragSourceEl = null;
       }
+
+      if (displaced) {
+        ctx.topTiles.push(displaced);
+        topRowChanged = true;
+      }
+
+      if (topRowChanged) renderTopRow(ctx);
     });
   });
 }

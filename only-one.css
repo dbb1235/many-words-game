@@ -51,6 +51,13 @@
   margin-left: 14px;
 }
 
+/* Dims a tile for the duration of an active drag (see attachTileDragHandlers
+   / attachBottomCellHandlers) so the source doesn't read as a second, extra
+   tile next to the browser's native drag-ghost image following the cursor. */
+.tile-lifted {
+  opacity: 0.35;
+}
+
 /* Hides the header's Score/Time stats — they're redundant with the Score
    and Time Left info blocks already shown lower on the page. Kept in the
    DOM (not removed from only-one.html) since only-one.js still updates
