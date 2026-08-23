@@ -213,38 +213,32 @@ function renderTileEls(tilesDiv, tiles) {
   });
 }
 
-// How many of the bottom row's leading cells are eligible to be picked as
-// a letter-multiplier bonus square.
-const BONUS_CELL_RANGE = 6;
+// Each bottom-row cell independently has an 8% chance of being a 2L
+// bonus square; of whichever cells that leaves, each independently has
+// an 8% chance of being 3L. Same 8% both times, applied per-cell rather
+// than picking a fixed count — so the number of bonus cells in any given
+// row varies (could be zero, one of each, several, etc.).
+const BONUS_CHANCE = 0.08;
 
 // Same squares (same size/shape/color, driven by data-pts), but with no
 // letter or point number inside — used for the blank duplicate row. Also
-// randomly marks two distinct cells, from among the first BONUS_CELL_RANGE
-// cells only, as letter-multiplier bonus squares (2L / 3L) — see
+// rolls each cell for a letter-multiplier bonus (2L / 3L) — see
 // renderBottomBonusLabel.
 function renderBlankTileEls(tilesDiv, tiles) {
   tilesDiv.innerHTML = '';
-  const cells = tiles.map((t) => {
+  tiles.forEach((t) => {
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.dataset.pts = t.points;
     tilesDiv.appendChild(tile);
-    return tile;
+
+    if (Math.random() < BONUS_CHANCE) {
+      tile.dataset.bonus = '2L';
+    } else if (Math.random() < BONUS_CHANCE) {
+      tile.dataset.bonus = '3L';
+    }
+    renderBottomBonusLabel(tile);
   });
-
-  const [doubleCellIdx, tripleCellIdx] = pickTwoDistinctIndices(Math.min(BONUS_CELL_RANGE, cells.length));
-  cells[doubleCellIdx].dataset.bonus = '2L';
-  cells[tripleCellIdx].dataset.bonus = '3L';
-  renderBottomBonusLabel(cells[doubleCellIdx]);
-  renderBottomBonusLabel(cells[tripleCellIdx]);
-}
-
-// Picks two different random indices in [0, total).
-function pickTwoDistinctIndices(total) {
-  const first = Math.floor(Math.random() * total);
-  let second = Math.floor(Math.random() * total);
-  while (second === first) second = Math.floor(Math.random() * total);
-  return [first, second];
 }
 
 // Shows a bottom-row cell's bonus label (2L/3L), same small font as the
