@@ -53,18 +53,12 @@ function shuffle(arr) {
   return arr;
 }
 
-// Tile colors run in spectrum (wavelength) order — see the
-// data-pts color rules in style.css: red(2) orange(3) tan(1) yellow(4)
-// green(5) teal/wildcard(0) blue(10) purple(7), long wavelength to short.
-const WAVELENGTH_RANK = { 2: 0, 3: 1, 1: 2, 4: 3, 5: 4, 0: 5, 10: 6, 7: 7 };
-
-// Default display order: by tile color, arranged in spectrum order
-// (matches WAVELENGTH_RANK) rather than by point value — but the two
+// Default/reset display order: alphabetical by letter, but the two
 // wildcards always sit in the rightmost two spaces, same as after Shuffle.
-function defaultOrderTiles(tiles) {
+function alphabeticalOrderTiles(tiles) {
   const letters = tiles.filter((t) => t.letter !== '?');
   const blanks = tiles.filter((t) => t.letter === '?');
-  letters.sort((a, b) => WAVELENGTH_RANK[a.points] - WAVELENGTH_RANK[b.points]);
+  letters.sort((a, b) => a.letter.localeCompare(b.letter));
   return [...letters, ...blanks];
 }
 
@@ -128,7 +122,7 @@ function startGame() {
     shuffle(tiles);
     scrambles.push({
       tiles, bestWord: '', bestScore: 0,
-      displayTiles: defaultOrderTiles(tiles), guessOrigins: [],
+      displayTiles: alphabeticalOrderTiles(tiles), guessOrigins: [], isShuffled: false,
     });
   }
 
@@ -467,8 +461,16 @@ function renderAllScrambles() {
     clearGuess(ctx);
 
     startOverBtn.addEventListener('click', () => clearGuess(ctx));
+    // Alternates each click: randomize, then back to alphabetical, then a
+    // fresh randomize, etc. — never two shuffles in a row.
     shuffleBtn.addEventListener('click', () => {
-      scramble.displayTiles = shuffleTiles(scramble.tiles);
+      if (scramble.isShuffled) {
+        scramble.displayTiles = alphabeticalOrderTiles(scramble.tiles);
+        scramble.isShuffled = false;
+      } else {
+        scramble.displayTiles = shuffleTiles(scramble.tiles);
+        scramble.isShuffled = true;
+      }
       renderTileEls(tilesDiv, scramble.displayTiles);
       attachTileClickHandlers(ctx);
       clearGuess(ctx);
