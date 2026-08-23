@@ -115,14 +115,14 @@ body {
   margin-top: 16px;
 }
 
-/* Guess1-6 + Total summary list. Each row (except Total) is clickable to
-   switch which pair is shown; white "cards" read clearly against the
-   green page. */
+/* Guess1-6 summary list — each row is clickable to switch which
+   tray/guess pair is shown; white "cards" read clearly against the
+   green page. 224px is 320px (the original width) minus 30%. */
 #guess-summary {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 320px;
+  width: 224px;
   flex-shrink: 0;
   background: #fff;
   border-radius: 10px;
@@ -130,17 +130,13 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
-.guess-summary-row,
-#guess-summary-total {
+.guess-summary-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 8px 16px;
   font-size: 16px;
   font-weight: 700;
-}
-
-.guess-summary-row {
   cursor: pointer;
   color: #2b2620;
 }
@@ -154,13 +150,15 @@ body {
   color: #fff;
 }
 
-#guess-summary-total {
-  border-top: 2px solid #2b2620;
-  color: #2b2620;
-  background: #ffeb3b;
-}
-
+/* The label shows either "Guess N" or, once one's been started, the
+   word itself (see updateBottomWordScore) — truncates instead of
+   breaking the row's layout if a long word doesn't fit the narrower
+   list. */
 .guess-summary-label {
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }

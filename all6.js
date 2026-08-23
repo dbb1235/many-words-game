@@ -372,10 +372,11 @@ function bonusMultiplierFor(cellEl) {
 // the score is the sum of each filled cell's point value — a wildcard
 // cell is always worth 0, no matter what letter was chosen for it, since
 // its dataset.pts never changes from 0. Otherwise the score is 0. Updates
-// that guess's line in the summary list and the running total (see
-// renderAllScrambles / updateGuessTotal) — there's no more per-row score
-// display next to the tiles themselves, since the summary list already
-// shows the same number for every guess at once.
+// that guess's line in the summary list (showing the word itself in
+// place of the "Guess N" label once one's been started, and the running
+// total (see renderAllScrambles / updateGuessTotal) — there's no more
+// per-row score display next to the tiles themselves, since the summary
+// list already shows the same number for every guess at once.
 function updateBottomWordScore(ctx) {
   if (!ctx) return;
   const filledCells = Array.from(ctx.tilesEl2.children).filter((c) => c.dataset.letter);
@@ -386,19 +387,19 @@ function updateBottomWordScore(ctx) {
     : 0;
   ctx.guessScore = guessScore;
   if (ctx.summaryRowEl) {
+    ctx.summaryRowEl.querySelector('.guess-summary-label').textContent = word || `Guess ${ctx.index + 1}`;
     ctx.summaryRowEl.querySelector('.guess-summary-score').textContent = guessScore;
   }
   updateGuessTotal();
 }
 
-// Sums every scramble's current guess score into the summary list's
-// Total line, and mirrors it into the header/info-block Score display
-// (the old running "best word" score this used to show is gone along
-// with the click-to-build-guess mechanic it depended on).
+// Sums every scramble's current guess score and mirrors it into the
+// header/info-block Score display (the old running "best word" score
+// this used to show is gone along with the click-to-build-guess
+// mechanic it depended on). No longer shown as its own line in the
+// summary list — just the header Score now.
 function updateGuessTotal() {
   const total = scrambleCtxs.reduce((sum, ctx) => sum + (ctx.guessScore || 0), 0);
-  const totalEl = el('guess-summary-total');
-  if (totalEl) totalEl.querySelector('.guess-summary-score').textContent = total;
   score = total;
   updateScore();
 }
@@ -691,11 +692,6 @@ function renderAllScrambles() {
       updateBottomWordScore(ctx);
     });
   });
-
-  const totalRow = document.createElement('div');
-  totalRow.id = 'guess-summary-total';
-  totalRow.innerHTML = '<span class="guess-summary-label">Total</span><span class="guess-summary-score">0</span>';
-  summaryList.appendChild(totalRow);
 
   // Guess list on the left, Time Left/Score on the right, side by side —
   // #bottom-panels is created once and reused (rather than rebuilt every
