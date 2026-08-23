@@ -404,7 +404,12 @@ function attachTopRowDropHandler(ctx) {
 function fillBottomCell(cellEl, tile) {
   cellEl.dataset.pts = tile.points;
   cellEl.dataset.letter = tile.letter;
-  cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${tile.points}</span>`;
+  // The cell's own bonus (fixed at deal time, independent of whatever
+  // tile passes through it) multiplies the DISPLAYED number only —
+  // dataset.pts keeps the tile's true/original value, which is what
+  // travels with it if it's dragged elsewhere.
+  const displayPoints = tile.points * bonusMultiplierFor(cellEl);
+  cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${displayPoints}</span>`;
   cellEl.style.setProperty('background', TILE_FILL_COLOR, 'important');
   cellEl.draggable = true;
   // Defensive: a cell being filled is never still mid-drag itself, so any
