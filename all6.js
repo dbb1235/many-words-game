@@ -372,11 +372,11 @@ function bonusMultiplierFor(cellEl) {
 // the score is the sum of each filled cell's point value — a wildcard
 // cell is always worth 0, no matter what letter was chosen for it, since
 // its dataset.pts never changes from 0. Otherwise the score is 0. Updates
-// that guess's line in the summary list (showing the word itself in
-// place of the "Guess N" label once one's been started, and the running
-// total (see renderAllScrambles / updateGuessTotal) — there's no more
-// per-row score display next to the tiles themselves, since the summary
-// list already shows the same number for every guess at once.
+// that guess's word/score columns in the summary list (word column stays
+// blank until one's been started) and the running total (see
+// renderAllScrambles / updateGuessTotal) — there's no more per-row score
+// display next to the tiles themselves, since the summary list already
+// shows the same number for every guess at once.
 function updateBottomWordScore(ctx) {
   if (!ctx) return;
   const filledCells = Array.from(ctx.tilesEl2.children).filter((c) => c.dataset.letter);
@@ -387,7 +387,7 @@ function updateBottomWordScore(ctx) {
     : 0;
   ctx.guessScore = guessScore;
   if (ctx.summaryRowEl) {
-    ctx.summaryRowEl.querySelector('.guess-summary-label').textContent = word || `Guess ${ctx.index + 1}`;
+    ctx.summaryRowEl.querySelector('.guess-summary-label').textContent = word;
     ctx.summaryRowEl.querySelector('.guess-summary-score').textContent = guessScore;
   }
   updateGuessTotal();
@@ -661,10 +661,11 @@ function renderAllScrambles() {
     };
     scrambleCtxs.push(ctx);
 
-    // Guess1-6 line: label + score, clickable to make this pair active.
+    // Guess1-6 line: number, word (blank until one's started), score.
+    // Clickable to make this pair active.
     const summaryRow = document.createElement('div');
     summaryRow.className = 'guess-summary-row';
-    summaryRow.innerHTML = `<span class="guess-summary-label">Guess ${idx + 1}</span><span class="guess-summary-score">0</span>`;
+    summaryRow.innerHTML = `<span class="guess-summary-num">${idx + 1}</span><span class="guess-summary-label"></span><span class="guess-summary-score">0</span>`;
     summaryRow.addEventListener('click', () => setActiveScramble(idx));
     summaryList.appendChild(summaryRow);
     ctx.summaryRowEl = summaryRow;
