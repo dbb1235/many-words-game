@@ -338,6 +338,30 @@ function renderTopRow(ctx) {
   attachTileDragHandlers(ctx);
 }
 
+// Makes the top row itself (the container, not any one cell) a drop
+// target, so a tile can be dragged back up from the bottom row. The top
+// row compacts and has no fixed empty slots to return a tile to, so it
+// always lands as a brand new cell appended to the end of the row.
+// Attached once — the container element persists across renderTopRow
+// calls, only its children get rebuilt.
+function attachTopRowDropHandler(ctx) {
+  ctx.tilesEl.addEventListener('dragover', (e) => {
+    if (!dragSourceEl || dragSourceEl.parentElement !== ctx.tilesEl2) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+
+  ctx.tilesEl.addEventListener('drop', (e) => {
+    if (!dragSourceEl || dragSourceEl.parentElement !== ctx.tilesEl2) return;
+    e.preventDefault();
+    const tile = JSON.parse(e.dataTransfer.getData('application/json'));
+    ctx.topTiles.push(tile);
+    vacateBottomCell(dragSourceEl);
+    dragSourceEl = null;
+    renderTopRow(ctx);
+  });
+}
+
 // Puts a tile's letter/points/color into a bottom-row cell — used both for
 // a fresh drop from the top row and for rearranging within the bottom row.
 function fillBottomCell(cellEl, tile) {
@@ -597,6 +621,7 @@ function renderAllScrambles() {
     renderTopRow(ctx);
     renderBlankTileEls(tilesDiv2, scramble.displayTiles);
     attachBottomCellHandlers(ctx);
+    attachTopRowDropHandler(ctx);
     clearGuess(ctx);
 
     startOverBtn.addEventListener('click', () => clearGuess(ctx));

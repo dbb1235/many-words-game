@@ -22,3 +22,9 @@
 .tiles-stack .tiles-duplicate .tile {
   background: #fff !important;
 }
+
+/* Keeps the top row a valid drop target even once every tile has been
+   dragged out of it and it has no children left to give it height. */
+.tiles-stack > .tiles:not(.tiles-duplicate) {
+  min-height: 48px;
+}
