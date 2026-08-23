@@ -282,18 +282,18 @@ function updateLiveScore(ctx) {
 function attachTileClickHandlers(ctx) {
   const tileEls = Array.from(ctx.tilesEl.children);
   tileEls.forEach((tileEl, i) => {
-    const tile = ctx.scramble.displayTiles[i];
+    const tile = ctx.topTiles[i];
     tileEl.classList.add('clickable-letter');
     if (tile.letter === '?') {
       tileEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (tileEl.classList.contains('used-in-guess') || tileEl.classList.contains('emptied')) return;
+        if (tileEl.classList.contains('used-in-guess')) return;
         toggleLetterMenu(ctx, tileEl);
       });
     } else {
       tileEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (tileEl.classList.contains('used-in-guess') || tileEl.classList.contains('emptied')) return;
+        if (tileEl.classList.contains('used-in-guess')) return;
         appendGuessLetter(ctx, tile.letter, tileEl);
       });
     }
@@ -314,23 +314,28 @@ let dragSourceEl = null;
 
 // Lets every top-row tile be picked up and dragged (native HTML5 drag and
 // drop). Doesn't interfere with the existing click-to-append behavior —
-// dragstart and click are separate events. A tile already emptied by a
-// previous drag can't be dragged again — there's nothing left to move.
+// dragstart and click are separate events.
 function attachTileDragHandlers(ctx) {
   const tileEls = Array.from(ctx.tilesEl.children);
   tileEls.forEach((tileEl, i) => {
-    const tile = ctx.scramble.displayTiles[i];
+    const tile = ctx.topTiles[i];
     tileEl.draggable = true;
     tileEl.addEventListener('dragstart', (e) => {
-      if (tileEl.classList.contains('emptied')) {
-        e.preventDefault();
-        return;
-      }
       dragSourceEl = tileEl;
       e.dataTransfer.effectAllowed = 'copy';
       e.dataTransfer.setData('application/json', JSON.stringify(tile));
     });
   });
+}
+
+// Rebuilds the top row from ctx.topTiles (the tiles still remaining up
+// there) and reattaches click/drag handlers. Used both for the initial
+// render and after a tile is dragged out, so the remaining tiles always
+// sit contiguous on the left with no gap left behind.
+function renderTopRow(ctx) {
+  renderTileEls(ctx.tilesEl, ctx.topTiles);
+  attachTileClickHandlers(ctx);
+  attachTileDragHandlers(ctx);
 }
 
 // Puts a tile's letter/points/color into a bottom-row cell — used both for
@@ -395,11 +400,14 @@ function attachBottomCellHandlers(ctx) {
 
       if (dragSourceEl) {
         if (fromBottomRow) {
+          // Bottom-row rearranges leave their empty cells in place.
           vacateBottomCell(dragSourceEl);
         } else {
-          dragSourceEl.innerHTML = '';
-          dragSourceEl.classList.add('emptied');
-          dragSourceEl.style.setProperty('background', '#fff', 'important');
+          // Top-row tiles don't leave a gap — remove it from the list and
+          // rebuild the row so the rest slide left to close the space.
+          const idx = Array.from(ctx.tilesEl.children).indexOf(dragSourceEl);
+          if (idx !== -1) ctx.topTiles.splice(idx, 1);
+          renderTopRow(ctx);
         }
         dragSourceEl = null;
       }
@@ -578,6 +586,7 @@ function renderAllScrambles() {
       scramble,
       tilesEl: tilesDiv,
       tilesEl2: tilesDiv2,
+      topTiles: [...scramble.displayTiles],
       guessTilesEl: guessTilesDiv,
       guessValue: '',
       cardEl: card,
@@ -585,10 +594,8 @@ function renderAllScrambles() {
     };
     scrambleCtxs.push(ctx);
 
-    renderTileEls(tilesDiv, scramble.displayTiles);
+    renderTopRow(ctx);
     renderBlankTileEls(tilesDiv2, scramble.displayTiles);
-    attachTileClickHandlers(ctx);
-    attachTileDragHandlers(ctx);
     attachBottomCellHandlers(ctx);
     clearGuess(ctx);
 
@@ -603,10 +610,9 @@ function renderAllScrambles() {
         scramble.displayTiles = shuffleTiles(scramble.tiles);
         scramble.isShuffled = true;
       }
-      renderTileEls(tilesDiv, scramble.displayTiles);
+      ctx.topTiles = [...scramble.displayTiles];
+      renderTopRow(ctx);
       renderBlankTileEls(tilesDiv2, scramble.displayTiles);
-      attachTileClickHandlers(ctx);
-      attachTileDragHandlers(ctx);
       attachBottomCellHandlers(ctx);
       clearGuess(ctx);
     });
