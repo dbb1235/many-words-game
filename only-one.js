@@ -19,7 +19,6 @@ const NUM_SCRAMBLES = 1;
 const MIN_WORD_LEN = 3;
 const GAME_SECONDS = 10 * 60;
 const MAX_DUPLICATE_LETTERS = 2;
-const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th'];
 
 let scrambles = [];      // { tiles, bestWord, bestScore, displayTiles, guessOrigins }
 let scrambleCtxs = [];   // per-card DOM element bundle, parallel to `scrambles`
@@ -628,22 +627,13 @@ function renderAllScrambles() {
     tilesStack.className = 'tiles-stack';
     tilesStack.appendChild(tilesDiv);
     tilesStack.appendChild(tilesDiv2);
-    const bonusBadge = document.createElement('span');
-    bonusBadge.className = 'bonus-badge';
-    bonusBadge.textContent = `${ORDINALS[scramble.bonusPosition - 1]} letter ×${scramble.bonusMultiplier}`;
     const guessTilesDiv = document.createElement('div');
     guessTilesDiv.className = 'guess-tiles-strip';
     const liveScoreSpan = document.createElement('span');
     liveScoreSpan.className = 'live-score';
-    const startOverBtn = document.createElement('button');
-    startOverBtn.type = 'button';
-    startOverBtn.className = 'start-over-btn';
-    startOverBtn.textContent = 'Start Over';
 
     top.appendChild(shuffleBtn);
     top.appendChild(tilesStack);
-    top.appendChild(bonusBadge);
-    top.appendChild(startOverBtn);
     top.appendChild(guessTilesDiv);
     top.appendChild(liveScoreSpan);
     card.appendChild(top);
@@ -667,7 +657,6 @@ function renderAllScrambles() {
     attachTopRowDropHandler(ctx);
     clearGuess(ctx);
 
-    startOverBtn.addEventListener('click', () => clearGuess(ctx));
     // Alternates each click: randomize, then back to alphabetical, then a
     // fresh randomize, etc. — never two shuffles in a row.
     shuffleBtn.addEventListener('click', () => {
