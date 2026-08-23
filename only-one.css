@@ -39,6 +39,17 @@
   color: #6b6355;
 }
 
+/* Live score for whatever word is currently spelled out in the bottom
+   row — 0 by default/while invalid, else the sum of the placed letters'
+   point values (wildcards always contribute 0). Sits immediately to the
+   right of the two tile rows. */
+.bottom-word-score {
+  font-size: 27.5px;
+  font-weight: 700;
+  color: #2f8f4e;
+  margin-left: 14px;
+}
+
 /* Hides the header's Score/Time stats — they're redundant with the Score
    and Time Left info blocks already shown lower on the page. Kept in the
    DOM (not removed from only-one.html) since only-one.js still updates

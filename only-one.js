@@ -397,6 +397,7 @@ function fillBottomCell(cellEl, tile) {
   cellEl.innerHTML = `<span class="letter">${tile.letter === '?' ? '?' : tile.letter}</span><span class="pts">${tile.points}</span>`;
   cellEl.style.setProperty('background', TILE_FILL_COLORS[tile.points] ?? '#fff', 'important');
   cellEl.draggable = true;
+  updateBottomWordScore();
 }
 
 // Clears a bottom-row cell back to vacant/white and un-draggable. If this
@@ -408,6 +409,23 @@ function vacateBottomCell(cellEl) {
   cellEl.style.setProperty('background', '#fff', 'important');
   cellEl.draggable = false;
   renderBottomBonusLabel(cellEl);
+  updateBottomWordScore();
+}
+
+// Reads the bottom row left to right (skipping vacant cells) as the
+// current candidate word. If it's a valid dictionary word (min length 3),
+// the score is the sum of each filled cell's point value — a wildcard
+// cell is always worth 0, no matter what letter was chosen for it, since
+// its dataset.pts never changes from 0. Otherwise the score is 0. There's
+// only ever one scramble in this game, so scrambleCtxs[0] is it.
+function updateBottomWordScore() {
+  const ctx = scrambleCtxs[0];
+  if (!ctx || !ctx.wordScoreEl) return;
+  const filledCells = Array.from(ctx.tilesEl2.children).filter((c) => c.dataset.letter);
+  const word = filledCells.map((c) => c.dataset.letter).join('').toUpperCase();
+  const isValid = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
+  const score = isValid ? filledCells.reduce((sum, c) => sum + Number(c.dataset.pts), 0) : 0;
+  ctx.wordScoreEl.textContent = score;
 }
 
 // Wildcards always carry 0 points, no matter what letter has been chosen
@@ -430,6 +448,7 @@ function toggleBottomWildcardMenu(ctx, cellEl) {
   openLetterMenu(ctx, cellEl, (letter) => {
     cellEl.dataset.letter = letter;
     cellEl.innerHTML = `<span class="letter">${letter}</span><span class="pts">0</span>`;
+    updateBottomWordScore();
   });
 }
 
@@ -658,6 +677,12 @@ function renderAllScrambles() {
     tilesStack.className = 'tiles-stack';
     tilesStack.appendChild(tilesDiv);
     tilesStack.appendChild(tilesDiv2);
+    // The bottom row's current word score — sum of the point values of
+    // whatever letters are placed in the bottom row, 0 while it isn't a
+    // valid dictionary word (see updateBottomWordScore).
+    const wordScoreSpan = document.createElement('span');
+    wordScoreSpan.className = 'bottom-word-score';
+    wordScoreSpan.textContent = '0';
     const guessTilesDiv = document.createElement('div');
     guessTilesDiv.className = 'guess-tiles-strip';
     const liveScoreSpan = document.createElement('span');
@@ -665,6 +690,7 @@ function renderAllScrambles() {
 
     top.appendChild(shuffleBtn);
     top.appendChild(tilesStack);
+    top.appendChild(wordScoreSpan);
     top.appendChild(guessTilesDiv);
     top.appendChild(liveScoreSpan);
     card.appendChild(top);
@@ -673,6 +699,7 @@ function renderAllScrambles() {
     const ctx = {
       scramble,
       tilesEl: tilesDiv,
+      wordScoreEl: wordScoreSpan,
       tilesEl2: tilesDiv2,
       topTiles: [...scramble.displayTiles],
       guessTilesEl: guessTilesDiv,
@@ -684,6 +711,7 @@ function renderAllScrambles() {
 
     renderTopRow(ctx);
     renderBlankTileEls(tilesDiv2, scramble.displayTiles);
+    updateBottomWordScore();
     attachBottomCellHandlers(ctx);
     attachTopRowDropHandler(ctx);
     clearGuess(ctx);
@@ -701,6 +729,7 @@ function renderAllScrambles() {
       ctx.topTiles = [...scramble.displayTiles];
       renderTopRow(ctx);
       renderBlankTileEls(tilesDiv2, scramble.displayTiles);
+    updateBottomWordScore();
       attachBottomCellHandlers(ctx);
       clearGuess(ctx);
     });
