@@ -214,10 +214,15 @@ function renderTileEls(tilesDiv, tiles) {
   });
 }
 
+// How many of the bottom row's leading cells are eligible to be picked as
+// a letter-multiplier bonus square.
+const BONUS_CELL_RANGE = 6;
+
 // Same squares (same size/shape/color, driven by data-pts), but with no
 // letter or point number inside — used for the blank duplicate row. Also
-// randomly marks two distinct cells as letter-multiplier bonus squares
-// (2L / 3L) — see renderBottomBonusLabel.
+// randomly marks two distinct cells, from among the first BONUS_CELL_RANGE
+// cells only, as letter-multiplier bonus squares (2L / 3L) — see
+// renderBottomBonusLabel.
 function renderBlankTileEls(tilesDiv, tiles) {
   tilesDiv.innerHTML = '';
   const cells = tiles.map((t) => {
@@ -228,7 +233,7 @@ function renderBlankTileEls(tilesDiv, tiles) {
     return tile;
   });
 
-  const [doubleCellIdx, tripleCellIdx] = pickTwoDistinctIndices(cells.length);
+  const [doubleCellIdx, tripleCellIdx] = pickTwoDistinctIndices(Math.min(BONUS_CELL_RANGE, cells.length));
   cells[doubleCellIdx].dataset.bonus = '2L';
   cells[tripleCellIdx].dataset.bonus = '3L';
   renderBottomBonusLabel(cells[doubleCellIdx]);
