@@ -320,14 +320,16 @@ const TILE_FILL_COLOR = '#fff';
 let dragSourceEl = null;
 
 // Lets every top-row tile be picked up and dragged (native HTML5 drag and
-// drop) — the only way to interact with a top-row tile; clicking or
-// double-clicking one does nothing.
+// drop) — the only interaction for a real letter tile. A wildcard also
+// responds to a double-click, opening the same A-Z picker used in the
+// bottom row, so its letter can be previewed/chosen while still in the
+// rack; a single click still does nothing.
 function attachTileDragHandlers(ctx) {
   const tileEls = Array.from(ctx.tilesEl.children);
   tileEls.forEach((tileEl, i) => {
     const tile = ctx.topTiles[i];
     tileEl.draggable = true;
-    tileEl.classList.add('clickable-letter'); // cursor/hover styling only, no click handler
+    tileEl.classList.add('clickable-letter'); // cursor/hover styling only
     tileEl.addEventListener('dragstart', (e) => {
       dragSourceEl = tileEl;
       e.dataTransfer.effectAllowed = 'copy';
@@ -339,6 +341,28 @@ function attachTileDragHandlers(ctx) {
       tileEl.classList.add('tile-lifted');
     });
     tileEl.addEventListener('dragend', () => tileEl.classList.remove('tile-lifted'));
+
+    if (tile.letter === '?') {
+      tileEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        toggleTopWildcardMenu(ctx, tileEl, i);
+      });
+    }
+  });
+}
+
+// Opens (or closes, if already open on this tile) the A-Z picker for a
+// top-row wildcard. Picking a letter updates just this tile's own entry
+// in ctx.topTiles and re-renders the row — the tile still carries 0
+// points regardless of the letter shown, same as any other wildcard.
+function toggleTopWildcardMenu(ctx, tileEl, index) {
+  if (openMenuTile === tileEl) {
+    closeLetterMenu();
+    return;
+  }
+  openLetterMenu(ctx, tileEl, (letter) => {
+    ctx.topTiles[index] = { letter, points: 0 };
+    renderTopRow(ctx);
   });
 }
 
