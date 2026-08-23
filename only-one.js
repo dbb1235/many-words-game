@@ -418,13 +418,25 @@ function vacateBottomCell(cellEl) {
 // cell is always worth 0, no matter what letter was chosen for it, since
 // its dataset.pts never changes from 0. Otherwise the score is 0. There's
 // only ever one scramble in this game, so scrambleCtxs[0] is it.
+// A cell's bonus (2W/3L, see renderBottomBonusLabel) multiplies just that
+// one letter's own point value — 2x or 3x — same as it stayed marked
+// even while covered, so this applies whether or not the label is
+// currently visible.
+function bonusMultiplierFor(cellEl) {
+  if (cellEl.dataset.bonus === '2W') return 2;
+  if (cellEl.dataset.bonus === '3L') return 3;
+  return 1;
+}
+
 function updateBottomWordScore() {
   const ctx = scrambleCtxs[0];
   if (!ctx || !ctx.wordScoreEl) return;
   const filledCells = Array.from(ctx.tilesEl2.children).filter((c) => c.dataset.letter);
   const word = filledCells.map((c) => c.dataset.letter).join('').toUpperCase();
   const isValid = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
-  const score = isValid ? filledCells.reduce((sum, c) => sum + Number(c.dataset.pts), 0) : 0;
+  const score = isValid
+    ? filledCells.reduce((sum, c) => sum + Number(c.dataset.pts) * bonusMultiplierFor(c), 0)
+    : 0;
   ctx.wordScoreEl.textContent = score;
 }
 
