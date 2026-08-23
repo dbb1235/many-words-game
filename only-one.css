@@ -9,6 +9,14 @@ body {
   background: #1565c0;
 }
 
+/* Removes the shared white "card" box behind the tile rows so the blue
+   page background touches the tiles directly instead of stopping at a
+   white panel around them. */
+.scramble-card {
+  background: transparent;
+  box-shadow: none;
+}
+
 /* Stacks the original tile row and its duplicate, with a small gap
    between them — 20% of a tile's 48px side (9.6px). */
 .tiles-stack {
