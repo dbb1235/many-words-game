@@ -113,6 +113,9 @@ function startGame() {
       displayTiles: alphabeticalOrderTiles(tiles), guessOrigins: [], isShuffled: false,
       bonusPosition: 1 + Math.floor(Math.random() * 5),
       bonusMultiplier: Math.random() < 0.5 ? 2 : 3,
+      // Rolled once per scramble and kept fixed for the rest of the game —
+      // Shuffle resets the bottom row's tiles but must not re-roll these.
+      bottomBonuses: rollBottomBonuses(RACK_SIZE),
     });
   }
 
@@ -221,23 +224,30 @@ function renderTileEls(tilesDiv, tiles) {
 const DOUBLE_LETTER_CHANCE = 0.08;
 const TRIPLE_LETTER_CHANCE = 0.04;
 
+// Rolls a fixed bonus layout (2L/3L/undefined per cell) once — called
+// only at deal time (see startGame) so the layout stays put for the rest
+// of the game; Shuffle must reuse it, never re-roll it.
+function rollBottomBonuses(count) {
+  return Array.from({ length: count }, () => {
+    if (Math.random() < DOUBLE_LETTER_CHANCE) return '2L';
+    if (Math.random() < TRIPLE_LETTER_CHANCE) return '3L';
+    return undefined;
+  });
+}
+
 // Same squares (same size/shape/color, driven by data-pts), but with no
-// letter or point number inside — used for the blank duplicate row. Also
-// rolls each cell for a letter-multiplier bonus (2L / 3L) — see
-// renderBottomBonusLabel.
-function renderBlankTileEls(tilesDiv, tiles) {
+// letter or point number inside — used for the blank duplicate row.
+// Applies the scramble's already-fixed bonus layout (bonuses) — see
+// rollBottomBonuses and renderBottomBonusLabel.
+function renderBlankTileEls(tilesDiv, tiles, bonuses) {
   tilesDiv.innerHTML = '';
-  tiles.forEach((t) => {
+  tiles.forEach((t, i) => {
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.dataset.pts = t.points;
     tilesDiv.appendChild(tile);
 
-    if (Math.random() < DOUBLE_LETTER_CHANCE) {
-      tile.dataset.bonus = '2L';
-    } else if (Math.random() < TRIPLE_LETTER_CHANCE) {
-      tile.dataset.bonus = '3L';
-    }
+    if (bonuses[i]) tile.dataset.bonus = bonuses[i];
     renderBottomBonusLabel(tile);
   });
 }
@@ -752,7 +762,7 @@ function renderAllScrambles() {
     scrambleCtxs.push(ctx);
 
     renderTopRow(ctx);
-    renderBlankTileEls(tilesDiv2, scramble.displayTiles);
+    renderBlankTileEls(tilesDiv2, scramble.displayTiles, scramble.bottomBonuses);
     updateBottomWordScore();
     attachBottomCellHandlers(ctx);
     attachTopRowDropHandler(ctx);
@@ -770,7 +780,7 @@ function renderAllScrambles() {
       }
       ctx.topTiles = [...scramble.displayTiles];
       renderTopRow(ctx);
-      renderBlankTileEls(tilesDiv2, scramble.displayTiles);
+      renderBlankTileEls(tilesDiv2, scramble.displayTiles, scramble.bottomBonuses);
     updateBottomWordScore();
       attachBottomCellHandlers(ctx);
       clearGuess(ctx);
