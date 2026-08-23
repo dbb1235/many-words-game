@@ -526,6 +526,14 @@ function attachBottomCellHandlers(ctx) {
         return;
       }
 
+      // A top-row tile dropped onto an already-occupied bottom cell: the
+      // cell's previous occupant would otherwise just be overwritten and
+      // lost, so send it back up to the top row instead — the two trade
+      // places rather than one silently vanishing.
+      const displacedFromBottom = (!fromBottomRow && cellEl.dataset.letter)
+        ? { letter: cellEl.dataset.letter, points: Number(cellEl.dataset.pts) }
+        : null;
+
       fillBottomCell(cellEl, tile);
 
       if (dragSourceEl) {
@@ -537,6 +545,7 @@ function attachBottomCellHandlers(ctx) {
           // rebuild the row so the rest slide left to close the space.
           const idx = Array.from(ctx.tilesEl.children).indexOf(dragSourceEl);
           if (idx !== -1) ctx.topTiles.splice(idx, 1);
+          if (displacedFromBottom) ctx.topTiles.push(displacedFromBottom);
           renderTopRow(ctx);
         }
         dragSourceEl = null;
