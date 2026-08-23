@@ -697,7 +697,18 @@ function renderAllScrambles() {
   totalRow.innerHTML = '<span class="guess-summary-label">Total</span><span class="guess-summary-score">0</span>';
   summaryList.appendChild(totalRow);
 
-  el('game').insertBefore(summaryList, el('info-blocks'));
+  // Guess list on the left, Time Left/Score on the right, side by side —
+  // #bottom-panels is created once and reused (rather than rebuilt every
+  // restart) since it holds #info-blocks, which is a static element from
+  // all6.html; moving it here via appendChild only needs to happen once.
+  let bottomPanels = el('bottom-panels');
+  if (!bottomPanels) {
+    bottomPanels = document.createElement('div');
+    bottomPanels.id = 'bottom-panels';
+    el('game').appendChild(bottomPanels);
+    bottomPanels.appendChild(el('info-blocks'));
+  }
+  bottomPanels.insertBefore(summaryList, el('info-blocks'));
   setActiveScramble(0);
 }
 

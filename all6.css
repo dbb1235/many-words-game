@@ -7,7 +7,7 @@
    selector/specificity as style.css's rule, so normal cascade order
    (this file loads after it) is enough to win. */
 body {
-  background: #1565c0;
+  background: #2e7d32;
 }
 
 /* Removes the shared white "card" box behind each scramble's tile rows
@@ -103,15 +103,27 @@ body {
    the shared .hidden class, so #scrambles' own gap has nothing to space
    out and doesn't need adjusting from the shared default. */
 
-/* Guess1-6 + Total summary list — always visible below the active
-   tray/guess pair. Each row (except Total) is clickable to switch which
-   pair is shown; white "cards" read clearly against the blue page. */
+/* Holds the guess summary list (left) and the Time Left/Score info
+   blocks (right), side by side on the same row, below the active
+   tray/guess pair. */
+#bottom-panels {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+/* Guess1-6 + Total summary list. Each row (except Total) is clickable to
+   switch which pair is shown; white "cards" read clearly against the
+   green page. */
 #guess-summary {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-width: 320px;
-  margin-top: 16px;
+  width: 320px;
+  flex-shrink: 0;
   background: #fff;
   border-radius: 10px;
   overflow: hidden;
