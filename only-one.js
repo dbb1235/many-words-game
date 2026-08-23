@@ -216,8 +216,8 @@ function renderTileEls(tilesDiv, tiles) {
 
 // Same squares (same size/shape/color, driven by data-pts), but with no
 // letter or point number inside — used for the blank duplicate row. Also
-// randomly marks two distinct cells as bonus squares (2W / 3L, Scrabble-
-// board style) — see renderBottomBonusLabel.
+// randomly marks two distinct cells as letter-multiplier bonus squares
+// (2L / 3L) — see renderBottomBonusLabel.
 function renderBlankTileEls(tilesDiv, tiles) {
   tilesDiv.innerHTML = '';
   const cells = tiles.map((t) => {
@@ -228,11 +228,11 @@ function renderBlankTileEls(tilesDiv, tiles) {
     return tile;
   });
 
-  const [wordCellIdx, letterCellIdx] = pickTwoDistinctIndices(cells.length);
-  cells[wordCellIdx].dataset.bonus = '2W';
-  cells[letterCellIdx].dataset.bonus = '3L';
-  renderBottomBonusLabel(cells[wordCellIdx]);
-  renderBottomBonusLabel(cells[letterCellIdx]);
+  const [doubleCellIdx, tripleCellIdx] = pickTwoDistinctIndices(cells.length);
+  cells[doubleCellIdx].dataset.bonus = '2L';
+  cells[tripleCellIdx].dataset.bonus = '3L';
+  renderBottomBonusLabel(cells[doubleCellIdx]);
+  renderBottomBonusLabel(cells[tripleCellIdx]);
 }
 
 // Picks two different random indices in [0, total).
@@ -243,7 +243,7 @@ function pickTwoDistinctIndices(total) {
   return [first, second];
 }
 
-// Shows a bottom-row cell's bonus label (2W/3L), same small font as the
+// Shows a bottom-row cell's bonus label (2L/3L), same small font as the
 // point numbers on the top-row tiles. A no-op if the cell has no bonus.
 function renderBottomBonusLabel(cellEl) {
   if (!cellEl.dataset.bonus) return;
@@ -401,7 +401,7 @@ function fillBottomCell(cellEl, tile) {
 }
 
 // Clears a bottom-row cell back to vacant/white and un-draggable. If this
-// cell is a bonus square, its 2W/3L label reappears now that nothing
+// cell is a bonus square, its 2L/3L label reappears now that nothing
 // covers it — same as an uncovered bonus square on a Scrabble board.
 function vacateBottomCell(cellEl) {
   cellEl.innerHTML = '';
@@ -418,12 +418,12 @@ function vacateBottomCell(cellEl) {
 // cell is always worth 0, no matter what letter was chosen for it, since
 // its dataset.pts never changes from 0. Otherwise the score is 0. There's
 // only ever one scramble in this game, so scrambleCtxs[0] is it.
-// A cell's bonus (2W/3L, see renderBottomBonusLabel) multiplies just that
+// A cell's bonus (2L/3L, see renderBottomBonusLabel) multiplies just that
 // one letter's own point value — 2x or 3x — same as it stayed marked
 // even while covered, so this applies whether or not the label is
 // currently visible.
 function bonusMultiplierFor(cellEl) {
-  if (cellEl.dataset.bonus === '2W') return 2;
+  if (cellEl.dataset.bonus === '2L') return 2;
   if (cellEl.dataset.bonus === '3L') return 3;
   return 1;
 }
