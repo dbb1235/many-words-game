@@ -661,11 +661,16 @@ function renderAllScrambles() {
     };
     scrambleCtxs.push(ctx);
 
-    // Guess1-6 line: number, word (blank until one's started), score.
-    // Clickable to make this pair active.
+    // Guess1-6 line: number, that scramble's fixed original letters,
+    // guess word (blank until one's started), score. Clickable to make
+    // this pair active. The scramble letters come from scramble.tiles
+    // (the original dealt multiset) rather than ctx.topTiles, so this
+    // column never changes as tiles get dragged around — unlike the tray
+    // itself, it's a fixed reference to what letters this scramble has.
+    const scrambleLetters = scramble.tiles.map((t) => t.letter).join('');
     const summaryRow = document.createElement('div');
     summaryRow.className = 'guess-summary-row';
-    summaryRow.innerHTML = `<span class="guess-summary-num">${idx + 1}</span><span class="guess-summary-label"></span><span class="guess-summary-score">0</span>`;
+    summaryRow.innerHTML = `<span class="guess-summary-num">${idx + 1}</span><span class="guess-summary-scramble">${scrambleLetters}</span><span class="guess-summary-label"></span><span class="guess-summary-score">0</span>`;
     summaryRow.addEventListener('click', () => setActiveScramble(idx));
     summaryList.appendChild(summaryRow);
     ctx.summaryRowEl = summaryRow;

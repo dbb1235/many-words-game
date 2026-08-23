@@ -117,12 +117,13 @@ body {
 
 /* Guess1-6 summary list — each row is clickable to switch which
    tray/guess pair is shown; white "cards" read clearly against the
-   green page. 224px is 320px (the original width) minus 30%. */
+   green page. Widened from the earlier 224px to fit the new scramble
+   column (up to 10 letters). */
 #guess-summary {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 224px;
+  width: 300px;
   flex-shrink: 0;
   background: #fff;
   border-radius: 10px;
@@ -130,13 +131,13 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
-/* Three columns: # | word (blank until started) | score. */
+/* Four columns: # | scramble | word (blank until started) | score. */
 .guess-summary-row {
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: 20px 92px 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 8px 12px;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
@@ -158,6 +159,22 @@ body {
 }
 
 .guess-summary-row.active .guess-summary-num {
+  color: #cfe0f7;
+}
+
+/* That scramble's fixed original letters — smaller/muted than the guess
+   word since it's reference info, not the row's main "answer" data. */
+.guess-summary-scramble {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: #6b6355;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guess-summary-row.active .guess-summary-scramble {
   color: #cfe0f7;
 }
 
