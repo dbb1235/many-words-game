@@ -384,8 +384,8 @@ function vacateBottomCell(cellEl) {
 // filled) a drag source, so tiles can land there from the top row and then
 // be freely rearranged among the bottom row's own cells afterward.
 // Dropping a top-row tile always lands (overwriting whatever was there);
-// dragging a bottom-row tile onto another bottom-row cell only lands if
-// that cell is vacant — that's the "move to any vacant cell" rule.
+// dragging a bottom-row tile onto a vacant bottom cell moves it there,
+// and onto an occupied bottom cell swaps the two tiles' contents.
 function attachBottomCellHandlers(ctx) {
   const cellEls = Array.from(ctx.tilesEl2.children);
   cellEls.forEach((cellEl) => {
@@ -417,14 +417,23 @@ function attachBottomCellHandlers(ctx) {
     cellEl.addEventListener('drop', (e) => {
       e.preventDefault();
       const fromBottomRow = dragSourceEl && dragSourceEl.parentElement === ctx.tilesEl2;
-      if (fromBottomRow && cellEl.dataset.letter) return; // target must be vacant
-
       const tile = JSON.parse(e.dataTransfer.getData('application/json'));
+
+      // Bottom-row tile dropped onto an already-occupied bottom cell:
+      // swap the two tiles' contents instead of refusing the drop.
+      if (fromBottomRow && cellEl.dataset.letter) {
+        const targetTile = { letter: cellEl.dataset.letter, points: Number(cellEl.dataset.pts) };
+        fillBottomCell(cellEl, tile);
+        fillBottomCell(dragSourceEl, targetTile);
+        dragSourceEl = null;
+        return;
+      }
+
       fillBottomCell(cellEl, tile);
 
       if (dragSourceEl) {
         if (fromBottomRow) {
-          // Bottom-row rearranges leave their empty cells in place.
+          // Bottom-row rearranges onto a vacant cell leave it empty behind.
           vacateBottomCell(dragSourceEl);
         } else {
           // Top-row tiles don't leave a gap — remove it from the list and
