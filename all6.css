@@ -57,17 +57,6 @@ body {
   color: #6b6355;
 }
 
-/* Live score for whatever word is currently spelled out in a scramble's
-   bottom row — 0 by default/while invalid, else the sum of the placed
-   letters' point values (wildcards always contribute 0). Sits
-   immediately to the right of that scramble's two tile rows. */
-.bottom-word-score {
-  font-size: 27.5px;
-  font-weight: 700;
-  color: #fff;
-  margin-left: 14px;
-}
-
 /* Dims a tile for the duration of an active drag (see attachTileDragHandlers
    / attachBottomCellHandlers) so the source doesn't read as a second, extra
    tile next to the browser's native drag-ghost image following the cursor. */
@@ -109,9 +98,57 @@ body {
   display: none;
 }
 
-/* Space between the 6 stacked scramble cards, since the shared #scrambles
-   gap (12px) was tuned for the denser 6-card ChrisWerds layout — a
-   little extra room reads better with two rows + word score per card. */
-#scrambles {
-  gap: 20px;
+/* Only one scramble card (the active tray/guess pair) is ever visible at
+   once — the other 5 stay in the DOM (state preserved) but hidden via
+   the shared .hidden class, so #scrambles' own gap has nothing to space
+   out and doesn't need adjusting from the shared default. */
+
+/* Guess1-6 + Total summary list — always visible below the active
+   tray/guess pair. Each row (except Total) is clickable to switch which
+   pair is shown; white "cards" read clearly against the blue page. */
+#guess-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 320px;
+  margin-top: 16px;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.guess-summary-row,
+#guess-summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.guess-summary-row {
+  cursor: pointer;
+  color: #2b2620;
+}
+
+.guess-summary-row:hover {
+  background: #f4f1ea;
+}
+
+.guess-summary-row.active {
+  background: #1565c0;
+  color: #fff;
+}
+
+#guess-summary-total {
+  border-top: 2px solid #2b2620;
+  color: #2b2620;
+  background: #ffeb3b;
+}
+
+.guess-summary-label {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }

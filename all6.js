@@ -1,6 +1,14 @@
-// ALL6 — builds on Only One (only-one.js): identical rules, drag-and-drop
-// mechanics, wildcards, and bonus cells, but with 6 independent scrambles
-// instead of 1. See GAME_DESIGN.md for the full rule set.
+// ALL6 — builds on Only One's mechanics (drag-and-drop tile rows,
+// wildcards, 2L/3L bonus cells) but with 6 scrambles instead of 1, shown
+// one pair of rows at a time to keep the screen uncluttered.
+//
+// Terminology: each scramble's top (rack) row is "tray N", its bottom
+// (word-building) row is "guess N" — tray1/guess1 through tray6/guess6.
+// Only the active pair is visible; the other 5 are dealt and kept in
+// memory (their DOM just stays hidden) so their state survives switching
+// away and back. A summary list shows guess1-6's current point totals
+// plus their sum, and doubles as the way to switch which pair is shown —
+// clicking "Guess 2" reveals tray2/guess2 and hides whatever was showing.
 
 const LETTER_DATA = {
   A: { count: 9, points: 1 }, B: { count: 2, points: 3 }, C: { count: 2, points: 2 },
@@ -20,8 +28,9 @@ const MIN_WORD_LEN = 3;
 const GAME_SECONDS = 10 * 60;
 const MAX_DUPLICATE_LETTERS = 2;
 
-let scrambles = [];      // { tiles, bestWord, bestScore, displayTiles, guessOrigins }
+let scrambles = [];      // { tiles, displayTiles, isShuffled, bottomBonuses }
 let scrambleCtxs = [];   // per-card DOM element bundle, parallel to `scrambles`
+let activeScrambleIndex = 0; // which tray/guess pair is currently visible
 let score = 0;
 let secondsLeft = GAME_SECONDS;
 let timerHandle = null;
@@ -105,12 +114,11 @@ function startGame() {
     tiles.push({ letter: '?', points: 0 });
     shuffle(tiles);
     scrambles.push({
-      tiles, bestWord: '', bestScore: 0,
-      displayTiles: alphabeticalOrderTiles(tiles), guessOrigins: [], isShuffled: false,
-      bonusPosition: 1 + Math.floor(Math.random() * 5),
-      bonusMultiplier: Math.random() < 0.5 ? 2 : 3,
+      tiles,
+      displayTiles: alphabeticalOrderTiles(tiles),
+      isShuffled: false,
       // Rolled once per scramble and kept fixed for the rest of the game —
-      // Shuffle resets that scramble's bottom row's tiles but must not
+      // Shuffle resets that scramble's guess row's tiles but must not
       // re-roll these.
       bottomBonuses: rollBottomBonuses(RACK_SIZE),
     });
@@ -119,6 +127,7 @@ function startGame() {
   score = 0;
   secondsLeft = GAME_SECONDS;
   gameActive = true;
+  activeScrambleIndex = 0;
 
   el('game').classList.remove('hidden');
   el('start-btn').textContent = 'Restart';
@@ -157,51 +166,6 @@ function updateScore() {
   el('info-score').textContent = score;
 }
 
-// Given a word and a scramble's tiles, determine if the word can be formed
-// (respecting duplicate letter counts, with blanks as 0-point wildcards),
-// preferring real tiles over blanks for every letter (maximizes score).
-// Whichever letter lands on the scramble's bonus position (1st-5th letter
-// of the guess) has its value multiplied — a property of the POSITION in
-// the word being built, not of any specific tile. Returns the raw
-// letter-value score (bonus included), or null if it can't be formed.
-function scoreIfFormable(word, tiles, bonusPosition, bonusMultiplier) {
-  const available = {};
-  let blanks = 0;
-  for (const t of tiles) {
-    if (t.letter === '?') blanks++;
-    else available[t.letter] = (available[t.letter] || 0) + 1;
-  }
-  let raw = 0;
-  for (let i = 0; i < word.length; i++) {
-    const ch = word[i];
-    let pts;
-    if (available[ch] > 0) {
-      available[ch]--;
-      pts = LETTER_DATA[ch].points;
-    } else if (blanks > 0) {
-      blanks--;
-      pts = 0; // blank contributes 0 points
-    } else {
-      return null;
-    }
-    if (i === bonusPosition - 1) pts *= bonusMultiplier;
-    raw += pts;
-  }
-  return raw;
-}
-
-function evaluateGuess(word, scramble) {
-  if (word.length < MIN_WORD_LEN) return { valid: false };
-  const raw = scoreIfFormable(word, scramble.tiles, scramble.bonusPosition, scramble.bonusMultiplier);
-  if (raw === null) return { valid: false };
-  if (!WORD_LIST.has(word)) return { valid: false };
-
-  const lengthBonus = Math.max(0, word.length - 5);
-  const total = raw + lengthBonus;
-
-  return { valid: true, score: total, lengthBonus };
-}
-
 function renderTileEls(tilesDiv, tiles) {
   tilesDiv.innerHTML = '';
   tiles.forEach((t) => {
@@ -213,11 +177,11 @@ function renderTileEls(tilesDiv, tiles) {
   });
 }
 
-// Each bottom-row cell independently has an 8% chance of being a 2L
-// bonus square; of whichever cells that leaves, each independently has
-// a 4% chance of being 3L. Applied per-cell rather than picking a fixed
-// count — so the number of bonus cells in any given row varies (could
-// be zero, one of each, several, etc.).
+// Each guess-row cell independently has an 8% chance of being a 2L bonus
+// square; of whichever cells that leaves, each independently has a 4%
+// chance of being 3L. Applied per-cell rather than picking a fixed count
+// — so the number of bonus cells in any given row varies (could be zero,
+// one of each, several, etc.).
 const DOUBLE_LETTER_CHANCE = 0.08;
 const TRIPLE_LETTER_CHANCE = 0.04;
 
@@ -233,8 +197,8 @@ function rollBottomBonuses(count) {
 }
 
 // Same squares (same size/shape/color, driven by data-pts), but with no
-// letter or point number inside — used for the blank duplicate row.
-// Applies the scramble's already-fixed bonus layout (bonuses) — see
+// letter or point number inside — used for a guess row. Applies the
+// scramble's already-fixed bonus layout (bonuses) — see
 // rollBottomBonuses and renderBottomBonusLabel.
 function renderBlankTileEls(tilesDiv, tiles, bonuses) {
   tilesDiv.innerHTML = '';
@@ -249,8 +213,8 @@ function renderBlankTileEls(tilesDiv, tiles, bonuses) {
   });
 }
 
-// Shows a bottom-row cell's bonus label (2L/3L), same small font as the
-// point numbers on the top-row tiles. A no-op if the cell has no bonus.
+// Shows a guess-row cell's bonus label (2L/3L), same small font as the
+// point numbers on the tray tiles. A no-op if the cell has no bonus.
 function renderBottomBonusLabel(cellEl) {
   if (!cellEl.dataset.bonus) return;
   cellEl.innerHTML = '';
@@ -260,68 +224,20 @@ function renderBottomBonusLabel(cellEl) {
   cellEl.appendChild(span);
 }
 
-// --- Per-scramble guess building (click-to-build only, no typing) ---
-// A "ctx" bundles a scramble with the specific DOM elements that drive it.
-
-// Mirrors the in-progress guess as plain text — no tile boxes, no color —
-// one letter per span so each can still be double-clicked to remove it.
-// This is the ONLY way a guess is built — there is no text entry,
-// click-only.
-function renderGuessTiles(ctx) {
-  const strip = ctx.guessTilesEl;
-  strip.innerHTML = '';
-  Array.from(ctx.guessValue).forEach((ch, i) => {
-    const span = document.createElement('span');
-    span.className = 'guess-letter';
-    if (i === ctx.scramble.bonusPosition - 1) span.classList.add('bonus-letter');
-    span.textContent = ch;
-    span.addEventListener('dblclick', () => removeGuessChar(ctx, i));
-    strip.appendChild(span);
-  });
-
-  updateLiveScore(ctx);
-}
-
-// Live score preview: as soon as the letters clicked so far spell a valid
-// word, shows what it would score — updating with every click. The moment
-// that score beats the scramble's current best, it's locked in immediately
-// (no Submit button) — the guess stays in place so the player can keep
-// clicking to try to extend it into an even better word. Shows nothing
-// while the in-progress guess isn't a real word yet.
-function updateLiveScore(ctx) {
-  const word = ctx.guessValue.toUpperCase();
-  const result = evaluateGuess(word, ctx.scramble);
-  if (!result.valid) {
-    ctx.liveScoreEl.textContent = '';
-    return;
-  }
-  ctx.liveScoreEl.textContent = `${result.score} pts`;
-
-  if (result.score > ctx.scramble.bestScore) {
-    score += result.score - ctx.scramble.bestScore;
-    ctx.scramble.bestWord = word;
-    ctx.scramble.bestScore = result.score;
-    updateScore();
-    ctx.cardEl.classList.remove('just-improved');
-    void ctx.cardEl.offsetWidth;
-    ctx.cardEl.classList.add('just-improved');
-  }
-}
-
 // Every tile in this game is white, regardless of point value. See also
-// the top-row override in all6.css.
+// the tray-row override in all6.css.
 const TILE_FILL_COLOR = '#fff';
 
-// The tile element currently being dragged (top-row tile or bottom-row
-// cell, from any scramble), so the drop handler can empty it out once its
+// The tile element currently being dragged (tray tile or guess-row cell,
+// from any scramble), so the drop handler can empty it out once its
 // contents land somewhere else.
 let dragSourceEl = null;
 
-// Lets every top-row tile be picked up and dragged (native HTML5 drag and
+// Lets every tray tile be picked up and dragged (native HTML5 drag and
 // drop) — the only interaction for a real letter tile. A wildcard also
 // responds to a double-click, opening the same A-Z picker used in the
-// bottom row, so its letter can be previewed/chosen while still in the
-// rack; a single click still does nothing.
+// guess row, so its letter can be previewed/chosen while still in the
+// tray; a single click still does nothing.
 function attachTileDragHandlers(ctx) {
   const tileEls = Array.from(ctx.tilesEl.children);
   tileEls.forEach((tileEl, i) => {
@@ -350,9 +266,9 @@ function attachTileDragHandlers(ctx) {
 }
 
 // Opens (or closes, if already open on this tile) the A-Z picker for a
-// top-row wildcard. Picking a letter updates just this tile's own entry
-// in ctx.topTiles and re-renders the row — the tile still carries 0
-// points regardless of the letter shown, same as any other wildcard.
+// tray wildcard. Picking a letter updates just this tile's own entry in
+// ctx.topTiles and re-renders the row — the tile still carries 0 points
+// regardless of the letter shown, same as any other wildcard.
 function toggleTopWildcardMenu(ctx, tileEl, index) {
   if (openMenuTile === tileEl) {
     closeLetterMenu();
@@ -364,7 +280,7 @@ function toggleTopWildcardMenu(ctx, tileEl, index) {
   });
 }
 
-// Rebuilds one scramble's top row from ctx.topTiles (the tiles still
+// Rebuilds one scramble's tray row from ctx.topTiles (the tiles still
 // remaining up there) and reattaches drag handlers. Used both for the
 // initial render and after a tile is dragged out, so the remaining tiles
 // always sit contiguous on the left with no gap left behind.
@@ -374,19 +290,19 @@ function renderTopRow(ctx) {
 }
 
 // A wildcard (0 points) reverts to an unresolved '?' whenever it lands
-// back in the top row — whatever letter was picked for it while it sat
-// in the bottom row only applied there, same as it never touched the
-// underlying tile object for a top-row wildcard in the first place.
+// back in the tray — whatever letter was picked for it while it sat in
+// the guess row only applied there, same as it never touched the
+// underlying tile object for a tray wildcard in the first place.
 function asTopRowTile(tile) {
   return tile.points === 0 ? { letter: '?', points: 0 } : tile;
 }
 
-// Makes one scramble's top row itself (the container, not any one cell) a
-// drop target, so a tile can be dragged back up from that scramble's own
-// bottom row. The top row compacts and has no fixed empty slots to return
-// a tile to, so it always lands as a brand new cell appended to the end
-// of the row. Attached once — the container element persists across
-// renderTopRow calls, only its children get rebuilt.
+// Makes one scramble's tray row itself (the container, not any one cell)
+// a drop target, so a tile can be dragged back up from that scramble's
+// own guess row. The tray compacts and has no fixed empty slots to
+// return a tile to, so it always lands as a brand new cell appended to
+// the end of the row. Attached once — the container element persists
+// across renderTopRow calls, only its children get rebuilt.
 function attachTopRowDropHandler(ctx) {
   ctx.tilesEl.addEventListener('dragover', (e) => {
     if (!dragSourceEl || dragSourceEl.parentElement !== ctx.tilesEl2) return;
@@ -405,9 +321,9 @@ function attachTopRowDropHandler(ctx) {
   });
 }
 
-// Puts a tile's letter/points/color into one of ctx's bottom-row cells —
-// used both for a fresh drop from that scramble's top row and for
-// rearranging within its bottom row.
+// Puts a tile's letter/points/color into one of ctx's guess-row cells —
+// used both for a fresh drop from that scramble's tray and for
+// rearranging within its guess row.
 function fillBottomCell(ctx, cellEl, tile) {
   cellEl.dataset.pts = tile.points;
   cellEl.dataset.letter = tile.letter;
@@ -427,10 +343,10 @@ function fillBottomCell(ctx, cellEl, tile) {
   updateBottomWordScore(ctx);
 }
 
-// Clears one of ctx's bottom-row cells back to vacant/white and
-// un-draggable. If this cell is a bonus square, its 2L/3L label reappears
-// now that nothing covers it — same as an uncovered bonus square on a
-// Scrabble board.
+// Clears one of ctx's guess-row cells back to vacant/white and
+// un-draggable. If this cell is a bonus square, its 2L/3L label
+// reappears now that nothing covers it — same as an uncovered bonus
+// square on a Scrabble board.
 function vacateBottomCell(ctx, cellEl) {
   cellEl.innerHTML = '';
   delete cellEl.dataset.letter;
@@ -451,20 +367,40 @@ function bonusMultiplierFor(cellEl) {
   return 1;
 }
 
-// Reads ctx's bottom row left to right (skipping vacant cells) as the
+// Reads ctx's guess row left to right (skipping vacant cells) as the
 // current candidate word. If it's a valid dictionary word (min length 3),
 // the score is the sum of each filled cell's point value — a wildcard
 // cell is always worth 0, no matter what letter was chosen for it, since
-// its dataset.pts never changes from 0. Otherwise the score is 0.
+// its dataset.pts never changes from 0. Otherwise the score is 0. Updates
+// that guess's line in the summary list and the running total (see
+// renderAllScrambles / updateGuessTotal) — there's no more per-row score
+// display next to the tiles themselves, since the summary list already
+// shows the same number for every guess at once.
 function updateBottomWordScore(ctx) {
-  if (!ctx || !ctx.wordScoreEl) return;
+  if (!ctx) return;
   const filledCells = Array.from(ctx.tilesEl2.children).filter((c) => c.dataset.letter);
   const word = filledCells.map((c) => c.dataset.letter).join('').toUpperCase();
   const isValid = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
-  const score = isValid
+  const guessScore = isValid
     ? filledCells.reduce((sum, c) => sum + Number(c.dataset.pts) * bonusMultiplierFor(c), 0)
     : 0;
-  ctx.wordScoreEl.textContent = score;
+  ctx.guessScore = guessScore;
+  if (ctx.summaryRowEl) {
+    ctx.summaryRowEl.querySelector('.guess-summary-score').textContent = guessScore;
+  }
+  updateGuessTotal();
+}
+
+// Sums every scramble's current guess score into the summary list's
+// Total line, and mirrors it into the header/info-block Score display
+// (the old running "best word" score this used to show is gone along
+// with the click-to-build-guess mechanic it depended on).
+function updateGuessTotal() {
+  const total = scrambleCtxs.reduce((sum, ctx) => sum + (ctx.guessScore || 0), 0);
+  const totalEl = el('guess-summary-total');
+  if (totalEl) totalEl.querySelector('.guess-summary-score').textContent = total;
+  score = total;
+  updateScore();
 }
 
 // Wildcards always carry 0 points, no matter what letter has been chosen
@@ -475,8 +411,8 @@ function isWildcardCell(cellEl) {
   return cellEl.dataset.letter !== undefined && cellEl.dataset.pts === '0';
 }
 
-// Opens the same A-Z pulldown used on rack wildcards, but picking a
-// letter here just updates this bottom-row cell's own displayed letter
+// Opens the same A-Z pulldown used on tray wildcards, but picking a
+// letter here just updates this guess-row cell's own displayed letter
 // (still worth 0 points) rather than building a guess. Re-openable at any
 // time to change the pick.
 function toggleBottomWildcardMenu(ctx, cellEl) {
@@ -491,19 +427,19 @@ function toggleBottomWildcardMenu(ctx, cellEl) {
   });
 }
 
-// Makes every cell in ctx's blank bottom row both a drop target and (once
-// filled) a drag source, so tiles can land there from that scramble's top
-// row and then be freely rearranged among the bottom row's own cells
-// afterward. Dropping a top-row tile always lands (overwriting whatever
-// was there); dragging a bottom-row tile onto a vacant bottom cell moves
-// it there, and onto an occupied bottom cell swaps the two tiles' contents.
+// Makes every cell in ctx's blank guess row both a drop target and (once
+// filled) a drag source, so tiles can land there from that scramble's
+// tray and then be freely rearranged among the guess row's own cells
+// afterward. Dropping a tray tile always lands (overwriting whatever was
+// there); dragging a guess-row tile onto a vacant cell moves it there,
+// and onto an occupied cell swaps the two tiles' contents.
 function attachBottomCellHandlers(ctx) {
   const cellEls = Array.from(ctx.tilesEl2.children);
   cellEls.forEach((cellEl) => {
     cellEl.draggable = false;
 
     // Wildcard cells (0 points) stay clickable to pick/re-pick their letter,
-    // same as an unresolved '?' tile up in the top row.
+    // same as an unresolved '?' tile up in the tray.
     cellEl.addEventListener('click', (e) => {
       if (!isWildcardCell(cellEl)) return;
       e.stopPropagation();
@@ -529,9 +465,9 @@ function attachBottomCellHandlers(ctx) {
     cellEl.addEventListener('dragend', () => cellEl.classList.remove('tile-lifted'));
 
     // dropEffect must match the source's effectAllowed ('copy' from the
-    // top row, 'move' from within the bottom row) or real browsers refuse
-    // the drop outright — a mismatch here silently blocked every top-row
-    // drag once any bottom-row rearrange had run.
+    // tray, 'move' from within the guess row) or real browsers refuse the
+    // drop outright — a mismatch here silently blocked every tray drag
+    // once any guess-row rearrange had run.
     cellEl.addEventListener('dragover', (e) => {
       e.preventDefault();
       const fromBottomRow = dragSourceEl && dragSourceEl.parentElement === ctx.tilesEl2;
@@ -544,9 +480,9 @@ function attachBottomCellHandlers(ctx) {
       const tile = JSON.parse(e.dataTransfer.getData('application/json'));
 
       // Whatever already occupied the target cell is displaced back up to
-      // this scramble's top row (never lost, never swapped into the drag
+      // this scramble's tray (never lost, never swapped into the drag
       // source) — so wherever you dragged FROM always ends up blank,
-      // whether that source was the top row or another bottom cell.
+      // whether that source was the tray or another guess-row cell.
       const displaced = cellEl.dataset.letter
         ? { letter: cellEl.dataset.letter, points: Number(cellEl.dataset.pts) }
         : null;
@@ -558,8 +494,8 @@ function attachBottomCellHandlers(ctx) {
         if (fromBottomRow) {
           vacateBottomCell(ctx, dragSourceEl);
         } else {
-          // Top-row tiles don't leave a gap — remove it from the list so
-          // the rest slide left to close the space.
+          // Tray tiles don't leave a gap — remove it from the list so the
+          // rest slide left to close the space.
           const idx = Array.from(ctx.tilesEl.children).indexOf(dragSourceEl);
           if (idx !== -1) { ctx.topTiles.splice(idx, 1); topRowChanged = true; }
         }
@@ -581,9 +517,9 @@ let openMenuCtx = null;
 
 // Pulldown of A-Z shown when a wildcard tile is clicked, so the player can
 // pick which letter that blank should spell. onSelect(letter) decides what
-// picking a letter actually does — the top row's rack tiles append it to
-// the in-progress guess, while a wildcard sitting in the bottom row just
-// updates its own displayed letter (see toggleBottomWildcardMenu above).
+// picking a letter actually does — a tray wildcard updates its own entry
+// in ctx.topTiles, while a wildcard sitting in the guess row just updates
+// its own displayed letter (see toggleBottomWildcardMenu above).
 function openLetterMenu(ctx, tileEl, onSelect) {
   closeLetterMenu();
   openMenuTile = tileEl;
@@ -657,38 +593,39 @@ function handleMenuEscape(e) {
   if (e.key === 'Escape') closeLetterMenu();
 }
 
-// Removes one character (by position) from the guess — used when
-// double-clicking a guess tile. Restores the rack tile it came from, if any.
-function removeGuessChar(ctx, index) {
-  const chars = Array.from(ctx.guessValue);
-  const origin = ctx.scramble.guessOrigins[index];
-  chars.splice(index, 1);
-  ctx.scramble.guessOrigins.splice(index, 1);
-  ctx.guessValue = chars.join('');
-  if (origin) origin.classList.remove('used-in-guess');
-  renderGuessTiles(ctx);
-}
-
-function clearGuess(ctx) {
-  if (openMenuCtx === ctx) closeLetterMenu();
-  ctx.scramble.guessOrigins.forEach((origin) => {
-    if (origin) origin.classList.remove('used-in-guess');
+// Shows only the active scramble's tray/guess pair; the other 5 stay
+// dealt and rendered (so dragged tiles, wildcard picks, and scores all
+// stay intact) but hidden. Also updates which line is highlighted in the
+// summary list.
+function setActiveScramble(index) {
+  activeScrambleIndex = index;
+  scrambleCtxs.forEach((ctx, i) => {
+    ctx.cardEl.classList.toggle('hidden', i !== index);
+    ctx.summaryRowEl.classList.toggle('active', i === index);
   });
-  ctx.scramble.guessOrigins = [];
-  ctx.guessValue = '';
-  renderGuessTiles(ctx);
 }
 
-// Builds all 6 scramble cards from scratch — every scramble is its own
-// permanent, fully interactive card (own Shuffle button, own top/bottom
-// tile rows, own word score), stacked vertically, no numbering.
+// Builds all 6 scrambles' tray/guess cards (every scramble is fully
+// dealt and interactive from the start — see the class comment at the
+// top of this file), plus the always-visible Guess1-6 + Total summary
+// list that both reports every guess's current score and, on click,
+// switches which single tray/guess pair is shown.
 function renderAllScrambles() {
   closeLetterMenu();
   const container = el('scrambles');
   container.innerHTML = '';
   scrambleCtxs = [];
 
-  scrambles.forEach((scramble) => {
+  // Restarting must replace the summary list, not add another one next
+  // to it — it lives as a sibling of #scrambles (not inside it), so
+  // clearing #scrambles' innerHTML above doesn't remove a previous one.
+  const oldSummaryList = el('guess-summary');
+  if (oldSummaryList) oldSummaryList.remove();
+
+  const summaryList = document.createElement('div');
+  summaryList.id = 'guess-summary';
+
+  scrambles.forEach((scramble, idx) => {
     const card = document.createElement('div');
     card.className = 'scramble-card';
 
@@ -706,44 +643,36 @@ function renderAllScrambles() {
     tilesStack.className = 'tiles-stack';
     tilesStack.appendChild(tilesDiv);
     tilesStack.appendChild(tilesDiv2);
-    // This scramble's bottom row's current word score — sum of the point
-    // values of whatever letters are placed there, 0 while it isn't a
-    // valid dictionary word (see updateBottomWordScore).
-    const wordScoreSpan = document.createElement('span');
-    wordScoreSpan.className = 'bottom-word-score';
-    wordScoreSpan.textContent = '0';
-    const guessTilesDiv = document.createElement('div');
-    guessTilesDiv.className = 'guess-tiles-strip';
-    const liveScoreSpan = document.createElement('span');
-    liveScoreSpan.className = 'live-score';
 
     top.appendChild(shuffleBtn);
     top.appendChild(tilesStack);
-    top.appendChild(wordScoreSpan);
-    top.appendChild(guessTilesDiv);
-    top.appendChild(liveScoreSpan);
     card.appendChild(top);
     container.appendChild(card);
 
     const ctx = {
       scramble,
+      index: idx,
       tilesEl: tilesDiv,
-      wordScoreEl: wordScoreSpan,
       tilesEl2: tilesDiv2,
       topTiles: [...scramble.displayTiles],
-      guessTilesEl: guessTilesDiv,
-      guessValue: '',
       cardEl: card,
-      liveScoreEl: liveScoreSpan,
+      guessScore: 0,
     };
     scrambleCtxs.push(ctx);
 
+    // Guess1-6 line: label + score, clickable to make this pair active.
+    const summaryRow = document.createElement('div');
+    summaryRow.className = 'guess-summary-row';
+    summaryRow.innerHTML = `<span class="guess-summary-label">Guess ${idx + 1}</span><span class="guess-summary-score">0</span>`;
+    summaryRow.addEventListener('click', () => setActiveScramble(idx));
+    summaryList.appendChild(summaryRow);
+    ctx.summaryRowEl = summaryRow;
+
     renderTopRow(ctx);
     renderBlankTileEls(tilesDiv2, scramble.displayTiles, scramble.bottomBonuses);
-    updateBottomWordScore(ctx);
     attachBottomCellHandlers(ctx);
     attachTopRowDropHandler(ctx);
-    clearGuess(ctx);
+    updateBottomWordScore(ctx);
 
     // Alternates each click: randomize, then back to alphabetical, then a
     // fresh randomize, etc. — never two shuffles in a row.
@@ -758,11 +687,18 @@ function renderAllScrambles() {
       ctx.topTiles = [...scramble.displayTiles];
       renderTopRow(ctx);
       renderBlankTileEls(tilesDiv2, scramble.displayTiles, scramble.bottomBonuses);
-      updateBottomWordScore(ctx);
       attachBottomCellHandlers(ctx);
-      clearGuess(ctx);
+      updateBottomWordScore(ctx);
     });
   });
+
+  const totalRow = document.createElement('div');
+  totalRow.id = 'guess-summary-total';
+  totalRow.innerHTML = '<span class="guess-summary-label">Total</span><span class="guess-summary-score">0</span>';
+  summaryList.appendChild(totalRow);
+
+  el('game').insertBefore(summaryList, el('info-blocks'));
+  setActiveScramble(0);
 }
 
 el('stop-btn').addEventListener('click', () => {
