@@ -148,7 +148,8 @@ multiplayer (single-player keeps its existing behavior unless noted):
   change single-player, which still explicitly allows repeating a word
   across your own 6 racks (an earlier, separate decision — see
   `SESSION_SUMMARY.md`).
-- **Bonus tile generation rate**: of a rack's 10 guess slots, 10% are
+- **Bonus tile generation rate** — **done** in `server.js`, verified
+  empirically at 9.96%/8.99% over 100k samples: of a rack's 10 guess slots, 10% are
   double-letter, and 10% of the *remaining* (non-2L) slots are
   triple-letter — roughly 1 double + ~0.9 triple per 10-slot rack on
   average, but as a genuine per-cell probability (10% / 9% absolute),
@@ -159,7 +160,7 @@ multiplayer (single-player keeps its existing behavior unless noted):
   bonus tiles are also *scarce across players* (first use consumes the
   cell for everyone, same as word-locking) — this rule only answers how
   many exist per rack, not whether they're shared.
-- **Long-word bonus**: +10 flat points for any word 8 letters or
+- **Long-word bonus** — **done** in `server.js`: +10 flat points for any word 8 letters or
   longer, on top of normal scoring (including any bonus-tile
   multipliers on that word). Straightforward addition, no interaction
   with the other rules above.
@@ -308,8 +309,10 @@ balancer or horizontal scaling needed to start.
 1. ~~**Server-authoritative single-player**~~ — **done** (`server.js`):
    rack generation, dictionary, and scoring all moved server-side;
    client just displays what the server returns.
-2. **Accounts** — registration/login, unique usernames + passwords.
-   Required before either mode is playable (§2).
+2. ~~**Accounts**~~ — **done** (`db.js`, `auth.js`): registration/login,
+   unique usernames + bcrypt-hashed passwords, stateless JWT-cookie
+   sessions. `/api/game/new` and `/api/game/:id/guess` now require
+   login and are scoped to the owning user.
 3. **Lobby matchmaking** — join/leave a waiting lobby, 5-minute countdown,
    shared seeded round once it starts (§2). Replaces the earlier
    fixed-clock scheduling idea.
