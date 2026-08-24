@@ -300,14 +300,20 @@ function renderSummaryCellText(el, text) {
   }
 }
 
-// The summary list's second column shows this scramble's own tray
-// letters by default, and flips to showing the current guess word
-// instead the moment that guess is a valid dictionary word — reverting
-// back the instant it no longer is (letters removed, etc). Reads
-// ctx.isValid/ctx.guessWord, which updateBottomWordScore keeps current;
-// called from both that function and renderTopRow so this stays correct
-// no matter which of the two (tray changed vs. guess changed) fires
-// last.
+// The summary list's second column shows this scramble's own canonical
+// display order (ctx.scramble.displayTiles — alphabetical, or shuffled
+// once Shuffle's been clicked) by default, and flips to showing the
+// current guess word instead the moment that guess is a valid
+// dictionary word — reverting back the instant it no longer is (letters
+// removed, etc). Deliberately NOT ctx.topTiles: that shrinks/reorders as
+// tiles get dragged to and from the guess row while building a
+// candidate word, which isn't an actual change to the scramble — using
+// displayTiles keeps this column showing the same stable text the whole
+// time a guess is in progress, only ever changing on an intentional
+// Shuffle or once a valid word is found. Reads ctx.isValid/ctx.guessWord,
+// which updateBottomWordScore keeps current; called from both that
+// function and renderTopRow so this stays correct no matter which of the
+// two (tray changed vs. guess changed) fires last.
 function updateSummaryScrambleCell(ctx) {
   if (!ctx.summaryRowEl) return;
   const cellEl = ctx.summaryRowEl.querySelector('.guess-summary-scramble');
@@ -315,7 +321,7 @@ function updateSummaryScrambleCell(ctx) {
     renderSummaryCellText(cellEl, ctx.guessWord);
     cellEl.classList.add('solved');
   } else {
-    renderSummaryCellText(cellEl, ctx.topTiles.map((t) => t.letter).join(''));
+    renderSummaryCellText(cellEl, ctx.scramble.displayTiles.map((t) => t.letter).join(''));
     cellEl.classList.remove('solved');
   }
 }
