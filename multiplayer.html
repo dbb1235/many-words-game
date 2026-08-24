@@ -1,0 +1,1303 @@
+<title>Gerbil Multiplayer</title>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --cream: #f4f1ea;
+    --dark: #2b2620;
+    --gold: #c9a24b;
+    --gold-soft: #fbf0d9;
+    --green-bg: #2e7d32;
+    --red: #c1443c;
+    --red-soft: #fdeceb;
+    --tan: #6b6355;
+    --card: #ffffff;
+    --good-green: #2f8f4e;
+    --good-green-soft: #e3f5e9;
+    --bonus2-bg: #8fd48f;
+    --bonus2-border: #5fae5f;
+    --bonus3-bg: #8ec3f0;
+    --bonus3-border: #5f9bd8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--green-bg);
+    color: var(--dark);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px;
+  }
+
+  /* One continuous panel — header and rack are two zones of the SAME
+     card, sharing one background/shadow, not a dark bar floating over a
+     separate green field with a smaller white box inside it. The green
+     page background now only shows as a thin frame around this. */
+  .screen {
+    width: 100%;
+    max-width: 1180px;
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 14px 22px;
+    background: var(--dark);
+    color: var(--cream);
+  }
+
+  .brand { font-size: 18px; font-weight: 700; margin-right: auto; }
+
+  .stat { display: flex; flex-direction: column; align-items: center; min-width: 56px; }
+  .stat .label { font-size: 10.5px; text-transform: uppercase; opacity: 0.7; letter-spacing: 0.04em; }
+  .stat .value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #timer-stat.warn-1min .value { color: #ffcf5c; }
+  #timer-stat.warn-15s .value { color: #ff6b5e; animation: timerPulse 0.6s ease infinite; }
+  #timer-stat.time-up .value { color: #ff6b5e; }
+
+  @keyframes timerPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(244,241,234,0.35);
+    background: transparent;
+    color: var(--cream);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .icon-btn.is-muted { opacity: 0.5; }
+  .icon-btn:hover { border-color: var(--gold); }
+
+  .username-label {
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0.8;
+    white-space: nowrap;
+  }
+
+  /* The rack itself is the main event — this is the whole rest of the
+     card below the header, same white surface, no inset box within it. */
+  .active-card {
+    padding: 16px 22px 22px;
+    transition: background 0.4s ease;
+  }
+
+  .active-card.flash-good { animation: flashGood 0.9s ease; }
+  .active-card.flash-bad { animation: flashBad 0.5s ease; }
+  .active-card.locked .tile-row { pointer-events: none; opacity: 0.5; }
+
+  @keyframes flashGood {
+    0% { background: var(--good-green-soft); }
+    100% { background: var(--card); }
+  }
+  @keyframes flashBad {
+    0% { background: var(--red-soft); }
+    100% { background: var(--card); }
+  }
+
+  .round-ended-banner {
+    display: none;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--tan);
+    background: #f4f1ea;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+  }
+  .round-ended-banner.show { display: block; }
+
+  .tile-row { display: flex; gap: clamp(4px, 0.8vw, 8px); margin-bottom: 10px; }
+
+  .tile {
+    flex: 1 1 0;
+    aspect-ratio: 1 / 1;
+    max-width: 92px;
+    min-width: 0;
+    border: 1.5px solid #000;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    font-weight: 700;
+    font-size: clamp(28px, 6.2vw, 64px);
+    user-select: none;
+  }
+
+  .tile .pts { position: absolute; bottom: 3%; right: 6%; font-size: clamp(14px, 2.2vw, 25px); font-weight: 700; }
+
+  .tile-row.tray .tile.draggable { cursor: grab; }
+  .tile-row.tray .tile.draggable:hover { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .tile-row.tray .tile.used { opacity: 0.28; }
+  .tile-row.tray .tile.dragging { opacity: 0.35; }
+
+  .tile-row.guess .tile.empty { border-color: #d8d2c2; }
+  .tile-row.guess .tile.draggable { cursor: grab; }
+  .tile-row.guess .tile.draggable:hover { outline: 2px solid var(--red); outline-offset: 1px; }
+  .tile-row.guess .tile.dragging { opacity: 0.35; }
+  .tile-row.guess .tile.wildcard-placed { cursor: pointer; }
+
+  /* Bonus cells are colored (no text — the color IS the label), and a
+     tile keeps that color for as long as it sits there — the tile
+     itself reads as "boosted," not just its point number. Move the
+     tile off this slot and both the color and the ×2/×3 go away. */
+  .tile-row.guess .tile.bonus2 { background: var(--bonus2-bg) !important; border-color: var(--bonus2-border); }
+  .tile-row.guess .tile.bonus3 { background: var(--bonus3-bg) !important; border-color: var(--bonus3-border); }
+
+  /* Drop-target hover feedback while dragging a tile over a cell. */
+  .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
+
+  .guess-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+
+  .erase-btn {
+    border: 1px solid #e2b6b0;
+    background: var(--red-soft);
+    color: var(--red);
+    font-size: 12.5px;
+    font-weight: 700;
+    border-radius: 7px;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+  .erase-btn:hover { background: #fbd9d5; }
+  .erase-btn:disabled { opacity: 0.35; cursor: default; background: var(--red-soft); }
+
+  /* Word + score, centered together as one group — color alone (black
+     while forming, green valid, red invalid) carries the verdict, no
+     icon or "valid word"/"not a word" text needed alongside it. */
+  .word-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 11px 15px;
+    border-radius: 10px;
+    background: #f4f1ea;
+    min-height: 26px;
+  }
+
+  .word-status.state-empty { color: #a89f8e; }
+  .word-status.state-building { color: var(--dark); }
+  .word-status.state-valid { background: var(--good-green-soft); color: var(--good-green); }
+  .word-status.state-invalid { background: var(--red-soft); color: var(--red); }
+
+  .word-status .word-text { font-size: 23px; font-weight: 800; letter-spacing: 0.02em; }
+  .word-status .score-num { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* Single control for moving through the six racks — no prev, no dots,
+     just Next, wrapping 6 back to 1. */
+  .rack-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #ece7db;
+  }
+
+  .rack-indicator-group { display: flex; flex-direction: column; gap: 2px; }
+  .rack-indicator { font-size: 17px; color: var(--dark); font-weight: 800; }
+  .rack-leading { font-size: 12.5px; color: var(--tan); font-weight: 600; }
+  .rack-leading .rack-leading-num { font-weight: 800; color: #a67c1e; }
+
+  .next-btn {
+    border: none;
+    background: #ff8c1a;
+    color: var(--dark);
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 12px 26px;
+    cursor: pointer;
+  }
+
+  .next-btn:hover { filter: brightness(1.05); }
+  .next-btn:active { transform: translateY(1px); }
+  .next-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .restart-link {
+    border: none;
+    background: none;
+    color: #a89f8e;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+  .restart-link:hover { color: var(--tan); }
+
+  /* Wildcard letter picker — appended to body, positioned near the
+     clicked wildcard tile (see openWildcardPicker). */
+  .letter-menu {
+    position: fixed;
+    z-index: 50;
+    display: grid;
+    grid-template-columns: repeat(6, 34px);
+    grid-auto-rows: 38px;
+    gap: 3px;
+    background: #fff;
+    border: 1px solid #d8d2c2;
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  }
+
+  .letter-menu button {
+    width: 34px;
+    height: 38px;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 700;
+    background: var(--cream);
+    border: none;
+    border-radius: 4px;
+    color: var(--dark);
+    cursor: pointer;
+  }
+
+  .letter-menu button:hover { background: var(--gold); }
+
+  /* ---------- Multiplayer standings — a second card below the game,
+     same visual language as .screen. "You" always gets a distinct
+     accent outline so you can find your own row/chip at a glance. ---------- */
+
+  .mp-panel {
+    width: 100%;
+    max-width: 1180px;
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    margin: 14px auto 0;
+    padding: 20px 22px 24px;
+    display: none;
+  }
+  .mp-panel.show { display: block; }
+
+  .mp-section + .mp-section { margin-top: 22px; }
+
+  .mp-section-title {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--tan);
+    margin-bottom: 10px;
+  }
+
+  .mp-avatar {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .mp-standings { display: flex; flex-direction: column; gap: 6px; }
+
+  .mp-standings-row {
+    display: grid;
+    grid-template-columns: 22px 26px 1fr 100px 80px;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #f4f1ea;
+    border: 1.5px solid transparent;
+  }
+
+  .mp-standings-row.is-you { border-color: var(--gold); background: var(--gold-soft); }
+
+  .mp-standings-row .rank { font-size: 13px; font-weight: 800; color: var(--tan); text-align: center; }
+  .mp-standings-row .rank.rank-1 { color: #c9a24b; }
+
+  .mp-standings-row .row-name { font-size: 14.5px; font-weight: 700; color: var(--dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mp-standings-row .row-score { font-size: 15px; font-weight: 800; color: var(--dark); font-variant-numeric: tabular-nums; text-align: right; }
+
+  .mp-standings-row .row-bar { height: 8px; background: #ece7db; border-radius: 999px; overflow: hidden; }
+  .mp-standings-row .row-bar-fill { height: 100%; border-radius: 999px; }
+
+  /* ---------- Auth screen ---------- */
+
+  .auth-body { padding: 26px 26px 30px; }
+  .auth-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .auth-tab {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1.5px solid #e2ddd0;
+    background: #fff;
+    color: var(--tan);
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .auth-tab.active { background: var(--dark); color: var(--cream); border-color: var(--dark); }
+  .auth-label { display: block; font-size: 13px; font-weight: 700; color: var(--tan); margin-bottom: 16px; }
+  .auth-input {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 11px 12px;
+    border: 1.5px solid #d8d2c2;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: inherit;
+  }
+  .auth-input:focus { outline: none; border-color: var(--gold); }
+  .auth-hint { font-size: 11.5px; color: #a89f8e; font-weight: 500; margin-top: 5px; }
+  .auth-error { color: var(--red); font-size: 13px; font-weight: 600; min-height: 18px; margin-bottom: 10px; }
+  .auth-submit { width: 100%; margin-top: 4px; }
+
+  /* ---------- Lobby (matchmaking) screen ---------- */
+
+  .lobby-body { padding: 34px 26px 38px; text-align: center; }
+  .lobby-status { font-size: 15.5px; font-weight: 700; color: var(--tan); margin-bottom: 4px; }
+  .lobby-countdown {
+    font-size: 44px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    margin: 6px 0 4px;
+    color: var(--dark);
+  }
+  .lobby-roster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin: 20px 0 26px;
+  }
+  .lobby-chip {
+    background: #f4f1ea;
+    border-radius: 999px;
+    padding: 7px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--dark);
+  }
+  .lobby-chip.is-you { background: var(--gold-soft); border: 1.5px solid var(--gold); }
+  .lobby-spinner {
+    width: 28px;
+    height: 28px;
+    margin: 0 auto 16px;
+    border: 3px solid #e2ddd0;
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-note {
+    text-align: center;
+    padding: 40px 22px;
+    color: var(--tan);
+    font-size: 14px;
+    font-weight: 600;
+  }
+</style>
+
+<div class="screen" id="auth-screen" style="display:none;">
+  <div class="top-bar">
+    <div class="brand">GERBIL MULTIPLAYER</div>
+  </div>
+  <div class="auth-body">
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" type="button">Log In</button>
+      <button class="auth-tab" id="tab-register" type="button">Register</button>
+    </div>
+    <form id="auth-form">
+      <label class="auth-label">
+        Username
+        <input class="auth-input" id="auth-username" autocomplete="username" required>
+        <div class="auth-hint" id="username-hint" style="display:none;">3–20 characters: letters, numbers, underscore.</div>
+      </label>
+      <label class="auth-label">
+        Password
+        <input class="auth-input" id="auth-password" type="password" autocomplete="current-password" required>
+        <div class="auth-hint" id="password-hint" style="display:none;">At least 8 characters.</div>
+      </label>
+      <div class="auth-error" id="auth-error"></div>
+      <button class="next-btn auth-submit" id="auth-submit" type="submit">Log In</button>
+    </form>
+  </div>
+</div>
+
+<div class="screen" id="lobby-screen" style="display:none;">
+  <div class="top-bar">
+    <div class="brand">GERBIL MULTIPLAYER</div>
+    <span class="username-label" id="lobby-username-label"></span>
+  </div>
+  <div class="lobby-body">
+    <div class="lobby-spinner" id="lobby-spinner"></div>
+    <div class="lobby-status" id="lobby-status">Joining a lobby…</div>
+    <div class="lobby-countdown" id="lobby-countdown" style="display:none;"></div>
+    <div class="lobby-roster" id="lobby-roster"></div>
+    <button class="restart-link" id="leave-lobby-btn">↺ Leave queue</button>
+  </div>
+</div>
+
+<div class="screen" id="game-screen" style="display:none;">
+  <div class="top-bar">
+    <div class="brand">GERBIL MULTIPLAYER</div>
+    <span class="username-label" id="username-label"></span>
+    <div class="stat" id="timer-stat">
+      <div class="label">Time</div>
+      <div class="value" id="timer-value">10:00</div>
+    </div>
+    <div class="stat">
+      <div class="label">Score</div>
+      <div class="value" id="score-value">0</div>
+    </div>
+    <button class="icon-btn" id="mute-btn" title="Mute sound">🔔</button>
+    <button class="icon-btn" id="logout-btn" title="Log out">⎋</button>
+  </div>
+
+  <div class="active-card" id="active-card">
+    <div class="round-ended-banner" id="round-ended-banner">Round over — final standings below</div>
+    <div class="tile-row tray" id="tray-tiles"></div>
+    <div class="tile-row guess" id="guess-tiles"></div>
+
+    <div class="guess-toolbar">
+      <button class="erase-btn" id="erase-btn">✕ Erase</button>
+    </div>
+
+    <div class="word-status" id="word-status">
+      <span class="word-text" id="word-text"></span>
+      <span class="score-num" id="verdict-score"></span>
+    </div>
+
+    <div class="rack-nav">
+      <span class="rack-indicator-group">
+        <span class="rack-indicator" id="rack-indicator"></span>
+        <span class="rack-leading" id="rack-leading"></span>
+      </span>
+      <button class="next-btn" id="nav-next">Next Rack →</button>
+    </div>
+  </div>
+  <div style="text-align:center; padding: 0 22px 16px;">
+    <button class="restart-link" id="leave-match-btn">↺ Leave match</button>
+  </div>
+</div>
+
+<div class="mp-panel" id="mp-panel">
+  <div class="mp-section">
+    <div class="mp-section-title">Overall standings</div>
+    <div class="mp-standings" id="mp-standings"></div>
+  </div>
+</div>
+
+<div class="screen" id="loading-screen">
+  <div class="loading-note">Loading…</div>
+</div>
+
+<script>
+  const MIN_WORD_LEN = 3;   // words shorter than this never even reach the server
+  const NUM_SCRAMBLES = 6;
+
+  // ---------- Screen management ----------
+
+  const authScreen = document.getElementById('auth-screen');
+  const lobbyScreen = document.getElementById('lobby-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const loadingScreen = document.getElementById('loading-screen');
+  const mpPanel = document.getElementById('mp-panel');
+
+  function showScreen(el) {
+    authScreen.style.display = el === authScreen ? 'block' : 'none';
+    lobbyScreen.style.display = el === lobbyScreen ? 'block' : 'none';
+    gameScreen.style.display = el === gameScreen ? 'block' : 'none';
+    loadingScreen.style.display = el === loadingScreen ? 'block' : 'none';
+    mpPanel.classList.toggle('show', el === gameScreen);
+  }
+
+  // ---------- Auth ----------
+
+  let authMode = 'login';
+  const tabLogin = document.getElementById('tab-login');
+  const tabRegister = document.getElementById('tab-register');
+  const authForm = document.getElementById('auth-form');
+  const authError = document.getElementById('auth-error');
+  const authSubmit = document.getElementById('auth-submit');
+  const usernameHint = document.getElementById('username-hint');
+  const passwordHint = document.getElementById('password-hint');
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    tabLogin.classList.toggle('active', mode === 'login');
+    tabRegister.classList.toggle('active', mode === 'register');
+    authSubmit.textContent = mode === 'login' ? 'Log In' : 'Create Account';
+    usernameHint.style.display = mode === 'register' ? 'block' : 'none';
+    passwordHint.style.display = mode === 'register' ? 'block' : 'none';
+    authError.textContent = '';
+  }
+  tabLogin.addEventListener('click', () => setAuthMode('login'));
+  tabRegister.addEventListener('click', () => setAuthMode('register'));
+
+  let ME = null; // { id, username } for the logged-in player
+
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    authError.textContent = '';
+    const username = document.getElementById('auth-username').value.trim();
+    const password = document.getElementById('auth-password').value;
+    authSubmit.disabled = true;
+    try {
+      const res = await fetch(`/api/${authMode === 'login' ? 'login' : 'register'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        authError.textContent = data.error || 'Something went wrong.';
+        return;
+      }
+      ME = { id: data.id, username: data.username };
+      setUsernameLabels(ME.username);
+      showScreen(loadingScreen);
+      joinLobby();
+    } catch (err) {
+      authError.textContent = 'Network error — is the server running?';
+    } finally {
+      authSubmit.disabled = false;
+    }
+  });
+
+  function setUsernameLabels(username) {
+    document.getElementById('username-label').textContent = username;
+    document.getElementById('lobby-username-label').textContent = username;
+  }
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    stopAllPolling();
+    await fetch('/api/logout', { method: 'POST' });
+    showScreen(authScreen);
+  });
+
+  (async function init() {
+    try {
+      const res = await fetch('/api/me');
+      const data = await res.json();
+      if (data.user) {
+        ME = data.user;
+        setUsernameLabels(ME.username);
+        showScreen(loadingScreen);
+        await joinLobby();
+      } else {
+        showScreen(authScreen);
+      }
+    } catch (err) {
+      showScreen(authScreen);
+    }
+  })();
+
+  // ---------- Lobby / matchmaking ----------
+  //
+  // Join once, then poll GET /api/lobby/:id every 2s until status flips
+  // to 'started' — the countdown and roster shown here are the server's
+  // own numbers (not a locally-run timer), so every player in the lobby
+  // sees the same countdown without needing a shared clock.
+
+  let currentLobbyId = null;
+  let lobbyPollHandle = null;
+
+  async function joinLobby() {
+    const res = await fetch('/api/lobby/join', { method: 'POST' });
+    if (res.status === 401) { showScreen(authScreen); return; }
+    const lobby = await res.json();
+    currentLobbyId = lobby.id;
+
+    if (lobby.status === 'started' && lobby.roundId) {
+      showScreen(loadingScreen);
+      await enterRound(lobby.roundId);
+      return;
+    }
+
+    showScreen(lobbyScreen);
+    renderLobby(lobby);
+    clearInterval(lobbyPollHandle);
+    lobbyPollHandle = setInterval(pollLobby, 2000);
+  }
+
+  async function pollLobby() {
+    if (!currentLobbyId) return;
+    const res = await fetch(`/api/lobby/${currentLobbyId}`);
+    if (res.status === 401) { clearInterval(lobbyPollHandle); showScreen(authScreen); return; }
+    if (!res.ok) return;
+    const lobby = await res.json();
+
+    if (lobby.status === 'started' && lobby.roundId) {
+      clearInterval(lobbyPollHandle);
+      showScreen(loadingScreen);
+      await enterRound(lobby.roundId);
+      return;
+    }
+    renderLobby(lobby);
+  }
+
+  function renderLobby(lobby) {
+    const statusEl = document.getElementById('lobby-status');
+    const countdownEl = document.getElementById('lobby-countdown');
+    const spinnerEl = document.getElementById('lobby-spinner');
+
+    if (lobby.status === 'counting_down') {
+      spinnerEl.style.display = 'none';
+      countdownEl.style.display = 'block';
+      const m = Math.floor(lobby.secondsUntilStart / 60).toString().padStart(2, '0');
+      const s = (lobby.secondsUntilStart % 60).toString().padStart(2, '0');
+      countdownEl.textContent = `${m}:${s}`;
+      statusEl.textContent = `Starting soon — ${lobby.roster.length}/${lobby.maxPlayers} players`;
+    } else {
+      spinnerEl.style.display = 'block';
+      countdownEl.style.display = 'none';
+      statusEl.textContent = `Waiting for another player… (${lobby.roster.length}/${lobby.maxPlayers})`;
+    }
+
+    document.getElementById('lobby-roster').innerHTML = lobby.roster.map((name) =>
+      `<span class="lobby-chip${name === ME.username ? ' is-you' : ''}">${name}</span>`
+    ).join('');
+  }
+
+  document.getElementById('leave-lobby-btn').addEventListener('click', async () => {
+    clearInterval(lobbyPollHandle);
+    if (currentLobbyId) {
+      await fetch(`/api/lobby/${currentLobbyId}/leave`, { method: 'POST' });
+      currentLobbyId = null;
+    }
+    showScreen(loadingScreen);
+    joinLobby();
+  });
+
+  document.getElementById('leave-match-btn').addEventListener('click', async () => {
+    stopAllPolling();
+    if (currentLobbyId) {
+      await fetch(`/api/lobby/${currentLobbyId}/leave`, { method: 'POST' });
+      currentLobbyId = null;
+    }
+    showScreen(loadingScreen);
+    joinLobby();
+  });
+
+  function stopAllPolling() {
+    clearInterval(lobbyPollHandle);
+    clearInterval(roundResyncHandle);
+    clearInterval(leaderboardPollHandle);
+    clearInterval(timerHandle);
+  }
+
+  // ---------- Round state ----------
+
+  let currentRoundId = null;
+  let RACKS = [];
+  let currentIndex = 0;
+  let muted = false;
+  let roundEnded = false;
+  let timeLeft = 0;
+  let timerHandle = null;
+  let warned1min = false;
+  let warned15s = false;
+  let roundResyncHandle = null;
+  let leaderboardPollHandle = null;
+  let latestLeaderboard = { overall: [], perRack: [] };
+
+  async function enterRound(roundId) {
+    currentRoundId = roundId;
+    roundEnded = false;
+    document.getElementById('round-ended-banner').classList.remove('show');
+    document.getElementById('active-card').classList.remove('locked');
+    document.getElementById('nav-next').disabled = false;
+
+    const res = await fetch(`/api/round/${roundId}/current`);
+    if (res.status === 401) { showScreen(authScreen); return; }
+    const data = await res.json();
+
+    if (data.phase === 'ended' || !data.scrambles) {
+      RACKS = Array.from({ length: NUM_SCRAMBLES }, () => makeRack({ tiles: [], bottomBonuses: [] }));
+      handleRoundEnded();
+    } else {
+      RACKS = data.scrambles.map(makeRack);
+      timeLeft = data.secondsRemaining;
+    }
+
+    currentIndex = 0;
+    showScreen(gameScreen);
+    renderActive();
+    startTimer();
+    await refreshLeaderboard();
+
+    clearInterval(roundResyncHandle);
+    roundResyncHandle = setInterval(resyncRound, 15000);
+    clearInterval(leaderboardPollHandle);
+    leaderboardPollHandle = setInterval(refreshLeaderboard, 5000);
+  }
+
+  // Corrects local timer drift against the server's clock and catches
+  // the active -> ended transition even if no guess is in flight to
+  // notice it another way.
+  async function resyncRound() {
+    if (!currentRoundId || roundEnded) return;
+    const res = await fetch(`/api/round/${currentRoundId}/current`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.phase === 'ended') {
+      handleRoundEnded();
+    } else {
+      timeLeft = data.secondsRemaining;
+    }
+  }
+
+  function handleRoundEnded() {
+    if (roundEnded) return;
+    roundEnded = true;
+    clearInterval(timerHandle);
+    clearInterval(roundResyncHandle);
+    document.getElementById('timer-value').textContent = '00:00';
+    document.getElementById('round-ended-banner').classList.add('show');
+    document.getElementById('active-card').classList.add('locked');
+    document.getElementById('nav-next').disabled = true;
+    document.getElementById('leave-match-btn').textContent = '↺ Find New Game';
+    refreshLeaderboard();
+  }
+
+  // Each rack mirrors what the server dealt: tiles [{letter, points}]
+  // (10 per rack) and bottomBonuses, a same-length array of
+  // null | '2L' | '3L' keyed by guess-slot position.
+  function makeRack(scramble) {
+    return {
+      tiles: scramble.tiles,
+      bottomBonuses: scramble.bottomBonuses,
+      guessSlots: scramble.tiles.map(() => null),
+      lastWasValid: false,
+      lastWord: '',
+      badFired: false,
+      lastResult: { word: '', valid: false, score: 0 },
+      requestId: 0,
+    };
+  }
+
+  function isTrayIndexPlaced(rack, trayIndex) {
+    return rack.guessSlots.some((e) => e && e.trayIndex === trayIndex);
+  }
+
+  // ---------- Audio (synthesized — no external files) ----------
+
+  let audioCtx = null;
+  function ctx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function tone(freq, startTime, duration, type, gainPeak) {
+    const c = ctx();
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.02);
+  }
+
+  function playGoodChime() {
+    if (muted) return;
+    const c = ctx(); const now = c.currentTime;
+    tone(523.25, now, 0.16, 'sine', 0.18);
+    tone(659.25, now + 0.1, 0.16, 'sine', 0.18);
+    tone(783.99, now + 0.2, 0.28, 'sine', 0.2);
+  }
+
+  function playBadThud() {
+    if (muted) return;
+    const c = ctx(); const now = c.currentTime;
+    tone(160, now, 0.22, 'square', 0.12);
+    tone(110, now + 0.08, 0.26, 'square', 0.1);
+  }
+
+  function playWarnBeep(urgent) {
+    if (muted) return;
+    const c = ctx(); const now = c.currentTime;
+    if (urgent) {
+      tone(880, now, 0.12, 'sine', 0.16);
+      tone(880, now + 0.18, 0.12, 'sine', 0.16);
+      tone(880, now + 0.36, 0.16, 'sine', 0.18);
+    } else {
+      tone(660, now, 0.22, 'sine', 0.16);
+    }
+  }
+
+  document.getElementById('mute-btn').addEventListener('click', () => {
+    muted = !muted;
+    const btn = document.getElementById('mute-btn');
+    btn.textContent = muted ? '🔕' : '🔔';
+    btn.classList.toggle('is-muted', muted);
+  });
+
+  // ---------- Scoring / validity for the active rack's current guess ----------
+  //
+  // The dictionary and scoring authority live entirely on the server
+  // (see MULTIPLAYER_PLAN.md §1 "one shared rules module") — this file
+  // has no local word list or point math. Only the contiguous run
+  // starting at slot 0 counts as "the word being attempted."
+
+  function bonusMultiplier(rack, slot) {
+    const b = rack.bottomBonuses[slot];
+    if (b === '2L') return 2;
+    if (b === '3L') return 3;
+    return 1;
+  }
+
+  function currentWordForRack(rack) {
+    let word = '';
+    for (const entry of rack.guessSlots) {
+      if (!entry) break;
+      word += entry.letter;
+    }
+    return word;
+  }
+
+  async function evaluateRackAsync(rack, scrambleIndex) {
+    const filled = [];
+    for (let slot = 0; slot < rack.guessSlots.length; slot++) {
+      const entry = rack.guessSlots[slot];
+      if (!entry) break;
+      filled.push({ entry, slot });
+    }
+
+    const cells = filled.map(({ entry, slot }) => ({
+      position: slot,
+      letter: entry.letter,
+      isWildcard: rack.tiles[entry.trayIndex].letter === '?',
+    }));
+
+    const res = await fetch(`/api/round/${currentRoundId}/guess`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scrambleIndex, cells }),
+    });
+
+    if (res.status === 401) {
+      showScreen(authScreen);
+      return { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+    }
+    if (res.status === 400) {
+      // Most likely "round has ended" — resync to confirm and lock the board.
+      resyncRound();
+      return { word: currentWordForRack(rack), valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+    }
+    if (!res.ok) {
+      return { word: currentWordForRack(rack), valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+    }
+    return res.json();
+  }
+
+  // ---------- Feedback firing (edge-triggered) ----------
+
+  function maybeFireFeedback(rack, evalResult) {
+    const { word, valid, score } = evalResult;
+    const card = document.getElementById('active-card');
+
+    if (valid) {
+      if (!rack.lastWasValid || rack.lastWord !== word) {
+        card.classList.remove('flash-bad');
+        void card.offsetWidth;
+        if (score >= 8) {
+          card.classList.add('flash-good');
+          playGoodChime();
+        } else {
+          card.classList.add('flash-bad');
+          playBadThud();
+        }
+      }
+      rack.badFired = false;
+    } else {
+      if (rack.lastWasValid || !rack.badFired) {
+        card.classList.remove('flash-good');
+        void card.offsetWidth;
+        card.classList.add('flash-bad');
+        playBadThud();
+        rack.badFired = true;
+      }
+    }
+
+    rack.lastWasValid = valid;
+    rack.lastWord = word;
+  }
+
+  // ---------- Rendering ----------
+
+  function setDragPayload(e, payload) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/json', JSON.stringify(payload));
+  }
+
+  function getDragPayload(e) {
+    try { return JSON.parse(e.dataTransfer.getData('application/json')); }
+    catch { return null; }
+  }
+
+  function renderTray(rack) {
+    const el = document.getElementById('tray-tiles');
+    el.innerHTML = rack.tiles.map((t, i) => {
+      const placed = isTrayIndexPlaced(rack, i);
+      return `<div class="tile${placed ? ' used' : ' draggable'}" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
+    }).join('');
+
+    Array.from(el.children).forEach((tileEl, i) => {
+      if (isTrayIndexPlaced(rack, i)) return;
+      const t = rack.tiles[i];
+      tileEl.draggable = true;
+      tileEl.addEventListener('dragstart', (e) => {
+        setDragPayload(e, { trayIndex: i, letter: t.letter, fromSlot: null });
+        tileEl.classList.add('dragging');
+      });
+      tileEl.addEventListener('dragend', () => tileEl.classList.remove('dragging'));
+    });
+
+    el.ondragover = (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    };
+    el.ondrop = (e) => {
+      e.preventDefault();
+      const payload = getDragPayload(e);
+      if (!payload || payload.fromSlot === null) return;
+      rack.guessSlots[payload.fromSlot] = null;
+      renderActive();
+    };
+  }
+
+  function renderGuess(rack) {
+    const el = document.getElementById('guess-tiles');
+    el.innerHTML = rack.tiles.map((_, slot) => {
+      const entry = rack.guessSlots[slot];
+      const bonus = rack.bottomBonuses[slot];
+      const bonusClass = bonus === '2L' ? ' bonus2' : bonus === '3L' ? ' bonus3' : '';
+      if (!entry) {
+        return `<div class="tile empty${bonusClass}" data-slot="${slot}"></div>`;
+      }
+      const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
+      const pts = rack.tiles[entry.trayIndex].points * bonusMultiplier(rack, slot);
+      return `<div class="tile draggable${bonusClass}${isWildcard ? ' wildcard-placed' : ''}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
+    }).join('');
+
+    Array.from(el.children).forEach((tileEl, slot) => {
+      const entry = rack.guessSlots[slot];
+
+      if (entry) {
+        tileEl.draggable = true;
+        tileEl.addEventListener('dragstart', (e) => {
+          setDragPayload(e, { trayIndex: entry.trayIndex, letter: entry.letter, fromSlot: slot });
+          tileEl.classList.add('dragging');
+        });
+        tileEl.addEventListener('dragend', () => tileEl.classList.remove('dragging'));
+
+        tileEl.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
+          if (isWildcard && entry.letter === '?') {
+            openWildcardPicker(rack, slot, tileEl);
+            return;
+          }
+          rack.guessSlots[slot] = null;
+          renderActive();
+        });
+      }
+
+      tileEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        tileEl.classList.add('drop-hover');
+      });
+      tileEl.addEventListener('dragleave', () => tileEl.classList.remove('drop-hover'));
+      tileEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        tileEl.classList.remove('drop-hover');
+        const payload = getDragPayload(e);
+        if (!payload) return;
+        placeTile(rack, slot, payload);
+      });
+    });
+  }
+
+  function placeTile(rack, targetSlot, payload) {
+    if (payload.fromSlot === targetSlot) return;
+
+    rack.guessSlots[targetSlot] = { trayIndex: payload.trayIndex, letter: payload.letter };
+
+    if (payload.fromSlot !== null) {
+      rack.guessSlots[payload.fromSlot] = null;
+    }
+
+    renderActive();
+  }
+
+  // ---------- Wildcard letter picker ----------
+
+  let openMenuEl = null;
+
+  function closeWildcardPicker() {
+    if (openMenuEl) { openMenuEl.remove(); openMenuEl = null; }
+    document.removeEventListener('click', handleOutsideMenuClick);
+    document.removeEventListener('keydown', handleMenuEscape);
+  }
+
+  function handleOutsideMenuClick(e) {
+    if (openMenuEl && !openMenuEl.contains(e.target)) closeWildcardPicker();
+  }
+
+  function handleMenuEscape(e) {
+    if (e.key === 'Escape') closeWildcardPicker();
+  }
+
+  function openWildcardPicker(rack, slot, tileEl) {
+    closeWildcardPicker();
+    const menu = document.createElement('div');
+    menu.className = 'letter-menu';
+    for (let i = 0; i < 26; i++) {
+      const letter = String.fromCharCode(65 + i);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = letter;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        rack.guessSlots[slot] = { trayIndex: rack.guessSlots[slot].trayIndex, letter };
+        closeWildcardPicker();
+        renderActive();
+      });
+      menu.appendChild(btn);
+    }
+    document.body.appendChild(menu);
+
+    const rect = tileEl.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + 6;
+    if (top + menuRect.height + 8 > window.innerHeight) top = rect.top - menuRect.height - 6;
+    if (left + menuRect.width + 8 > window.innerWidth) left = window.innerWidth - menuRect.width - 8;
+    menu.style.left = `${Math.max(8, left)}px`;
+    menu.style.top = `${Math.max(8, top)}px`;
+
+    openMenuEl = menu;
+    setTimeout(() => {
+      document.addEventListener('click', handleOutsideMenuClick);
+      document.addEventListener('keydown', handleMenuEscape);
+    }, 0);
+  }
+
+  function renderWordStatus(evalResult) {
+    const { word, valid, belowMinimum, rawScore, score, checking } = evalResult;
+    const statusEl = document.getElementById('word-status');
+    const state = word.length === 0 ? 'empty'
+      : word.length < MIN_WORD_LEN ? 'building'
+      : checking ? 'building'
+      : valid ? 'valid' : 'invalid';
+    statusEl.className = 'word-status state-' + state;
+    document.getElementById('word-text').textContent = word;
+
+    let scoreText;
+    if (checking) scoreText = '…';
+    else if (state === 'valid') scoreText = score + ' pts';
+    else if (state === 'invalid' && belowMinimum) scoreText = rawScore + ' pts';
+    else scoreText = '0 pts';
+    document.getElementById('verdict-score').textContent = scoreText;
+  }
+
+  // ---------- Multiplayer standings (real — polled from the server) ----------
+  //
+  // GET /api/round/:id/leaderboard is the single source both the
+  // standings panel and the current-rack leading score read from. Only
+  // VALID guesses ever get persisted server-side (see
+  // POST /api/round/:id/guess), so this always reflects each player's
+  // best submitted word per rack, not whatever's momentarily sitting in
+  // a tray.
+
+  async function refreshLeaderboard() {
+    if (!currentRoundId) return;
+    const res = await fetch(`/api/round/${currentRoundId}/leaderboard`);
+    if (!res.ok) return;
+    latestLeaderboard = await res.json();
+    renderMultiplayerPanel();
+    renderHeaderScore();
+    renderRackLeading();
+  }
+
+  function renderHeaderScore() {
+    const mine = latestLeaderboard.overall.find((p) => p.username === ME.username);
+    document.getElementById('score-value').textContent = mine ? mine.total : 0;
+  }
+
+  function renderRackLeading() {
+    const leader = latestLeaderboard.perRack[currentIndex];
+    document.getElementById('rack-leading').innerHTML = leader
+      ? `Leading: <span class="rack-leading-num">${leader.score} pts</span>`
+      : `Leading: <span class="rack-leading-num">0 pts</span>`;
+  }
+
+  const AVATAR_COLORS = ['#5b8dd6', '#6bb37a', '#b06bc9', '#e08a3c', '#d65b7a', '#4fb0a8'];
+  function colorForName(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+  }
+
+  function renderMultiplayerPanel() {
+    const totals = latestLeaderboard.overall;
+    const maxTotal = Math.max(...totals.map((p) => p.total), 1);
+
+    const standingsEl = document.getElementById('mp-standings');
+    if (totals.length === 0) {
+      standingsEl.innerHTML = `<div class="mp-standings-row"><span></span><span></span><span class="row-name">No scores yet — go find a word!</span><span></span><span></span></div>`;
+      return;
+    }
+    standingsEl.innerHTML = totals.map((p, i) => {
+      const rank = i + 1;
+      const isYou = p.username === ME.username;
+      const color = isYou ? '#c9a24b' : colorForName(p.username);
+      const fillPct = Math.round((p.total / maxTotal) * 100);
+      return `
+        <div class="mp-standings-row${isYou ? ' is-you' : ''}">
+          <span class="rank${rank === 1 ? ' rank-1' : ''}">${rank}</span>
+          <span class="mp-avatar" style="background:${color}">${p.username[0].toUpperCase()}</span>
+          <span class="row-name">${p.username}${isYou ? ' (you)' : ''}</span>
+          <span class="row-bar"><span class="row-bar-fill" style="width:${fillPct}%;background:${color}"></span></span>
+          <span class="row-score">${p.total} pts</span>
+        </div>`;
+    }).join('');
+  }
+
+  function renderActive() {
+    const rack = RACKS[currentIndex];
+
+    renderTray(rack);
+    renderGuess(rack);
+
+    document.getElementById('rack-indicator').textContent = `Rack ${currentIndex + 1} of ${RACKS.length}`;
+    document.getElementById('erase-btn').disabled = roundEnded || rack.guessSlots.every((e) => e === null);
+    renderRackLeading();
+
+    if (roundEnded) {
+      renderWordStatus({ word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 });
+      return;
+    }
+
+    const word = currentWordForRack(rack);
+    const myRequestId = ++rack.requestId;
+
+    if (word.length < MIN_WORD_LEN) {
+      rack.lastWasValid = false;
+      rack.lastWord = '';
+      rack.badFired = false;
+      rack.lastResult = { word, valid: false, score: 0 };
+      renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0 });
+      return;
+    }
+
+    renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true });
+
+    evaluateRackAsync(rack, currentIndex).then((result) => {
+      if (rack.requestId !== myRequestId) return; // superseded by a newer change
+      rack.lastResult = result;
+      renderWordStatus(result);
+      maybeFireFeedback(rack, result);
+      if (result.valid) refreshLeaderboard();
+    });
+  }
+
+  function clearGuess(rack) {
+    rack.guessSlots = rack.guessSlots.map(() => null);
+    renderActive();
+  }
+
+  document.getElementById('erase-btn').addEventListener('click', () => {
+    clearGuess(RACKS[currentIndex]);
+  });
+
+  document.getElementById('nav-next').addEventListener('click', () => {
+    currentIndex = (currentIndex + 1) % RACKS.length;
+    renderActive();
+  });
+
+  // ---------- Countdown timer with 1:00 / 0:15 warnings ----------
+  //
+  // Ticks locally once a second for a smooth display, but the value it
+  // starts from — and periodically resyncs to, via resyncRound() — is
+  // always the server's own secondsRemaining, so every player's clock
+  // agrees regardless of local drift.
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  }
+
+  function tickTimer() {
+    timeLeft--;
+    const stat = document.getElementById('timer-stat');
+    const valueEl = document.getElementById('timer-value');
+
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      valueEl.textContent = '00:00';
+      stat.classList.add('time-up');
+      clearInterval(timerHandle);
+      handleRoundEnded();
+      return;
+    }
+
+    valueEl.textContent = formatTime(timeLeft);
+
+    if (timeLeft <= 15 && !warned15s) {
+      warned15s = true;
+      stat.classList.remove('warn-1min');
+      stat.classList.add('warn-15s');
+      playWarnBeep(true);
+    } else if (timeLeft <= 60 && !warned1min) {
+      warned1min = true;
+      stat.classList.add('warn-1min');
+      playWarnBeep(false);
+    }
+  }
+
+  function startTimer() {
+    clearInterval(timerHandle);
+    warned1min = false;
+    warned15s = false;
+    const stat = document.getElementById('timer-stat');
+    stat.classList.remove('warn-1min', 'warn-15s', 'time-up');
+    document.getElementById('timer-value').textContent = formatTime(timeLeft);
+    if (roundEnded) { stat.classList.add('time-up'); return; }
+    timerHandle = setInterval(tickTimer, 1000);
+  }
+</script>

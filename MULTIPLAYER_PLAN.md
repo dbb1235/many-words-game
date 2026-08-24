@@ -335,14 +335,39 @@ balancer or horizontal scaling needed to start.
    was meant to prevent. Verified via curl: a real word scoring below
    the floor comes back `valid:false, belowMinimum:true`; at/above the
    floor it's `valid:true` with the correct bonus-tile-multiplied score.
-5. **Front-end wiring to the real endpoints** — in progress. `play.html`
-   (a copy of `all6-feedback-mockup.html` with its embedded dictionary
-   stripped) is being rewired to a real login gate
-   (`/api/register`/`/api/login`/`/api/me`) and real single-player game
-   calls (`POST /api/game/new`, `POST /api/game/:id/guess`) in place of
-   the mockup's local `RACK_DEFS`/`evaluateRack`. Multiplayer front-end
-   wiring (`gerbil-multiplayer-mockup.html` → the lobby/round endpoints)
-   is the natural follow-up once single-player is proven out.
+5. ~~**Front-end wiring to the real endpoints**~~ — **done for both
+   modes**. `play.html` (single-player) and `multiplayer.html`
+   (multiplayer) are both copies of their respective mockups with the
+   embedded dictionary stripped and all local/fake game logic replaced
+   by real server calls behind a real login gate
+   (`/api/register`/`/api/login`/`/api/me`/`/api/logout`).
+   `multiplayer.html` additionally wires: `POST /api/lobby/join` on
+   login, a lobby-waiting screen that polls `GET /api/lobby/:id` every
+   2s (server-authoritative roster + countdown, no client-run
+   matchmaking clock), transition into `enterRound()` once
+   `status === 'started'`, a round timer seeded from and periodically
+   resynced against the server's `secondsRemaining` (`GET
+   /api/round/:id/current`, resync every 15s) rather than a purely
+   local countdown, guesses scored via `POST /api/round/:id/guess`,
+   and a standings panel + per-rack "leading" number both driven by
+   polling `GET /api/round/:id/leaderboard` (every 5s, plus
+   immediately after any valid guess) — never from local state, since
+   only server-persisted best scores should ever be shown as "the
+   score." Verified live with two real concurrent logged-in users (one
+   in-browser, one via curl): lobby roster/countdown updates appeared
+   in the browser within one poll of the second player joining
+   server-side; the 5-minute countdown was fast-forwarded for testing
+   by rewriting `countdown_started_at` directly in `gerbil.db`, and the
+   lazy phase transition correctly flipped the browser straight into
+   the round; a guess scored through the real dictionary/bonus-tile
+   math and the header score, per-rack leader, and standings panel all
+   updated correctly; a second guess submitted via curl as the other
+   player appeared in the browser's standings within one 5s poll cycle
+   with no page interaction. One known gap, not yet addressed: reloading
+   mid-round calls `/api/lobby/join` again, which won't find the
+   original (now-started) lobby and will enroll the player in a new
+   one instead of reconnecting them to their in-progress round — see
+   open questions (§11).
 6. *(Optional, later)* live updates (WebSockets/SSE), abuse/rate-limit
    hardening, round history, polish.
 
@@ -350,6 +375,19 @@ balancer or horizontal scaling needed to start.
 
 ## 11. Open questions
 
+- **Mid-round reconnect isn't handled.** `db.findLobbyForUser` only
+  matches lobbies with `round_id IS NULL`, so a page reload (or a
+  second tab) after a round has started can't find "my current round"
+  — the client's only entry point is `POST /api/lobby/join`, which
+  will enroll the player in a *different* lobby instead of rejoining
+  the one they're already mid-round in. Not a problem within one
+  continuous session (the front-end tracks `currentRoundId` in memory
+  once it transitions in), only on a hard reload mid-round. Fix would
+  be a small addition — e.g. a `GET /api/me/current-round` lookup, or
+  having `/api/lobby/join` check for an already-started lobby the user
+  is in before falling through to matchmaking — deliberately not built
+  yet since it wasn't asked for and is a real design decision (what
+  should happen to a lobby seat when its round has already started?).
 - ~~Round interval~~ — **superseded** by lobby-based matchmaking (§2) —
   no more global 12-minute cycle; each lobby runs its own 10-minute
   round once it starts.
