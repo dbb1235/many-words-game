@@ -117,13 +117,13 @@ body {
 
 /* Guess1-6 summary list — each row is clickable to switch which
    tray/guess pair is shown; white "cards" read clearly against the
-   green page. Widened from the earlier 224px to fit the new scramble
-   column (up to 10 letters). */
+   green page. Widened to fit the larger letters (see below) plus the
+   scramble column (up to 10 letters). */
 #guess-summary {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 300px;
+  width: 360px;
   flex-shrink: 0;
   background: #fff;
   border-radius: 10px;
@@ -131,14 +131,16 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
-/* Four columns: # | scramble | word (blank until started) | score. */
+/* Four columns: # | scramble | word (blank until started) | score. Every
+   number (# and score) is the same size, and every run of letters
+   (scramble and guess word) is the same size — about twice as tall as
+   the numbers. */
 .guess-summary-row {
   display: grid;
-  grid-template-columns: 20px 92px 1fr auto;
+  grid-template-columns: 26px 140px 1fr auto;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  font-size: 16px;
+  padding: 6px 12px;
   font-weight: 700;
   cursor: pointer;
   color: #2b2620;
@@ -148,16 +150,21 @@ body {
   background: #f4f1ea;
 }
 
+.guess-summary-num,
+.guess-summary-score {
+  font-size: 11px;
+}
+
 .guess-summary-num {
   color: #6b6355;
   font-weight: 400;
 }
 
 /* That scramble's current tray letters (kept in sync live — see
-   renderTopRow) — smaller/muted than the guess word since it's
+   renderTopRow) — muted (but same size as the guess word) since it's
    reference info, not the row's main "answer" data. */
 .guess-summary-scramble {
-  font-size: 12px;
+  font-size: 22px;
   font-weight: 400;
   letter-spacing: 0.02em;
   color: #6b6355;
@@ -168,8 +175,9 @@ body {
 
 /* Blank until a word's been started in that guess row (see
    updateBottomWordScore); truncates instead of breaking the row's
-   layout if a long word doesn't fit the narrower list. */
+   layout if a long word doesn't fit the list. */
 .guess-summary-label {
+  font-size: 22px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   overflow: hidden;
