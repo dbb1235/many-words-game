@@ -10,23 +10,13 @@
 // plus their sum, and doubles as the way to switch which pair is shown —
 // clicking "Guess 2" reveals tray2/guess2 and hides whatever was showing.
 
-const LETTER_DATA = {
-  A: { count: 9, points: 1 }, B: { count: 2, points: 3 }, C: { count: 2, points: 2 },
-  D: { count: 4, points: 2 }, E: { count: 12, points: 1 }, F: { count: 2, points: 5 },
-  G: { count: 3, points: 3 }, H: { count: 2, points: 3 }, I: { count: 9, points: 1 },
-  J: { count: 1, points: 10 }, K: { count: 1, points: 5 }, L: { count: 4, points: 2 },
-  M: { count: 2, points: 3 }, N: { count: 6, points: 1 }, O: { count: 8, points: 1 },
-  P: { count: 2, points: 2 }, Q: { count: 1, points: 10 }, R: { count: 6, points: 1 },
-  S: { count: 4, points: 1 }, T: { count: 6, points: 1 }, U: { count: 4, points: 2 },
-  V: { count: 2, points: 5 }, W: { count: 2, points: 5 }, X: { count: 1, points: 7 },
-  Y: { count: 2, points: 3 }, Z: { count: 1, points: 7 }, '?': { count: 2, points: 0 },
-};
-
-const RACK_SIZE = 10;
-const NUM_SCRAMBLES = 6;
-const MIN_WORD_LEN = 3;
 const GAME_SECONDS = 10 * 60;
-const MAX_DUPLICATE_LETTERS = 2;
+
+// Rack generation and word validation are server-authoritative (see
+// server.js) — the client never sees the dictionary or the letter bag,
+// only whatever racks/scores the server hands back. See
+// MULTIPLAYER_PLAN.md step 1.
+let gameId = null;
 
 let scrambles = [];      // { tiles, displayTiles, isShuffled, bottomBonuses }
 let scrambleCtxs = [];   // per-card DOM element bundle, parallel to `scrambles`
@@ -63,66 +53,24 @@ function shuffleTiles(tiles) {
   return [...letters, ...blanks];
 }
 
-// Bag of real (non-blank) letter tiles only, in standard Scrabble
-// proportions. Blanks are handled separately so every rack gets exactly
-// two, regardless of the standard set's 2-blank total.
-function buildLetterBag() {
-  const b = [];
-  for (const [letter, data] of Object.entries(LETTER_DATA)) {
-    if (letter === '?') continue;
-    for (let i = 0; i < data.count; i++) b.push(letter);
+// Rack contents and bonus layout come from POST /api/game/new now — the
+// server deals every scramble; see server.js dealGame/dealScramble (the
+// same bag/draw/bonus logic that used to live here).
+async function startGame() {
+  const res = await fetch('/api/game/new', { method: 'POST' });
+  if (!res.ok) {
+    console.error('Failed to start game:', res.status);
+    return;
   }
-  return shuffle(b);
-}
+  const data = await res.json();
+  gameId = data.gameId;
 
-// Draws `count` letters from the bag, skipping (and later returning) any
-// letter that would exceed maxPerLetter duplicates within this one draw —
-// so a single rack never gets more than maxPerLetter of the same letter.
-function drawRackLetters(bag, count, maxPerLetter) {
-  const drawn = [];
-  const counts = {};
-  const skipped = [];
-
-  while (drawn.length < count && bag.length > 0) {
-    const letter = bag.pop();
-    if ((counts[letter] || 0) < maxPerLetter) {
-      drawn.push(letter);
-      counts[letter] = (counts[letter] || 0) + 1;
-    } else {
-      skipped.push(letter);
-    }
-  }
-
-  // Extremely unlikely fallback: if the bag ran dry before the cap could
-  // be satisfied, fill the rest from the skipped pile rather than fail.
-  while (drawn.length < count && skipped.length > 0) {
-    drawn.push(skipped.pop());
-  }
-
-  bag.push(...skipped);
-  shuffle(bag);
-  return drawn;
-}
-
-function startGame() {
-  const bag = buildLetterBag();
-  scrambles = [];
-  for (let s = 0; s < NUM_SCRAMBLES; s++) {
-    const letters = drawRackLetters(bag, RACK_SIZE - 2, MAX_DUPLICATE_LETTERS);
-    const tiles = letters.map((letter) => ({ letter, points: LETTER_DATA[letter].points }));
-    tiles.push({ letter: '?', points: 0 });
-    tiles.push({ letter: '?', points: 0 });
-    shuffle(tiles);
-    scrambles.push({
-      tiles,
-      displayTiles: alphabeticalOrderTiles(tiles),
-      isShuffled: false,
-      // Rolled once per scramble and kept fixed for the rest of the game —
-      // Shuffle resets that scramble's guess row's tiles but must not
-      // re-roll these.
-      bottomBonuses: rollBottomBonuses(RACK_SIZE),
-    });
-  }
+  scrambles = data.scrambles.map((s) => ({
+    tiles: s.tiles,
+    displayTiles: alphabeticalOrderTiles(s.tiles),
+    isShuffled: false,
+    bottomBonuses: s.bottomBonuses,
+  }));
 
   score = 0;
   secondsLeft = GAME_SECONDS;
@@ -176,29 +124,11 @@ function renderTileEls(tilesDiv, tiles) {
   });
 }
 
-// Each guess-row cell independently has an 8% chance of being a 2L bonus
-// square; of whichever cells that leaves, each independently has a 4%
-// chance of being 3L. Applied per-cell rather than picking a fixed count
-// — so the number of bonus cells in any given row varies (could be zero,
-// one of each, several, etc.).
-const DOUBLE_LETTER_CHANCE = 0.08;
-const TRIPLE_LETTER_CHANCE = 0.04;
-
-// Rolls a fixed bonus layout (2L/3L/undefined per cell) once — called
-// only at deal time (see startGame) so the layout stays put for the rest
-// of the game; Shuffle must reuse it, never re-roll it.
-function rollBottomBonuses(count) {
-  return Array.from({ length: count }, () => {
-    if (Math.random() < DOUBLE_LETTER_CHANCE) return '2L';
-    if (Math.random() < TRIPLE_LETTER_CHANCE) return '3L';
-    return undefined;
-  });
-}
-
 // Same squares (same size/shape/color, driven by data-pts), but with no
 // letter or point number inside — used for a guess row. Applies the
-// scramble's already-fixed bonus layout (bonuses) — see
-// rollBottomBonuses and renderBottomBonusLabel.
+// scramble's already-fixed bonus layout (bonuses), which the server rolls
+// once at deal time (see server.js rollBottomBonuses) and Shuffle must
+// reuse, never re-roll — see renderBottomBonusLabel.
 function renderBlankTileEls(tilesDiv, tiles, bonuses) {
   tilesDiv.innerHTML = '';
   tiles.forEach((t, i) => {
@@ -415,29 +345,62 @@ function bonusMultiplierFor(cellEl) {
 }
 
 // Reads ctx's guess row left to right (skipping vacant cells) as the
-// current candidate word. If it's a valid dictionary word (min length 3),
-// the score is the sum of each filled cell's point value — a wildcard
-// cell is always worth 0, no matter what letter was chosen for it, since
-// its dataset.pts never changes from 0. Otherwise the score is 0. Updates
-// that guess's summary-list cell (see updateSummaryScrambleCell) and
-// score column, plus the running total (see renderAllScrambles /
-// updateGuessTotal) — there's no more per-row score display next to the
-// tiles themselves, since the summary list already shows the same number
-// for every guess at once.
+// current candidate word, then asks the server whether it's valid and
+// what it scores — the client no longer has the dictionary or does the
+// scoring math itself (see server.js scoreGuess). Updates that guess's
+// summary-list cell (see updateSummaryScrambleCell) and score column,
+// plus the running total (see updateGuessTotal) once the response lands.
+// ctx.requestSeq guards against a slower, older request's response
+// clobbering a newer one if the player edits the row again before the
+// first request returns.
 function updateBottomWordScore(ctx) {
   if (!ctx) return;
-  const filledCells = Array.from(ctx.tilesEl2.children).filter((c) => c.dataset.letter);
-  const word = filledCells.map((c) => c.dataset.letter).join('').toUpperCase();
-  const isValid = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
-  const guessScore = isValid
-    ? filledCells.reduce((sum, c) => sum + Number(c.dataset.pts) * bonusMultiplierFor(c), 0)
-    : 0;
-  ctx.guessScore = guessScore;
+  const filledCells = Array.from(ctx.tilesEl2.children)
+    .map((c, position) => ({ c, position }))
+    .filter(({ c }) => c.dataset.letter);
+
+  const word = filledCells.map(({ c }) => c.dataset.letter).join('').toUpperCase();
   ctx.guessWord = word;
-  ctx.isValid = isValid;
+
+  const seq = ++ctx.requestSeq;
+
+  if (filledCells.length === 0) {
+    ctx.isValid = false;
+    ctx.guessScore = 0;
+    applyGuessResult(ctx);
+    return;
+  }
+
+  const cells = filledCells.map(({ c, position }) => ({
+    position,
+    letter: c.dataset.letter,
+    isWildcard: c.dataset.pts === '0',
+  }));
+
+  fetch(`/api/game/${gameId}/guess`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scrambleIndex: ctx.index, cells }),
+  })
+    .then((res) => res.json())
+    .then((result) => {
+      if (seq !== ctx.requestSeq) return; // a newer edit already superseded this request
+      ctx.isValid = result.valid;
+      ctx.guessScore = result.score;
+      applyGuessResult(ctx);
+    })
+    .catch(() => {
+      if (seq !== ctx.requestSeq) return;
+      ctx.isValid = false;
+      ctx.guessScore = 0;
+      applyGuessResult(ctx);
+    });
+}
+
+function applyGuessResult(ctx) {
   updateSummaryScrambleCell(ctx);
   if (ctx.summaryRowEl) {
-    ctx.summaryRowEl.querySelector('.guess-summary-score').textContent = guessScore;
+    ctx.summaryRowEl.querySelector('.guess-summary-score').textContent = ctx.guessScore;
   }
   updateGuessTotal();
 }
@@ -711,6 +674,7 @@ function renderAllScrambles() {
       guessScore: 0,
       guessWord: '',
       isValid: false,
+      requestSeq: 0,
     };
     scrambleCtxs.push(ctx);
 

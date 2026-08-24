@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "many-words",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8420"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
       "port": 8420
     }
   ]

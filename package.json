@@ -1,0 +1,25 @@
+{
+  "name": "sim-to-scrabble-game",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dbb1235/many-words-game.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/dbb1235/many-words-game/issues"
+  },
+  "homepage": "https://github.com/dbb1235/many-words-game#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
