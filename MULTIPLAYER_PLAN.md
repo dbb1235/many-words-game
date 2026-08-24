@@ -128,6 +128,39 @@ scrambles once and caches them for the duration of that round.
 
 ---
 
+## 3a. Competitive scoring rules (multiplayer)
+
+Resolved rules from the competitive-mechanics brainstorm, specific to
+multiplayer (single-player keeps its existing behavior unless noted):
+
+- **No word reuse.** Once any player successfully plays a word on a
+  given rack, that word is locked — unavailable to every other player
+  on that same rack for the rest of that round. This is the "first
+  claim locks it" mechanic from the brainstorm, now resolved as a firm
+  rule rather than an option. Requires near-real-time visibility into
+  claimed words per rack (see §7 — this is the case that actually needs
+  faster-than-polling updates, not just the leaderboard). Does **not**
+  change single-player, which still explicitly allows repeating a word
+  across your own 6 racks (an earlier, separate decision — see
+  `SESSION_SUMMARY.md`).
+- **Bonus tile generation rate**: of a rack's 10 guess slots, 10% are
+  double-letter, and 10% of the *remaining* (non-2L) slots are
+  triple-letter — roughly 1 double + ~0.9 triple per 10-slot rack on
+  average, but as a genuine per-cell probability (10% / 9% absolute),
+  not the fixed "always exactly one of each" the current mockups and
+  `server.js` hardcode. This updates the original all6.js rates
+  (`DOUBLE_LETTER_CHANCE = 0.08`, `TRIPLE_LETTER_CHANCE = 0.04`) to
+  10% / 9%. Still open from the brainstorm, not yet resolved: whether
+  bonus tiles are also *scarce across players* (first use consumes the
+  cell for everyone, same as word-locking) — this rule only answers how
+  many exist per rack, not whether they're shared.
+- **Long-word bonus**: +10 flat points for any word 8 letters or
+  longer, on top of normal scoring (including any bonus-tile
+  multipliers on that word). Straightforward addition, no interaction
+  with the other rules above.
+
+---
+
 ## 4. API surface (sketch)
 
 | Endpoint | Purpose |
