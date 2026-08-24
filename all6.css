@@ -153,8 +153,9 @@ body {
   font-weight: 400;
 }
 
-/* That scramble's fixed original letters — smaller/muted than the guess
-   word since it's reference info, not the row's main "answer" data. */
+/* That scramble's current tray letters (kept in sync live — see
+   renderTopRow) — smaller/muted than the guess word since it's
+   reference info, not the row's main "answer" data. */
 .guess-summary-scramble {
   font-size: 12px;
   font-weight: 400;

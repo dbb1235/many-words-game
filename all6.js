@@ -283,10 +283,19 @@ function toggleTopWildcardMenu(ctx, tileEl, index) {
 // Rebuilds one scramble's tray row from ctx.topTiles (the tiles still
 // remaining up there) and reattaches drag handlers. Used both for the
 // initial render and after a tile is dragged out, so the remaining tiles
-// always sit contiguous on the left with no gap left behind.
+// always sit contiguous on the left with no gap left behind. Also keeps
+// the summary list's Scramble column in sync with whatever the tray
+// currently shows — it used to show the fixed original deal order
+// instead, which could look completely different from the live tray
+// (e.g. alphabetized) once that scramble was promoted, reading as an
+// unwanted reshuffle even though nothing had actually changed.
 function renderTopRow(ctx) {
   renderTileEls(ctx.tilesEl, ctx.topTiles);
   attachTileDragHandlers(ctx);
+  if (ctx.summaryRowEl) {
+    ctx.summaryRowEl.querySelector('.guess-summary-scramble').textContent =
+      ctx.topTiles.map((t) => t.letter).join('');
+  }
 }
 
 // A wildcard (0 points) reverts to an unresolved '?' whenever it lands
@@ -663,16 +672,13 @@ function renderAllScrambles() {
     };
     scrambleCtxs.push(ctx);
 
-    // Guess1-6 line: number, that scramble's fixed original letters,
+    // Guess1-6 line: number, that scramble's tray letters (filled in by
+    // renderTopRow below, and kept in sync with the tray from then on),
     // guess word (blank until one's started), score. Clickable to make
-    // this pair active. The scramble letters come from scramble.tiles
-    // (the original dealt multiset) rather than ctx.topTiles, so this
-    // column never changes as tiles get dragged around — unlike the tray
-    // itself, it's a fixed reference to what letters this scramble has.
-    const scrambleLetters = scramble.tiles.map((t) => t.letter).join('');
+    // this pair active.
     const summaryRow = document.createElement('div');
     summaryRow.className = 'guess-summary-row';
-    summaryRow.innerHTML = `<span class="guess-summary-num">${idx + 1}</span><span class="guess-summary-scramble">${scrambleLetters}</span><span class="guess-summary-label"></span><span class="guess-summary-score">0</span>`;
+    summaryRow.innerHTML = `<span class="guess-summary-num">${idx + 1}</span><span class="guess-summary-scramble"></span><span class="guess-summary-label"></span><span class="guess-summary-score">0</span>`;
     summaryRow.addEventListener('click', () => setActiveScramble(idx));
     summaryList.appendChild(summaryRow);
     ctx.summaryRowEl = summaryRow;
