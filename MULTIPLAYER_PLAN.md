@@ -86,10 +86,12 @@ of one global scheduled round.
   - **Resolved**: a lobby waits for a **minimum of 2 players** before
     anything counts down — one player alone just waits (no timeout for
     now; a solo player could wait indefinitely if no one else joins).
-  - **Resolved**: the instant that 2nd player joins, the **2-minute
-    warning/countdown starts immediately** — it does not wait to fill
-    up to 6. Anyone who joins during those 2 minutes gets into the same
-    round; late arrivals after countdown-zero go into a fresh lobby.
+  - **Resolved**: the instant that 2nd player joins, a **5-minute
+    countdown starts immediately** (changed from the originally-stated
+    2 minutes — 5 min "for now," may be revisited) — it does not wait
+    to fill up to 6. Anyone who joins during those 5 minutes gets into
+    the same round; late arrivals after countdown-zero go into a fresh
+    lobby.
   - **Resolved**: any waiting player can **leave the lobby at any point
     before the countdown reaches zero** (a "Leave lobby" action).
   - When the countdown hits zero, the server generates **one seeded
@@ -134,7 +136,7 @@ scrambles once and caches them for the duration of that round.
 | `POST /api/login` | Authenticate |
 | `POST /api/single/new` | Start a private single-player game immediately (already built in step 1 — `server.js`) |
 | `POST /api/lobby/join` | Join or create a waiting multiplayer lobby (max 6). Returns lobby id + current roster |
-| `GET /api/lobby/:id` | Poll lobby state: roster, whether the 2-minute warning has started, seconds until round start |
+| `GET /api/lobby/:id` | Poll lobby state: roster, whether the 5-minute countdown has started, seconds until round start |
 | `POST /api/lobby/:id/leave` | Back out of a lobby before the round starts |
 | `GET /api/round/:id/current` | Returns round phase, time remaining, and — if active — the 6 racks (tiles only, no answers) |
 | `POST /api/round/:id/guess` | `{ scrambleIndex, word }` → server validates & scores, returns result |
@@ -270,7 +272,7 @@ balancer or horizontal scaling needed to start.
    client just displays what the server returns.
 2. **Accounts** — registration/login, unique usernames + passwords.
    Required before either mode is playable (§2).
-3. **Lobby matchmaking** — join/leave a waiting lobby, 2-minute warning,
+3. **Lobby matchmaking** — join/leave a waiting lobby, 5-minute countdown,
    shared seeded round once it starts (§2). Replaces the earlier
    fixed-clock scheduling idea.
 4. **Live standings** — per-round leaderboard, both per-rack leading
