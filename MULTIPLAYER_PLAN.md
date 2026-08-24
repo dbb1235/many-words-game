@@ -176,9 +176,12 @@ user — computed on read, no need to store it separately.
 
 - **Node.js + Express** — same language as the existing client code, so
   the rack/scoring logic ports over directly.
-- **SQLite** (via `better-sqlite3`) to start — zero external
-  dependencies, a single file. Migrate to hosted Postgres (Neon/Supabase
-  free tier) only if/when it's needed.
+- **Database choice now depends on where this deploys — see §9.**
+  SQLite (via `better-sqlite3`) is still simplest for local dev and for
+  any host with a real persistent disk (e.g. Render's paid tier). But
+  Render's *free* tier wipes local files on every restart, so the $0
+  deployment path means starting with hosted Postgres (Neon's free
+  tier) from day one rather than migrating to it later.
 - **bcrypt** for password hashing; simple session cookies or JWT for
   auth.
 - Existing `index.html`/`style.css`/`game.js` get adapted to call the
@@ -187,9 +190,30 @@ user — computed on read, no need to store it separately.
 
 ## 9. Deployment
 
-Fly.io / Render free tier, per the earlier cost discussion — a single
-always-on instance is plenty at this scale, no load balancer or
-horizontal scaling needed to start.
+**Fly.io's free tier is gone** (removed 2024 — new accounts get a
+2-hour/7-day trial, then it's paid). Checked current (Aug 2026) options
+instead:
+
+- **$0 path**: Render's free web service (750 hrs/month, no card) +
+  Neon's free Postgres (0.5 GB, no card, never expires) hosted
+  separately. **Catch**: Render's free tier has an ephemeral
+  filesystem — a local SQLite file gets wiped on every restart/redeploy
+  — so this path means swapping §8's SQLite plan for Postgres (`pg`
+  instead of `better-sqlite3`; the query logic itself barely changes).
+  Free compute also sleeps after 15 min idle, ~30-60s cold start on the
+  next request.
+- **Koyeb's free tier** includes a small persistent SSD (2 GB) alongside
+  free compute, which might let SQLite survive as-is with no DB swap —
+  worth verifying Koyeb's actual redeploy-persistence guarantee
+  directly before relying on it; similar 1-hour-idle sleep behavior.
+- **~$7/mo path**: Render's cheapest paid tier removes the sleep *and*
+  adds a real persistent disk, so SQLite works completely unmodified —
+  worth it once cold-start delays actually annoy real players. Railway
+  is a similar story: "free" tier is thin in practice (~$1/mo for one
+  always-on light service once the trial credit runs out).
+
+A single instance is plenty at this scale either way — no load
+balancer or horizontal scaling needed to start.
 
 ---
 
