@@ -1,0 +1,500 @@
+<title>Gerbil Rules</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Fraunces:ital,opsz,wght@1,9..144,600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    /* ---- light (default) ---- */
+    --page-bg: #f4f1ea;
+    --surface: #ffffff;
+    --surface-soft: #f4f1ea;
+    --text: #2b2620;
+    --text-soft: #6b6355;
+    --border: #e6e0d2;
+    --gold: #c9a24b;
+    --gold-soft: #fbf0d9;
+    --gold-strong: #a67c1e;
+    --green: #2e7d32;
+    --green-soft: #e3f5e9;
+    --red: #c1443c;
+    --red-soft: #fdeceb;
+    --bonus2-bg: #8fd48f;
+    --bonus2-border: #5fae5f;
+    --bonus3-bg: #8ec3f0;
+    --bonus3-border: #5f9bd8;
+    --valid-text: #237a3f;
+    --shadow: 0 10px 34px rgba(43,38,32,0.12);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page-bg: #1c1814;
+      --surface: #2b2620;
+      --surface-soft: #322c25;
+      --text: #f4f1ea;
+      --text-soft: #b9ac96;
+      --border: #423b31;
+      --gold: #dcb567;
+      --gold-soft: #3a3120;
+      --gold-strong: #e8c988;
+      --green: #4a9a51;
+      --green-soft: #223a28;
+      --red: #e2685c;
+      --red-soft: #3a2422;
+      --bonus2-bg: #3f7a45;
+      --bonus2-border: #6bc179;
+      --bonus3-bg: #2f5f8c;
+      --bonus3-border: #6fa8dd;
+      --valid-text: #79d99a;
+      --shadow: 0 10px 34px rgba(0,0,0,0.45);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --page-bg: #1c1814;
+    --surface: #2b2620;
+    --surface-soft: #322c25;
+    --text: #f4f1ea;
+    --text-soft: #b9ac96;
+    --border: #423b31;
+    --gold: #dcb567;
+    --gold-soft: #3a3120;
+    --gold-strong: #e8c988;
+    --green: #4a9a51;
+    --green-soft: #223a28;
+    --red: #e2685c;
+    --red-soft: #3a2422;
+    --bonus2-bg: #3f7a45;
+    --bonus2-border: #6bc179;
+    --bonus3-bg: #2f5f8c;
+    --bonus3-border: #6fa8dd;
+    --valid-text: #79d99a;
+    --shadow: 0 10px 34px rgba(0,0,0,0.45);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+
+  h1, h2, h3, .display {
+    font-family: "Fraunces", Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 20px 80px;
+  }
+
+  /* ---------- Hero ---------- */
+
+  .hero {
+    background: var(--green);
+    color: #fdfbf5;
+    padding: 56px 20px 46px;
+    margin-bottom: 44px;
+  }
+  .hero-inner { max-width: 760px; margin: 0 auto; }
+  .hero-eyebrow {
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    opacity: 0.85;
+    margin-bottom: 10px;
+  }
+  .hero h1 {
+    font-size: clamp(34px, 6vw, 50px);
+    font-weight: 700;
+    margin: 0 0 14px;
+    color: #fffdf8;
+  }
+  .hero p {
+    font-size: 17px;
+    max-width: 54ch;
+    color: #eef3ea;
+    margin: 0;
+  }
+
+  /* ---------- Sections ---------- */
+
+  section { margin-bottom: 46px; }
+  section:last-of-type { margin-bottom: 0; }
+
+  .kicker {
+    font-size: 11.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gold-strong);
+    margin-bottom: 6px;
+  }
+
+  h2 { font-size: 27px; margin: 0 0 14px; }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+
+  p { font-size: 15.5px; color: var(--text); margin: 0 0 12px; }
+  p.soft { color: var(--text-soft); }
+
+  ul, ol { margin: 0 0 12px; padding-left: 22px; }
+  li { font-size: 15.5px; margin-bottom: 7px; }
+  li::marker { color: var(--gold-strong); }
+
+  strong { font-weight: 700; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+  }
+
+  .card + .card { margin-top: 14px; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 560px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Demo tiles (mirrors the live game's tile styling) ---------- */
+
+  .tile-demo-row {
+    display: flex;
+    gap: 6px;
+    margin: 14px 0;
+  }
+  .demo-tile {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border: 1.5px solid var(--text);
+    background: var(--surface);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    font-weight: 700;
+    font-size: 24px;
+    color: var(--text);
+  }
+  .demo-tile .pts {
+    position: absolute;
+    bottom: 2px;
+    right: 5px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .demo-tile.bonus2 { background: var(--bonus2-bg); border-color: var(--bonus2-border); }
+  .demo-tile.bonus3 { background: var(--bonus3-bg); border-color: var(--bonus3-border); }
+  .demo-tile.wildcard { color: var(--text-soft); font-style: italic; }
+  .demo-tile.empty { border-style: dashed; border-color: var(--border); background: transparent; }
+
+  .demo-caption {
+    font-size: 13.5px;
+    color: var(--text-soft);
+    margin-top: -6px;
+  }
+  .demo-caption strong { color: var(--text); }
+
+  .verdict-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 15px;
+    margin: 2px 8px 2px 0;
+  }
+  .verdict-chip .n { font-size: 12.5px; font-weight: 700; opacity: 0.85; }
+  .verdict-chip.valid { background: var(--green-soft); color: var(--valid-text); }
+  .verdict-chip.invalid { background: var(--red-soft); color: var(--red); }
+  .verdict-chip.building { background: var(--surface-soft); color: var(--text-soft); }
+
+  /* ---------- Letter point table ---------- */
+
+  .point-table {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .point-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 6px;
+    min-width: 480px;
+  }
+  .point-cell {
+    background: var(--surface-soft);
+    border-radius: 8px;
+    padding: 8px 4px 7px;
+    text-align: center;
+  }
+  .point-cell .letter { font-weight: 800; font-size: 15px; }
+  .point-cell .val { font-size: 11px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Mode cards ---------- */
+
+  .mode-card {
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+  }
+  .mode-card.sp { background: var(--surface); border: 1px solid var(--border); }
+  .mode-card.mp { background: var(--gold-soft); border: 1px solid var(--gold); }
+  .mode-title {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 700;
+    font-size: 19px;
+    margin: 0 0 4px;
+  }
+  .mode-sub { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-soft); margin-bottom: 12px; }
+
+  .step-list { counter-reset: step; list-style: none; padding-left: 0; }
+  .step-list li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 34px;
+    margin-bottom: 14px;
+  }
+  .step-list li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: -1px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: #2b2620;
+    font-size: 12.5px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ---------- Tips ---------- */
+
+  .tips {
+    display: grid;
+    gap: 10px;
+  }
+  .tip {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .tip .mark {
+    font-family: "Fraunces", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 20px;
+    color: var(--gold-strong);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .tip p { margin: 0; font-size: 14.5px; }
+
+  .footer-note {
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-soft);
+    margin-top: 50px;
+  }
+
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: var(--surface-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+</style>
+
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">Gerbil — how to play</div>
+    <h1>Six racks. One clock. As many words as you can find.</h1>
+    <p>Gerbil hands you six scrambles of ten letters each. Build the best word you can out of every rack before time runs out — solo against the clock, or head-to-head with up to five other players racing the exact same tiles.</p>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section>
+    <div class="kicker">The Basics</div>
+    <h2>Building a word</h2>
+    <p>Every rack gives you 10 tiles: 8 real letters plus 2 blank <strong>wildcards</strong>. Drag tiles down from the rack into the guess row underneath to spell something.</p>
+
+    <div class="card">
+      <div class="tile-demo-row">
+        <div class="demo-tile">Q<span class="pts">10</span></div>
+        <div class="demo-tile bonus3">U<span class="pts">6</span></div>
+        <div class="demo-tile">I<span class="pts">1</span></div>
+        <div class="demo-tile">Z<span class="pts">7</span></div>
+        <div class="demo-tile empty"></div>
+      </div>
+      <p class="demo-caption"><strong>QUIZ</strong> — the U landed on a blue (triple-letter) slot, so its value jumped from 2 to 6. Word total: <strong>24 pts</strong>.</p>
+    </div>
+
+    <h3>Only the unbroken chain counts</h3>
+    <p class="soft">Tiles are read starting from the very first slot in the guess row. The moment there's a gap, everything past it is just parked there — it isn't part of your word yet. Fill the gap and it joins in.</p>
+
+    <h3>Reading the verdict</h3>
+    <p class="soft">Below the guess row, your current word and its live score are shown in three states:</p>
+    <p>
+      <span class="verdict-chip building">FIS <span class="n">still typing</span></span>
+      <span class="verdict-chip valid">FISH <span class="n">7 pts</span></span>
+      <span class="verdict-chip invalid">FSIH <span class="n">not a word</span></span>
+    </p>
+
+    <h3>Undo and clear</h3>
+    <ul>
+      <li>Drag a placed tile back up to the rack, or <strong>double-click it</strong> to send it back instantly.</li>
+      <li><strong>✕ Erase</strong> clears the whole guess row in one tap — useful when a word's a dead end.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="kicker">Tiles</div>
+    <h2>Wildcards</h2>
+    <div class="two-col">
+      <div class="card">
+        <div class="tile-demo-row">
+          <div class="demo-tile wildcard">?<span class="pts">0</span></div>
+        </div>
+        <p class="demo-caption">Unassigned — sitting in your rack.</p>
+      </div>
+      <div class="card">
+        <div class="tile-demo-row">
+          <div class="demo-tile">E<span class="pts">0</span></div>
+        </div>
+        <p class="demo-caption"><strong>Double-click</strong> a placed wildcard to choose its letter.</p>
+      </div>
+    </div>
+    <p class="soft">A wildcard always scores <strong>0 points</strong>, no matter which letter it stands in for. Use it to unlock a word you couldn't otherwise spell — not for points.</p>
+  </section>
+
+  <section>
+    <div class="kicker">Tiles</div>
+    <h2>Bonus slots</h2>
+    <p>Some slots in the guess row are colored instead of plain white. The color <em>is</em> the label — no icon needed:</p>
+    <div class="two-col">
+      <div class="card">
+        <div class="tile-demo-row"><div class="demo-tile bonus2">R<span class="pts">2</span></div></div>
+        <p class="demo-caption"><strong>Green = double letter.</strong> Whatever tile lands here has its point value doubled.</p>
+      </div>
+      <div class="card">
+        <div class="tile-demo-row"><div class="demo-tile bonus3">R<span class="pts">3</span></div></div>
+        <p class="demo-caption"><strong>Blue = triple letter.</strong> Whatever tile lands here has its point value tripled.</p>
+      </div>
+    </div>
+    <p class="soft">The bonus belongs to the <em>slot</em>, not the tile — move that tile off and the multiplier stays behind for the next thing you put there. So it's often worth planning which letter goes on the colored square, not just which word you spell first.</p>
+  </section>
+
+  <section>
+    <div class="kicker">Scoring</div>
+    <h2>Letter values</h2>
+    <p class="soft">Every letter carries a point value — common letters are worth less, rare ones are worth more, same idea as a classic tile game.</p>
+    <div class="card point-table">
+      <div class="point-grid" id="point-grid"></div>
+    </div>
+
+    <h3>Two rules that gate what counts</h3>
+    <ul>
+      <li>Your word has to be <strong>3 letters or longer</strong>, and an actual dictionary word — anything else doesn't even get scored.</li>
+      <li>It also has to be worth <strong>at least 4 points</strong> to count at all. A real word like <code>TIE</code> (1+1+1 = 3) is genuine English, but it's still too small to bank — you'll see it flagged red with its true (too-low) point total, not a fake zero.</li>
+    </ul>
+
+    <h3>Long words pay extra</h3>
+    <p class="soft">Any valid word that's <strong>8 letters or longer</strong> earns a flat <strong>+10 bonus</strong> on top of its normal score. Length is worth reaching for.</p>
+  </section>
+
+  <section>
+    <div class="kicker">Working the board</div>
+    <h2>Moving between racks</h2>
+    <p><strong>Next Rack →</strong> advances you to the next of the six scrambles, and wraps back around to the first after the sixth — so nothing is ever off-limits once you've moved on. Revisit an earlier rack any time before the clock runs out.</p>
+  </section>
+
+  <section>
+    <div class="kicker">Modes</div>
+    <h2>Single player vs. multiplayer</h2>
+
+    <div class="mode-card sp">
+      <div class="mode-sub">Solo</div>
+      <div class="mode-title">Gerbil Single Player</div>
+      <p>Ten minutes, six racks generated just for you. Your total score is simply <strong>whatever's currently sitting in each rack's guess row, added together</strong> — there's no separate "submit." That also means clearing a rack (or moving on with it empty) drops that rack's points back to zero, so leave your best word in place before you move on.</p>
+    </div>
+
+    <div class="mode-card mp" style="margin-top:16px;">
+      <div class="mode-sub">Up to 6 players</div>
+      <div class="mode-title">Gerbil Multiplayer</div>
+      <ol class="step-list">
+        <li>Log in and you're placed into a lobby automatically.</li>
+        <li>Once a second player joins, a <strong>5-minute countdown</strong> starts for the whole lobby. Anyone can back out during the wait.</li>
+        <li>When it hits zero, <strong>everyone gets the exact same six racks</strong> — same letters, same bonus slots, same wildcards — and a shared <strong>10-minute round</strong> begins together.</li>
+        <li>Unlike single player, only your <strong>best-scoring valid word per rack</strong> is kept. Trying something bigger and missing never costs you a word you'd already locked in.</li>
+      </ol>
+      <p class="soft">A live leaderboard tracks everyone's running total, and each rack shows the best score anyone has found on it so far — just the number to beat, no names attached to it.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">Playing well</div>
+    <h2>A few things worth knowing</h2>
+    <div class="tips">
+      <div class="tip">
+        <span class="mark">”</span>
+        <p>Watch the word display as you build — a word that looks fine can still flip red once you place the last letter, if it turns out not to be in the dictionary.</p>
+      </div>
+      <div class="tip">
+        <span class="mark">”</span>
+        <p>A common letter sitting on a blue (triple) slot can out-score a rare letter sitting on a plain one. Check what's colored before you commit to a word.</p>
+      </div>
+      <div class="tip">
+        <span class="mark">”</span>
+        <p>In multiplayer, swing for something big — only real, valid words ever get kept, so a failed long-shot costs you nothing.</p>
+      </div>
+      <div class="tip">
+        <span class="mark">”</span>
+        <p>In single player, remember your score reflects what's on the board <em>right now</em>. If you clear a rack to chase a better word, its points are gone until you land the next one.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer-note">That's the whole game. Six racks, one clock, and whatever words you can find.</div>
+</div>
+
+<script>
+  const LETTER_POINTS = {
+    A:1,B:3,C:2,D:2,E:1,F:5,G:3,H:3,I:1,J:10,K:5,L:2,M:3,N:1,O:1,
+    P:2,Q:10,R:1,S:1,T:1,U:2,V:5,W:5,X:7,Y:3,Z:7,
+  };
+  const grid = document.getElementById('point-grid');
+  grid.innerHTML = Object.entries(LETTER_POINTS).map(([letter, val]) =>
+    `<div class="point-cell"><div class="letter">${letter}</div><div class="val">${val}</div></div>`
+  ).join('');
+</script>
