@@ -1,0 +1,350 @@
+<title>Gerbil Onboarding</title>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --cream: #f4f1ea;
+    --dark: #2b2620;
+    --gold: #c9a24b;
+    --gold-soft: #fbf0d9;
+    --green-bg: #2e7d32;
+    --red: #c1443c;
+    --red-soft: #fdeceb;
+    --tan: #6b6355;
+    --card: #ffffff;
+    --good-green: #2f8f4e;
+    --good-green-soft: #e3f5e9;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--green-bg);
+    color: var(--dark);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 14px;
+  }
+
+  .screen {
+    width: 100%;
+    max-width: 560px;
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    overflow: hidden;
+  }
+
+  .top-bar {
+    padding: 16px 24px;
+    background: var(--dark);
+    color: var(--cream);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+  }
+
+  .stage { padding: 28px 28px 30px; }
+
+  .panel.hidden { display: none; }
+
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .subtitle { font-size: 13.5px; color: var(--tan); margin: 0 0 22px; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 20px; background: var(--cream); border-radius: 10px; padding: 4px; }
+  .tab-btn {
+    flex: 1; border: none; background: none; padding: 9px 0; border-radius: 8px;
+    font-size: 14px; font-weight: 700; color: var(--tan); cursor: pointer;
+  }
+  .tab-btn.active { background: var(--card); color: var(--dark); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+  label { display: block; font-size: 12.5px; font-weight: 700; color: var(--tan); margin: 14px 0 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  input[type="text"], input[type="password"] {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid #d8d2c2;
+    font-size: 15px; font-family: inherit; background: var(--cream); color: var(--dark);
+  }
+  input:focus { outline: none; border-color: var(--gold); }
+
+  .field-error { font-size: 12.5px; color: var(--red); margin-top: 6px; min-height: 1em; }
+
+  .primary-btn {
+    width: 100%; margin-top: 20px; border: none; background: var(--gold); color: var(--dark);
+    font-size: 15.5px; font-weight: 700; padding: 12px; border-radius: 10px; cursor: pointer;
+  }
+  .primary-btn:hover { filter: brightness(1.05); }
+
+  .welcome { font-size: 15px; color: var(--tan); margin-bottom: 20px; }
+  .welcome b { color: var(--dark); }
+
+  .mode-cards { display: flex; flex-direction: column; gap: 12px; }
+  .mode-card {
+    display: flex; align-items: center; gap: 14px; text-align: left;
+    border: 1.5px solid #e8e3d6; background: var(--cream); border-radius: 12px;
+    padding: 16px 18px; cursor: pointer; font-family: inherit;
+  }
+  .mode-card:hover { border-color: var(--gold); }
+  .mode-icon { font-size: 26px; flex-shrink: 0; width: 40px; text-align: center; }
+  .mode-title { font-size: 16px; font-weight: 800; margin: 0 0 3px; }
+  .mode-desc { font-size: 13px; color: var(--tan); margin: 0; }
+
+  .roster { display: flex; flex-direction: column; gap: 8px; margin: 18px 0; }
+  .roster-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--cream); border-radius: 10px; }
+  .avatar {
+    width: 30px; height: 30px; min-width: 30px; border-radius: 50%; color: #fff;
+    font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+  }
+  .roster-name { font-size: 14.5px; font-weight: 700; }
+  .roster-you-tag { font-size: 11px; color: var(--tan); margin-left: auto; font-weight: 700; }
+
+  .lobby-status { text-align: center; padding: 14px; background: var(--gold-soft); border-radius: 10px; margin-bottom: 16px; }
+  .lobby-status.waiting { background: var(--cream); }
+  .lobby-status .status-line { font-size: 14px; font-weight: 700; color: var(--tan); }
+  .lobby-status.counting .status-line { color: #a67c1e; }
+  .countdown-num { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--dark); margin-top: 4px; }
+
+  .lobby-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+  .leave-link { border: none; background: none; color: var(--red); font-size: 13.5px; font-weight: 700; cursor: pointer; padding: 0; }
+  .skip-link { border: none; background: none; color: #a89f8e; font-size: 12px; cursor: pointer; padding: 0; text-decoration: underline; }
+
+  .starting-panel { text-align: center; padding: 10px 0; }
+  .starting-panel h1 { margin-bottom: 10px; }
+  .enter-link {
+    display: inline-block; margin-top: 18px; background: var(--good-green); color: #fff;
+    font-weight: 800; font-size: 15px; padding: 12px 26px; border-radius: 10px; text-decoration: none;
+  }
+</style>
+
+<div class="screen">
+  <div class="top-bar">GERBIL</div>
+  <div class="stage" id="stage">
+
+    <div class="panel" id="screen-auth">
+      <h1 id="auth-heading">Log in to play</h1>
+      <p class="subtitle">An account is required for both single-player and multiplayer.</p>
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-login" type="button">Log in</button>
+        <button class="tab-btn" id="tab-register" type="button">Register</button>
+      </div>
+      <label for="username-input">Username</label>
+      <input type="text" id="username-input" placeholder="your username">
+      <label for="password-input">Password</label>
+      <input type="password" id="password-input" placeholder="your password">
+      <div class="field-error" id="auth-error"></div>
+      <button class="primary-btn" id="auth-submit">Log in</button>
+    </div>
+
+    <div class="panel hidden" id="screen-mode">
+      <h1>Choose how to play</h1>
+      <p class="welcome">Welcome, <b id="mode-username"></b>.</p>
+      <div class="mode-cards">
+        <button class="mode-card" id="pick-single">
+          <span class="mode-icon">🧍</span>
+          <span>
+            <p class="mode-title">Single player</p>
+            <p class="mode-desc">Start immediately, race your own clock.</p>
+          </span>
+        </button>
+        <button class="mode-card" id="pick-multi">
+          <span class="mode-icon">👥</span>
+          <span>
+            <p class="mode-title">Multiplayer</p>
+            <p class="mode-desc">Join a lobby (up to 6 players), race everyone at once.</p>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="screen-lobby">
+      <h1>Multiplayer lobby</h1>
+      <p class="subtitle">Everyone here gets the same 6 racks and starts together.</p>
+
+      <div class="lobby-status waiting" id="lobby-status">
+        <div class="status-line" id="lobby-status-line">Waiting for another player…</div>
+        <div class="countdown-num hidden" id="countdown-num">5:00</div>
+      </div>
+
+      <div class="roster" id="lobby-roster"></div>
+
+      <div class="lobby-actions">
+        <button class="leave-link" id="leave-lobby">Leave lobby</button>
+        <button class="skip-link" id="skip-countdown">⏩ skip to round start (demo)</button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="screen-starting">
+      <div class="starting-panel">
+        <h1 id="starting-heading">Starting your game…</h1>
+        <p class="subtitle" id="starting-sub"></p>
+        <a class="enter-link" id="enter-game-link" href="#" target="_blank" rel="noopener">Enter game →</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SINGLE_PLAYER_URL = 'https://claude.ai/code/artifact/2ea9d6b8-7428-487d-ad24-c0a2f67cb3e8';
+  const MULTIPLAYER_URL = 'https://claude.ai/code/artifact/42efc324-da0e-4626-831d-158afbc2d518';
+  const COUNTDOWN_SECONDS = 5 * 60;
+
+  const MOCK_JOINERS = [
+    { name: 'Priya', color: '#5b8dd6', delay: 3000 },
+    { name: 'Marcus', color: '#6bb37a', delay: 9000 },
+    { name: 'Sofia', color: '#b06bc9', delay: 16000 },
+  ];
+
+  function showScreen(id) {
+    document.querySelectorAll('.panel').forEach((p) => p.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+  }
+
+  // ---------- Auth ----------
+
+  let authMode = 'login';
+  let username = '';
+
+  document.getElementById('tab-login').addEventListener('click', () => {
+    authMode = 'login';
+    document.getElementById('tab-login').classList.add('active');
+    document.getElementById('tab-register').classList.remove('active');
+    document.getElementById('auth-heading').textContent = 'Log in to play';
+    document.getElementById('auth-submit').textContent = 'Log in';
+    document.getElementById('auth-error').textContent = '';
+  });
+
+  document.getElementById('tab-register').addEventListener('click', () => {
+    authMode = 'register';
+    document.getElementById('tab-register').classList.add('active');
+    document.getElementById('tab-login').classList.remove('active');
+    document.getElementById('auth-heading').textContent = 'Create your account';
+    document.getElementById('auth-submit').textContent = 'Create account';
+    document.getElementById('auth-error').textContent = '';
+  });
+
+  document.getElementById('auth-submit').addEventListener('click', () => {
+    const u = document.getElementById('username-input').value.trim();
+    const p = document.getElementById('password-input').value;
+    const errEl = document.getElementById('auth-error');
+
+    if (!u || !p) {
+      errEl.textContent = 'Enter a username and password.';
+      return;
+    }
+    errEl.textContent = '';
+    username = u;
+    document.getElementById('mode-username').textContent = username;
+    showScreen('screen-mode');
+  });
+
+  // ---------- Mode select ----------
+
+  document.getElementById('pick-single').addEventListener('click', () => {
+    document.getElementById('starting-heading').textContent = 'Starting your game…';
+    document.getElementById('starting-sub').textContent = 'A fresh set of 6 racks is ready for you.';
+    document.getElementById('enter-game-link').href = SINGLE_PLAYER_URL;
+    showScreen('screen-starting');
+  });
+
+  document.getElementById('pick-multi').addEventListener('click', () => {
+    startLobby();
+    showScreen('screen-lobby');
+  });
+
+  // ---------- Lobby ----------
+
+  let roster = [];
+  let joinTimers = [];
+  let countdownInterval = null;
+  let secondsLeft = COUNTDOWN_SECONDS;
+
+  function initials(name) {
+    return name === 'You' ? 'Y' : name[0].toUpperCase();
+  }
+
+  function renderRoster() {
+    const el = document.getElementById('lobby-roster');
+    el.innerHTML = roster.map((p) => `
+      <div class="roster-row">
+        <span class="avatar" style="background:${p.color}">${initials(p.name)}</span>
+        <span class="roster-name">${p.name}</span>
+        ${p.name === 'You' ? '<span class="roster-you-tag">YOU</span>' : ''}
+      </div>`).join('');
+  }
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  }
+
+  function startLobby() {
+    roster = [{ name: 'You', color: '#c9a24b' }];
+    renderRoster();
+
+    const statusEl = document.getElementById('lobby-status');
+    statusEl.classList.remove('counting');
+    statusEl.classList.add('waiting');
+    document.getElementById('lobby-status-line').textContent = 'Waiting for another player…';
+    document.getElementById('countdown-num').classList.add('hidden');
+
+    secondsLeft = COUNTDOWN_SECONDS;
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+
+    joinTimers.forEach(clearTimeout);
+    joinTimers = MOCK_JOINERS.map((mock) => setTimeout(() => playerJoins(mock), mock.delay));
+  }
+
+  function playerJoins(mock) {
+    roster.push({ name: mock.name, color: mock.color });
+    renderRoster();
+    if (!countdownInterval) beginCountdown();
+  }
+
+  function beginCountdown() {
+    const statusEl = document.getElementById('lobby-status');
+    statusEl.classList.remove('waiting');
+    statusEl.classList.add('counting');
+    document.getElementById('lobby-status-line').textContent = 'Round starts in';
+    document.getElementById('countdown-num').classList.remove('hidden');
+    document.getElementById('countdown-num').textContent = formatTime(secondsLeft);
+
+    countdownInterval = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft <= 0) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        enterRound();
+        return;
+      }
+      document.getElementById('countdown-num').textContent = formatTime(secondsLeft);
+    }, 1000);
+  }
+
+  function enterRound() {
+    joinTimers.forEach(clearTimeout);
+    const n = roster.length;
+    document.getElementById('starting-heading').textContent = 'Round starting!';
+    document.getElementById('starting-sub').textContent =
+      `${n} player${n === 1 ? '' : 's'} joined — everyone gets the same 6 racks.`;
+    document.getElementById('enter-game-link').href = MULTIPLAYER_URL;
+    showScreen('screen-starting');
+  }
+
+  document.getElementById('leave-lobby').addEventListener('click', () => {
+    joinTimers.forEach(clearTimeout);
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+    showScreen('screen-mode');
+  });
+
+  document.getElementById('skip-countdown').addEventListener('click', () => {
+    if (!countdownInterval && roster.length < 2) {
+      // Not enough players yet in the demo — pull in the next mock joiner immediately.
+      joinTimers.forEach(clearTimeout);
+      playerJoins(MOCK_JOINERS[0]);
+    }
+    secondsLeft = 1;
+  });
+</script>
