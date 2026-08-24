@@ -42,6 +42,10 @@ const TRIPLE_LETTER_CHANCE = 0.10;
 const LONG_WORD_MIN_LEN = 8;
 const LONG_WORD_BONUS = 10;
 const WILDCARDS_PER_SCRAMBLE = 2;
+// A word must clear this many points to count at all, even if it's a
+// real dictionary word — see MULTIPLAYER_PLAN.md §3a. Matches the
+// front-end mockup's previous client-only floor.
+const MIN_WORD_SCORE = 4;
 
 // Games expire after this long so the in-memory Map doesn't grow forever
 // (no accounts/persistence yet — see plan step 1).
@@ -201,27 +205,34 @@ function cellsAreSourceable(cells, scramble) {
 
 function scoreGuess(scramble, cells) {
   // cells: [{ position, letter, isWildcard }], only occupied positions.
-  if (cells.length === 0) return { valid: false, word: '', score: 0 };
+  const empty = { valid: false, word: '', score: 0, belowMinimum: false, rawScore: 0 };
+  if (cells.length === 0) return empty;
 
   const sorted = [...cells].sort((a, b) => a.position - b.position);
   const word = sorted.map((c) => c.letter).join('').toUpperCase();
 
   if (!cellsAreSourceable(sorted, scramble)) {
-    return { valid: false, word, score: 0 };
+    return { ...empty, word };
   }
 
-  const valid = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
-  if (!valid) return { valid: false, word, score: 0 };
+  const inDictionary = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
+  if (!inDictionary) return { ...empty, word };
 
-  let score = sorted.reduce((sum, cell) => {
+  let rawScore = sorted.reduce((sum, cell) => {
     const points = cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0);
     const bonus = bonusMultiplier(scramble.bottomBonuses[cell.position]);
     return sum + points * bonus;
   }, 0);
 
-  if (word.length >= LONG_WORD_MIN_LEN) score += LONG_WORD_BONUS;
+  if (word.length >= LONG_WORD_MIN_LEN) rawScore += LONG_WORD_BONUS;
 
-  return { valid: true, word, score };
+  // A word must clear a minimum point value to count at all, even if
+  // it's real — see MULTIPLAYER_PLAN.md §3a. This was previously only
+  // enforced client-side in the front-end prototype; it belongs here so
+  // single-player and multiplayer share one scoring authority.
+  const belowMinimum = rawScore < MIN_WORD_SCORE;
+  const valid = !belowMinimum;
+  return { valid, word, score: valid ? rawScore : 0, belowMinimum, rawScore };
 }
 
 // --- HTTP app ----------------------------------------------------------

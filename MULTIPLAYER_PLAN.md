@@ -327,7 +327,23 @@ balancer or horizontal scaling needed to start.
    still needs wiring — the shape was prototyped in the
    `gerbil-multiplayer-mockup.html` artifact but that mockup isn't
    connected to these real endpoints yet.
-5. *(Optional, later)* live updates (WebSockets/SSE), abuse/rate-limit
+4a. ~~**4-point minimum-to-count floor, server-side**~~ — **done**:
+   `scoreGuess()` in `server.js` now enforces `MIN_WORD_SCORE` itself
+   (`belowMinimum`/`rawScore` fields on the response) instead of that
+   rule living only in the front-end mockup's local JS — closes the
+   rule-duplication gap the "one shared rules module" principle (§1)
+   was meant to prevent. Verified via curl: a real word scoring below
+   the floor comes back `valid:false, belowMinimum:true`; at/above the
+   floor it's `valid:true` with the correct bonus-tile-multiplied score.
+5. **Front-end wiring to the real endpoints** — in progress. `play.html`
+   (a copy of `all6-feedback-mockup.html` with its embedded dictionary
+   stripped) is being rewired to a real login gate
+   (`/api/register`/`/api/login`/`/api/me`) and real single-player game
+   calls (`POST /api/game/new`, `POST /api/game/:id/guess`) in place of
+   the mockup's local `RACK_DEFS`/`evaluateRack`. Multiplayer front-end
+   wiring (`gerbil-multiplayer-mockup.html` → the lobby/round endpoints)
+   is the natural follow-up once single-player is proven out.
+6. *(Optional, later)* live updates (WebSockets/SSE), abuse/rate-limit
    hardening, round history, polish.
 
 ---
