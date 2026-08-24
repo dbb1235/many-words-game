@@ -23,34 +23,69 @@ This is the one non-negotiable change — without it, any player can open
 dev tools and either read the word list, fake a score submission, or see
 other players' answers.
 
+**Second non-negotiable: one shared rules module, not two copies.**
+Word-length minimum, the 4-point minimum-to-count floor, the good/bad
+scoring threshold, bonus-tile (2L/3L) multiplier logic, and wildcard
+handling must live in a single piece of code that both single-player
+and multiplayer call — never duplicated into two implementations that
+can drift apart. A rule change (e.g. "make it a 5-point minimum instead
+of 4") should be a one-line edit that both modes pick up automatically,
+not an edit you have to remember to make twice. (The current
+`all6-feedback-mockup.html` / `gerbil-multiplayer-mockup.html` pair
+*are* two separate files with duplicated rule logic — that's fine for
+throwaway front-end prototypes, but the real server build must not
+repeat that pattern: `server.js`'s scoring/validation code is the one
+place these rules live, and both a single-player route and a
+multiplayer lobby/round route call into it.)
+
 ---
 
-## 2. Round scheduling
+## 2. Game modes & matchmaking
 
-- **Resolved**: each game keeps the current **10-minute** active length
-  (matches the existing `GAME_SECONDS` timer), followed by a **2-minute
-  pause** before the next one starts. That's a 12-minute cycle —
-  `10 min active + 2 min pause = 12 min` — which lands exactly on your
-  original example times (12:00, 12:12, 12:24, …), i.e. **5 cycles/hour**.
-  (Your "6 times per hour" phrasing and the 12-minute example didn't
-  quite match on their own — the pause is what reconciles them, assuming
-  the 12-minute spacing is what you actually want. Flag if you'd rather
-  keep the active game shorter so the *whole* 12-min cycle isn't the
-  active time.)
-- The pause is the intermission where the just-finished round's
-  leaderboard is on display and the game screen is locked/read-only
-  until the next round's countdown begins.
-- Round boundaries are computed from the clock, not a stored schedule:
-  `cycleStart = floor(now / cycleMs) * cycleMs`, where `cycleMs` = 12
-  minutes. `now - cycleStart < activeMs` (10 min) means a round is live;
-  otherwise the server is in the 2-minute pause window before the next
-  one. No cron job needed — any server request just calculates "what
-  phase are we in right now."
-- Each round gets a **seed** used to deterministically generate that
-  round's 6 scrambles, so every player sees identical racks. The seed
-  should combine the round's start time with a **server-side secret**
-  (e.g. HMAC), not just the plain timestamp — otherwise a motivated
-  player could pre-compute a future round's letters before it starts.
+**Superseded** — the fixed-clock "everyone in the world is on the same
+12-minute cycle" model below (kept for the record, struck through) is
+replaced by **lobby-based matchmaking**: small on-demand games instead
+of one global scheduled round.
+
+- **Login required first.** Registration + real username/password —
+  see §11, this replaces the earlier "just a display name" option.
+- After login, the player picks **Single Player** or **Multiplayer**.
+- **Single Player**: starts immediately on demand. This is exactly
+  what the server-authoritative build from step 1 already does — a
+  private, randomly-seeded set of 6 racks for just that player, no
+  lobby, no synchronization with anyone else needed.
+- **Multiplayer**: the player joins a **lobby** (a waiting room, not a
+  global clock).
+  - A lobby holds **up to 6 players**.
+  - **Resolved**: a lobby waits for a **minimum of 2 players** before
+    anything counts down — one player alone just waits (no timeout for
+    now; a solo player could wait indefinitely if no one else joins).
+  - **Resolved**: the instant that 2nd player joins, the **2-minute
+    warning/countdown starts immediately** — it does not wait to fill
+    up to 6. Anyone who joins during those 2 minutes gets into the same
+    round; late arrivals after countdown-zero go into a fresh lobby.
+  - **Resolved**: any waiting player can **leave the lobby at any point
+    before the countdown reaches zero** (a "Leave lobby" action).
+  - When the countdown hits zero, the server generates **one seeded
+    round shared by every player in that lobby** — same mechanism as
+    the struck-through model below (seed = round start + server
+    secret, deterministic PRNG for the 6 racks), just scoped to one
+    lobby's roster instead of the whole server.
+  - All players in the lobby start their 10-minute clock at the same
+    instant and see identical racks, exactly as described in the
+    original ask.
+
+~~**Resolved**: each game keeps the current **10-minute** active length~~
+~~(matches the existing `GAME_SECONDS` timer), followed by a **2-minute~~
+~~pause** before the next one starts. That's a 12-minute cycle —~~
+~~`10 min active + 2 min pause = 12 min`... round boundaries computed~~
+~~from the clock (`cycleStart = floor(now / cycleMs) * cycleMs`), no~~
+~~lobby, no cron job — any server request just calculates "what phase~~
+~~are we in right now."~~ — this whole-server-scheduled approach is
+replaced by per-lobby rounds above. The **seeding mechanism itself**
+(HMAC of round start + server secret, feeding a seeded PRNG) carries
+over unchanged — it just now seeds one lobby's round instead of a
+global one.
 
 ---
 
@@ -69,11 +104,15 @@ scrambles once and caches them for the duration of that round.
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /api/register` | Create account with a unique username |
+| `POST /api/register` | Create account with a unique username + password |
 | `POST /api/login` | Authenticate |
-| `GET /api/round/current` | Returns round id, phase (`active` or `paused`), time remaining in that phase, and — if active — the 6 racks (tiles only, no answers) |
+| `POST /api/single/new` | Start a private single-player game immediately (already built in step 1 — `server.js`) |
+| `POST /api/lobby/join` | Join or create a waiting multiplayer lobby (max 6). Returns lobby id + current roster |
+| `GET /api/lobby/:id` | Poll lobby state: roster, whether the 2-minute warning has started, seconds until round start |
+| `POST /api/lobby/:id/leave` | Back out of a lobby before the round starts |
+| `GET /api/round/:id/current` | Returns round phase, time remaining, and — if active — the 6 racks (tiles only, no answers) |
 | `POST /api/round/:id/guess` | `{ scrambleIndex, word }` → server validates & scores, returns result |
-| `GET /api/round/:id/leaderboard` | Top scores for that round |
+| `GET /api/round/:id/leaderboard` | Live standings for everyone in that round — total + per-rack leader, matching the mockup |
 | `GET /api/rounds/history` | Past rounds, for browsing previous leaderboards |
 
 The scoring logic already in `game.js` (`scoreIfFormable`,
@@ -101,8 +140,17 @@ plain JS with no browser dependencies.
 users
   id, username (unique), password_hash, created_at
 
+lobbies
+  id, status (waiting | counting_down | started | done), max_players (6),
+  created_at, countdown_started_at, round_id (nullable until it starts)
+
+lobby_players
+  lobby_id, user_id, joined_at
+  UNIQUE (lobby_id, user_id)
+
 rounds
-  id, start_at, end_at, seed
+  id, lobby_id (nullable — single-player rounds have none), start_at,
+  end_at, seed
 
 best_scores
   round_id, user_id, scramble_index, best_word, best_score, updated_at
@@ -147,26 +195,39 @@ horizontal scaling needed to start.
 
 ## 10. Suggested build order
 
-1. **Server-authoritative single-player** — move rack generation and
-   scoring to the server with no accounts yet; client just displays
-   what the server returns. This alone closes the "read the JS to
-   cheat" hole and is a good first checkpoint to verify end-to-end.
-2. **Accounts** — registration/login, unique usernames.
-3. **Scheduled rounds** — shared seeded scrambles per time window.
-4. **Leaderboard page** — per-round and/or all-time.
-5. *(Optional, later)* live updates, abuse/rate-limit hardening, polish.
+1. ~~**Server-authoritative single-player**~~ — **done** (`server.js`):
+   rack generation, dictionary, and scoring all moved server-side;
+   client just displays what the server returns.
+2. **Accounts** — registration/login, unique usernames + passwords.
+   Required before either mode is playable (§2).
+3. **Lobby matchmaking** — join/leave a waiting lobby, 2-minute warning,
+   shared seeded round once it starts (§2). Replaces the earlier
+   fixed-clock scheduling idea.
+4. **Live standings** — per-round leaderboard, both per-rack leading
+   score and overall totals; front-end shape already prototyped in the
+   `gerbil-multiplayer-mockup.html` artifact.
+5. *(Optional, later)* live updates (WebSockets/SSE), abuse/rate-limit
+   hardening, round history, polish.
 
 ---
 
 ## 11. Open questions
 
-- ~~Round interval~~ — **resolved**: 10 min active + 2 min pause = 12
-  min cycle (5/hour), matching your original example times. Confirm
-  this is what you want, since it does mean 5 games/hour rather than 6.
-- ~~Round lock behavior~~ — **resolved**: round locks immediately at the
-  10-minute mark; the 2-minute pause is exactly the leaderboard-display
-  window before the next round opens.
-- **Auth**: full username+password, or something lighter (e.g. just a
-  claimed username, no password, for low-stakes casual competition)?
-- Any rough expectation of concurrent players? (Sanity-checks whether
-  the free-tier hosting plan is realistic.)
+- ~~Round interval~~ — **superseded** by lobby-based matchmaking (§2) —
+  no more global 12-minute cycle; each lobby runs its own 10-minute
+  round once it starts.
+- ~~Round lock behavior~~ — **resolved, carries over**: round locks
+  immediately at the 10-minute mark.
+- ~~Auth~~ — **resolved**: full registration + username/password
+  required before playing, for both modes.
+- ~~Lobby minimum to start~~ — **resolved**: waits for 2 players, no
+  timeout for now (a solo waiter could wait indefinitely).
+- ~~Lobby start trigger~~ — **resolved**: countdown begins the instant
+  the 2nd player joins, does not wait to fill to 6.
+- ~~Leaving a lobby~~ — **resolved**: allowed any time before the
+  countdown reaches zero. Still open: if someone leaves *during* the
+  countdown and the roster drops back to 1, does the countdown cancel
+  (back to waiting for a 2nd player) or keep running?
+- Any rough expectation of concurrent *lobbies* running at once?
+  (Sanity-checks the free-tier hosting plan — one lobby of 6 is trivial
+  load; many simultaneous lobbies is a different sizing question.)
