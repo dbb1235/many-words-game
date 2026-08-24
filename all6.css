@@ -127,7 +127,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 415px;
+  width: 350px;
   flex-shrink: 0;
   background: #fff;
   border-radius: 10px;
@@ -138,12 +138,16 @@ body {
 /* Four columns: # | scramble | word (blank until started) | score. Every
    character in the row — numbers and letters alike — is the same 22px
    size, same font as the tile letters (no font-family override here, so
-   it inherits the shared sans-serif stack, same as .tile .letter does). */
+   it inherits the shared sans-serif stack, same as .tile .letter does).
+   The guess-word column's floor and the gaps around it are squeezed to
+   their practical minimum, closing up the space between the scramble
+   and score columns as much as possible without shrinking the
+   no-truncation-safe scramble column itself. */
 .guess-summary-row {
   display: grid;
-  grid-template-columns: 22px 265px minmax(40px, 1fr) auto;
+  grid-template-columns: 22px 265px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   padding: 6px 8px;
   font-size: 22px;
   font-weight: 700;
