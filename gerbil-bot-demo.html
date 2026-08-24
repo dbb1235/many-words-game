@@ -79,6 +79,7 @@
   }
   .tile .pts { position: absolute; bottom: 3%; right: 6%; font-size: clamp(9px, 1.3vw, 14px); font-weight: 700; }
   .tile.empty { border-color: #d8d2c2; }
+  .tile.used { opacity: 0.28; }
   .tile.bonus2 { background: var(--bonus2-bg) !important; border-color: var(--bonus2-border); }
   .tile.bonus3 { background: var(--bonus3-bg) !important; border-color: var(--bonus3-border); }
   .tile.flash { animation: flashFound 0.7s ease; }
@@ -160,7 +161,9 @@ const WORD_LIST = new Set(["AAH", "AAHED", "AAHING", "AAHS", "AAL", "AALII", "AA
     U:{count:4,points:2},V:{count:2,points:5},W:{count:2,points:5},X:{count:1,points:7},
     Y:{count:2,points:3},Z:{count:1,points:7},
   };
-  const RACK_SIZE = 8;
+  const REAL_LETTERS = 8;
+  const WILDCARDS = 2;
+  const RACK_SIZE = REAL_LETTERS + WILDCARDS;
   const MIN_WORD_LEN = 3;
 
   function shuffle(arr) {
@@ -181,7 +184,7 @@ const WORD_LIST = new Set(["AAH", "AAHED", "AAHING", "AAHS", "AAL", "AALII", "AA
     const bag = buildBag();
     const counts = {};
     const drawn = [];
-    while (drawn.length < RACK_SIZE && bag.length) {
+    while (drawn.length < REAL_LETTERS && bag.length) {
       const l = bag.pop();
       if ((counts[l] || 0) < 2) { drawn.push(l); counts[l] = (counts[l] || 0) + 1; }
     }
@@ -190,15 +193,40 @@ const WORD_LIST = new Set(["AAH", "AAHED", "AAHING", "AAHS", "AAL", "AALII", "AA
 
   // ---------- Candidate generation ----------
 
-  function wordFormable(word, rackCounts) {
-    const need = {};
-    for (const ch of word) need[ch] = (need[ch] || 0) + 1;
-    let wildcardsNeeded = 0;
-    for (const [ch, n] of Object.entries(need)) {
-      const have = rackCounts[ch] || 0;
-      if (have < n) wildcardsNeeded += (n - have);
+  // Checks whether `word` can be built from the rack's real letters plus
+  // up to `wildcardBudget` blanks standing in for whatever's missing.
+  // Returns null if it can't, otherwise which letter positions were
+  // covered by a real tray letter vs. a wildcard (wildcards always
+  // score 0, same rule as the real game).
+  function analyzeWord(word, rackCounts, wildcardBudget) {
+    const remaining = { ...rackCounts };
+    let wildcardsUsed = 0;
+    const letterIsWildcard = [];
+    for (const ch of word) {
+      if ((remaining[ch] || 0) > 0) {
+        remaining[ch]--;
+        letterIsWildcard.push(false);
+      } else {
+        wildcardsUsed++;
+        letterIsWildcard.push(true);
+      }
     }
-    return wildcardsNeeded <= 0;
+    if (wildcardsUsed > wildcardBudget) return null;
+    return { wildcardsUsed, letterIsWildcard };
+  }
+
+  // Which tray letter *instances* (by index) a word consumes, so the
+  // right physical tiles can be greyed out — not just which letters.
+  function consumedTrayIndices(word, letterIsWildcard, letters) {
+    const used = new Set();
+    const indices = [];
+    [...word].forEach((ch, i) => {
+      if (letterIsWildcard[i]) return;
+      for (let idx = 0; idx < letters.length; idx++) {
+        if (letters[idx] === ch && !used.has(idx)) { used.add(idx); indices.push(idx); break; }
+      }
+    });
+    return indices;
   }
 
   function findCandidates(letters, tier) {
@@ -212,9 +240,11 @@ const WORD_LIST = new Set(["AAH", "AAHED", "AAHING", "AAHS", "AAL", "AALII", "AA
       if (tier.maxRank !== Infinity) {
         if (!rank || rank > tier.maxRank) return;
       }
-      if (!wordFormable(word, rackCounts)) return;
-      const score = [...word].reduce((s, ch) => s + (LETTER_DATA[ch]?.points || 0), 0);
-      candidates.push({ word, score, rank: rank || DICT_SIZE });
+      const analysis = analyzeWord(word, rackCounts, WILDCARDS);
+      if (!analysis) return;
+      const score = [...word].reduce((s, ch, i) =>
+        s + (analysis.letterIsWildcard[i] ? 0 : (LETTER_DATA[ch]?.points || 0)), 0);
+      candidates.push({ word, score, rank: rank || DICT_SIZE, ...analysis });
     });
     candidates.sort((a, b) => b.score - a.score);
     return candidates.slice(0, 10);
@@ -225,7 +255,10 @@ const WORD_LIST = new Set(["AAH", "AAHED", "AAHING", "AAHS", "AAL", "AALII", "AA
     const lengthPenalty = (candidate.word.length - 3) * 1.4;
     const rarityBasis = tier.maxRank === Infinity ? DICT_SIZE : tier.maxRank;
     const rarityPenalty = Math.min(candidate.rank / rarityBasis, 1) * 9;
-    const raw = (base + lengthPenalty + rarityPenalty) * tier.speed;
+    // Realizing a blank can stand in for a missing letter is an extra
+    // mental step — costs a bit more time, per wildcard used.
+    const wildcardPenalty = candidate.wildcardsUsed * 1.8;
+    const raw = (base + lengthPenalty + rarityPenalty + wildcardPenalty) * tier.speed;
     const jitter = 0.7 + Math.random() * 0.6;
     return raw * jitter;
   }
@@ -252,9 +285,27 @@ const WORD_LIST = new Set(["AAH", "AAHED", "AAHING", "AAHS", "AAL", "AALII", "AA
   }
 
   function renderTray(letters) {
-    document.getElementById('tray-tiles').innerHTML = letters.map((l) =>
-      `<div class="tile">${l}<span class="pts">${LETTER_DATA[l].points}</span></div>`
+    const realTiles = letters.map((l, i) =>
+      `<div class="tile" data-tray-real="${i}">${l}<span class="pts">${LETTER_DATA[l].points}</span></div>`
     ).join('');
+    const wildcardTiles = Array.from({ length: WILDCARDS }, (_, i) =>
+      `<div class="tile" data-tray-wild="${i}">?<span class="pts">0</span></div>`
+    ).join('');
+    document.getElementById('tray-tiles').innerHTML = realTiles + wildcardTiles;
+  }
+
+  // Greys out exactly the tray tiles the currently-displayed word is
+  // using — specific real-letter instances plus however many wildcards
+  // — same "used" treatment as the real game's tray.
+  function updateTrayUsage(realIndices, wildcardsUsed) {
+    document.querySelectorAll('[data-tray-real]').forEach((el) => {
+      const idx = Number(el.dataset.trayReal);
+      el.classList.toggle('used', realIndices.includes(idx));
+    });
+    document.querySelectorAll('[data-tray-wild]').forEach((el) => {
+      const idx = Number(el.dataset.trayWild);
+      el.classList.toggle('used', idx < wildcardsUsed);
+    });
   }
 
   function renderEmptyGuess(bonuses) {
@@ -279,21 +330,22 @@ const WORD_LIST = new Set(["AAH", "AAHED", "AAHING", "AAHS", "AAL", "AALII", "AA
       c.className = 'tile empty' + cls;
       c.innerHTML = '';
     });
+
+    let total = 0;
     [...candidate.word].forEach((ch, i) => {
       const bonus = bonuses[i];
       const mult = bonus === '2L' ? 2 : bonus === '3L' ? 3 : 1;
-      const pts = (LETTER_DATA[ch]?.points || 0) * mult;
+      const isWild = candidate.letterIsWildcard[i];
+      const basePts = isWild ? 0 : (LETTER_DATA[ch]?.points || 0);
+      const pts = basePts * mult;
+      total += pts;
       const cell = cells[i];
       const bonusCls = bonus === '2L' ? ' bonus2' : bonus === '3L' ? ' bonus3' : '';
       cell.className = 'tile flash' + bonusCls;
       cell.innerHTML = `${ch}<span class="pts">${pts}</span>`;
     });
 
-    let total = 0;
-    [...candidate.word].forEach((ch, i) => {
-      const mult = bonuses[i] === '2L' ? 2 : bonuses[i] === '3L' ? 3 : 1;
-      total += (LETTER_DATA[ch]?.points || 0) * mult;
-    });
+    updateTrayUsage(consumedTrayIndices(candidate.word, candidate.letterIsWildcard, rack.letters), candidate.wildcardsUsed);
 
     document.getElementById('word-status').className = 'word-status state-valid';
     document.getElementById('word-text').textContent = candidate.word;
