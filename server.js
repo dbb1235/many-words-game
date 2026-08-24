@@ -55,25 +55,54 @@ if (!wordsMatch) throw new Error('Could not parse words.js — expected `const W
 const WORD_LIST = new Set(JSON.parse(wordsMatch[1]));
 
 // --- Rack generation (ported from all6.js, unchanged logic) ---------
+//
+// Every function here takes an `rng` — a () => [0,1) function — instead
+// of calling Math.random() directly. Single-player passes Math.random
+// itself (unchanged behavior). Multiplayer rounds pass a seeded PRNG
+// (mulberry32 below) so every player in a lobby gets identical racks
+// from the same seed — MULTIPLAYER_PLAN.md §3.
 
-function shuffle(arr) {
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Folds a hex seed string down to a 32-bit int to feed mulberry32.
+function seedToInt(seedStr) {
+  let h = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    h = (Math.imul(31, h) + seedStr.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
+function rngFromSeed(seed) {
+  return mulberry32(seedToInt(seed));
+}
+
+function shuffle(arr, rng) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
 }
 
-function buildLetterBag() {
+function buildLetterBag(rng) {
   const b = [];
   for (const [letter, data] of Object.entries(LETTER_DATA)) {
     if (letter === '?') continue;
     for (let i = 0; i < data.count; i++) b.push(letter);
   }
-  return shuffle(b);
+  return shuffle(b, rng);
 }
 
-function drawRackLetters(bag, count, maxPerLetter) {
+function drawRackLetters(bag, count, maxPerLetter, rng) {
   const drawn = [];
   const counts = {};
   const skipped = [];
@@ -93,33 +122,33 @@ function drawRackLetters(bag, count, maxPerLetter) {
   }
 
   bag.push(...skipped);
-  shuffle(bag);
+  shuffle(bag, rng);
   return drawn;
 }
 
-function rollBottomBonuses(count) {
+function rollBottomBonuses(count, rng) {
   return Array.from({ length: count }, () => {
-    if (Math.random() < DOUBLE_LETTER_CHANCE) return '2L';
-    if (Math.random() < TRIPLE_LETTER_CHANCE) return '3L';
+    if (rng() < DOUBLE_LETTER_CHANCE) return '2L';
+    if (rng() < TRIPLE_LETTER_CHANCE) return '3L';
     return undefined;
   });
 }
 
-function dealScramble() {
-  const bag = buildLetterBag();
-  const letters = drawRackLetters(bag, RACK_SIZE - WILDCARDS_PER_SCRAMBLE, MAX_DUPLICATE_LETTERS);
+function dealScramble(rng) {
+  const bag = buildLetterBag(rng);
+  const letters = drawRackLetters(bag, RACK_SIZE - WILDCARDS_PER_SCRAMBLE, MAX_DUPLICATE_LETTERS, rng);
   const tiles = letters.map((letter) => ({ letter, points: LETTER_DATA[letter].points }));
   for (let i = 0; i < WILDCARDS_PER_SCRAMBLE; i++) tiles.push({ letter: '?', points: 0 });
-  shuffle(tiles);
+  shuffle(tiles, rng);
   return {
     tiles,
-    bottomBonuses: rollBottomBonuses(RACK_SIZE),
+    bottomBonuses: rollBottomBonuses(RACK_SIZE, rng),
   };
 }
 
-function dealGame() {
+function dealGame(rng) {
   const scrambles = [];
-  for (let s = 0; s < NUM_SCRAMBLES; s++) scrambles.push(dealScramble());
+  for (let s = 0; s < NUM_SCRAMBLES; s++) scrambles.push(dealScramble(rng));
   return scrambles;
 }
 
@@ -256,7 +285,7 @@ app.get('/api/me', auth.attachUserIfPresent, (req, res) => {
 
 app.post('/api/game/new', auth.requireAuth, (req, res) => {
   pruneExpiredGames();
-  const scrambles = dealGame();
+  const scrambles = dealGame(Math.random);
   const gameId = crypto.randomUUID();
   games.set(gameId, { scrambles, createdAt: Date.now(), userId: req.user.id });
 
@@ -278,6 +307,177 @@ app.post('/api/game/:gameId/guess', auth.requireAuth, (req, res) => {
 
   const result = scoreGuess(scramble, cells);
   res.json(result);
+});
+
+// --- Lobbies & multiplayer rounds --------------------------------------
+// See MULTIPLAYER_PLAN.md §2. Lobby/round phase is computed lazily from
+// stored timestamps on every read — no background scheduler needed, same
+// "any request just calculates what phase we're in" approach the
+// original round-scheduling design used.
+
+const LOBBY_COUNTDOWN_MS = 5 * 60 * 1000;
+const ROUND_MS = 10 * 60 * 1000;
+
+function regenerateRacks(seed) {
+  return dealGame(rngFromSeed(seed));
+}
+
+// Reads a lobby's current state, performing the counting_down ->
+// started transition inline if the 5 minutes have elapsed and no round
+// exists yet. Synchronous and side-effecting on purpose: better-sqlite3
+// is blocking, so this whole function runs to completion before Node
+// picks up any other request — the read-then-maybe-write here can't
+// race with a second request doing the same thing.
+function getLobbyView(lobbyId) {
+  const lobby = db.getLobby(lobbyId);
+  if (!lobby) return null;
+
+  if (lobby.status === 'counting_down' && !lobby.round_id) {
+    const elapsed = Date.now() - lobby.countdown_started_at;
+    if (elapsed >= LOBBY_COUNTDOWN_MS) {
+      const roundId = crypto.randomUUID();
+      const seed = crypto.randomBytes(16).toString('hex');
+      const startAt = Date.now();
+      db.createRound(roundId, lobbyId, seed, startAt, startAt + ROUND_MS);
+      db.attachRoundToLobby(lobbyId, roundId);
+      return getLobbyView(lobbyId); // re-read the now-'started' row
+    }
+  }
+
+  const roster = db.getLobbyRoster(lobbyId);
+  const view = {
+    id: lobby.id,
+    status: lobby.status,
+    roster: roster.map((p) => p.username),
+    maxPlayers: db.MAX_LOBBY_PLAYERS,
+  };
+  if (lobby.status === 'counting_down') {
+    const remaining = LOBBY_COUNTDOWN_MS - (Date.now() - lobby.countdown_started_at);
+    view.secondsUntilStart = Math.max(0, Math.ceil(remaining / 1000));
+  }
+  if (lobby.round_id) view.roundId = lobby.round_id;
+  return view;
+}
+
+function isLobbyMember(lobbyId, userId) {
+  return db.getLobbyRoster(lobbyId).some((p) => p.id === userId);
+}
+
+app.post('/api/lobby/join', auth.requireAuth, (req, res) => {
+  // Idempotent: if you're already sitting in a not-yet-started lobby,
+  // rejoin that one instead of getting dropped into a second lobby.
+  let lobbyId;
+  const already = db.findLobbyForUser(req.user.id);
+  if (already) {
+    lobbyId = already.id;
+  } else {
+    const joinable = db.findJoinableLobby();
+    lobbyId = joinable ? joinable.id : crypto.randomUUID();
+    if (!joinable) db.createLobby(lobbyId);
+    db.addPlayerToLobby(lobbyId, req.user.id);
+  }
+
+  const roster = db.getLobbyRoster(lobbyId);
+  const lobby = db.getLobby(lobbyId);
+  if (lobby.status === 'waiting' && roster.length >= 2) {
+    db.startLobbyCountdown(lobbyId);
+  }
+
+  res.json(getLobbyView(lobbyId));
+});
+
+app.get('/api/lobby/:id', auth.requireAuth, (req, res) => {
+  if (!isLobbyMember(req.params.id, req.user.id)) {
+    return res.status(403).json({ error: 'Not in this lobby' });
+  }
+  const view = getLobbyView(req.params.id);
+  if (!view) return res.status(404).json({ error: 'Lobby not found' });
+  res.json(view);
+});
+
+app.post('/api/lobby/:id/leave', auth.requireAuth, (req, res) => {
+  const lobby = db.getLobby(req.params.id);
+  if (!lobby) return res.status(404).json({ error: 'Lobby not found' });
+
+  db.removePlayerFromLobby(req.params.id, req.user.id);
+
+  const roster = db.getLobbyRoster(req.params.id);
+  if (lobby.status === 'counting_down' && !lobby.round_id && roster.length < 2) {
+    db.resetLobbyToWaiting(req.params.id);
+  }
+
+  res.json({ ok: true });
+});
+
+app.get('/api/round/:id/current', auth.requireAuth, (req, res) => {
+  const round = db.getRound(req.params.id);
+  if (!round) return res.status(404).json({ error: 'Round not found' });
+  const players = db.getRoundPlayers(req.params.id);
+  if (!players.some((p) => p.id === req.user.id)) {
+    return res.status(403).json({ error: 'Not a player in this round' });
+  }
+
+  const now = Date.now();
+  const phase = now < round.end_at ? 'active' : 'ended';
+  const secondsRemaining = Math.max(0, Math.ceil((round.end_at - now) / 1000));
+
+  const response = { roundId: round.id, phase, secondsRemaining };
+  if (phase === 'active') {
+    const scrambles = regenerateRacks(round.seed);
+    response.scrambles = scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses }));
+  }
+  res.json(response);
+});
+
+app.post('/api/round/:id/guess', auth.requireAuth, (req, res) => {
+  const round = db.getRound(req.params.id);
+  if (!round) return res.status(404).json({ error: 'Round not found' });
+  const players = db.getRoundPlayers(req.params.id);
+  if (!players.some((p) => p.id === req.user.id)) {
+    return res.status(403).json({ error: 'Not a player in this round' });
+  }
+  if (Date.now() >= round.end_at) {
+    return res.status(400).json({ error: 'Round has ended' });
+  }
+
+  const { scrambleIndex, cells } = req.body || {};
+  const scrambles = regenerateRacks(round.seed);
+  const scramble = scrambles[scrambleIndex];
+  if (!scramble) return res.status(400).json({ error: 'Invalid scrambleIndex' });
+  if (!Array.isArray(cells)) return res.status(400).json({ error: 'cells must be an array' });
+
+  const result = scoreGuess(scramble, cells);
+  if (result.valid) {
+    db.upsertBestScore(round.id, req.user.id, scrambleIndex, result.word, result.score);
+  }
+  res.json(result);
+});
+
+app.get('/api/round/:id/leaderboard', auth.requireAuth, (req, res) => {
+  const round = db.getRound(req.params.id);
+  if (!round) return res.status(404).json({ error: 'Round not found' });
+  const players = db.getRoundPlayers(req.params.id);
+  if (!players.some((p) => p.id === req.user.id)) {
+    return res.status(403).json({ error: 'Not a player in this round' });
+  }
+
+  const rows = db.getRoundScores(round.id);
+
+  const totals = new Map();
+  const perRack = Array.from({ length: NUM_SCRAMBLES }, () => null);
+  for (const row of rows) {
+    totals.set(row.user_id, (totals.get(row.user_id) || { username: row.username, total: 0 }));
+    totals.get(row.user_id).total += row.best_score;
+    totals.get(row.user_id).username = row.username;
+
+    const leader = perRack[row.scramble_index];
+    if (!leader || row.best_score > leader.score) {
+      perRack[row.scramble_index] = { username: row.username, score: row.best_score };
+    }
+  }
+
+  const overall = [...totals.values()].sort((a, b) => b.total - a.total);
+  res.json({ overall, perRack });
 });
 
 app.listen(PORT, () => {
