@@ -38,6 +38,32 @@ repeat that pattern: `server.js`'s scoring/validation code is the one
 place these rules live, and both a single-player route and a
 multiplayer lobby/round route call into it.)
 
+**Third non-negotiable: no in-memory state as the primary copy of
+anything that matters.** `server.js` today keeps single-player games in
+a plain `Map()` living in the process's RAM — fine for a prototype, not
+fine once real people depend on it, because that state vanishes
+completely (no error, just gone) the instant the process restarts —
+a crash, a deploy, or (on free-tier hosting) simply going to sleep
+after idle time and waking up as a fresh process. Anything worth not
+losing goes in the database instead:
+
+- **User accounts** — DB (already the plan).
+- **Lobbies** (roster, countdown state) — DB, not a `Map()`.
+- **Active rounds** — DB, but cheaply: only the round's **seed** and
+  start time need storing, not the racks themselves, since the same
+  seed always regenerates the same 6 racks deterministically. A
+  mid-round restart just re-derives the racks from the stored seed —
+  nothing is lost, no special recovery path needed.
+- **Single-player games** — same fix as multiplayer, for the same
+  reason and for consistency, even though today's `Map()` is low-stakes
+  on its own.
+
+One database for all of it — the same Postgres already planned for
+accounts (§8/§9). No Redis or second data store; at this scale a
+database is fast enough for all of this, and running two stores would
+be exactly the premature complexity §"Launch strategy" below says to
+avoid.
+
 ---
 
 ## 2. Game modes & matchmaking
@@ -159,6 +185,26 @@ best_scores
 
 A round's total score per player is just `SUM(best_score)` grouped by
 user — computed on read, no need to store it separately.
+
+**Player history — store outcomes, not events.** `best_scores` above
+already *is* a full permanent history of every player's every round,
+essentially for free — that's the key design point that makes "keep
+everyone's history forever" cheap: it holds one row per rack per round
+per player (a best word + a number), not a log of every keystroke,
+every wildcard pick, or every losing guess along the way. Do **not** add
+a table that logs every guess attempt — that's the thing that would
+actually make storage grow fast, and it's not needed for history
+purposes.
+
+Rough size check: 6 rows/round/player, each maybe 50-100 bytes → a
+player who plays 5 rounds a day generates roughly 2-3 KB/day, ~1 MB/
+year. Even at several thousand active daily players that's under a few
+GB/year — a non-issue on any real database, free tier included, for a
+long time. Add an index on `(user_id)` for fast "show my full history"
+lookups. If storage ever genuinely becomes a concern at much larger
+scale, the lever available then is dropping the `best_word` text on old
+rows (keep the score, drop the word) rather than deleting history
+outright — not needed now.
 
 ---
 
