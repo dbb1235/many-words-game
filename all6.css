@@ -132,20 +132,20 @@ body {
 
 /* Guess1-6 summary list — each row is clickable to switch which
    tray/guess pair is shown; white "cards" read clearly against the
-   green page. The scramble/word column is fixed at 180px — narrower
+   green page. The scramble/word column is fixed at 160px — narrower
    than the longest realistic scramble (up to 10 letters can run up to
    ~238px in this font, tested empirically across 300 full deals), so a
    long scramble/word truncates with an ellipsis (.guess-summary-scramble
    already has overflow/text-overflow set up for this) rather than
    stretching the row. Width is the 3 column tracks below
-   (22 + 180 + 40 = 242px) plus their 2 gaps (6px each) plus the row's
-   own left/right padding (8px each) — 270px total — so the box fits its
+   (22 + 160 + 40 = 222px) plus their 2 gaps (6px each) plus the row's
+   own left/right padding (8px each) — 250px total — so the box fits its
    content exactly with no leftover trailing gap. */
 #guess-summary {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 270px;
+  width: 250px;
   flex-shrink: 0;
   background: #fff;
   border-radius: 10px;
@@ -163,7 +163,7 @@ body {
    edge instead of drifting per row based on that row's own digit count. */
 .guess-summary-row {
   display: grid;
-  grid-template-columns: 22px 180px 40px;
+  grid-template-columns: 22px 160px 40px;
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
