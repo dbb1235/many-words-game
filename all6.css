@@ -251,3 +251,14 @@ button,
 #top-bar {
   background: #2e7d32;
 }
+
+/* The title is draggable and can end up anywhere on screen, including
+   over light content like the white guess list — its white text
+   (inherited from the old #top-bar) had no background of its own to
+   sit on, making it unreadable there (and confusable with the list's
+   own text) once it left the dark header bar. Giving it back its own
+   solid background keeps it legible wherever it's dragged. */
+#top-bar .brand {
+  background: #2b2620;
+  padding: 6px 10px;
+}

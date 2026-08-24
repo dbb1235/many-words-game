@@ -130,8 +130,7 @@ function startGame() {
   activeScrambleIndex = 0;
 
   el('game').classList.remove('hidden');
-  el('start-btn').textContent = 'Restart';
-  el('stop-btn').classList.remove('hidden');
+  el('start-btn').textContent = 'Stop Game';
   updateScore();
   renderAllScrambles();
   clearInterval(timerHandle);
@@ -722,19 +721,23 @@ function renderAllScrambles() {
   setActiveScramble(0);
 }
 
-el('stop-btn').addEventListener('click', () => {
-  if (!gameActive) return;
-  endGame();
-});
-
 function endGame() {
   gameActive = false;
   clearInterval(timerHandle);
   closeLetterMenu();
-  el('stop-btn').classList.add('hidden');
+  el('start-btn').textContent = 'Start Game';
 }
 
-el('start-btn').addEventListener('click', startGame);
+// Single Start/Stop toggle button, replacing the old separate
+// Start/Restart and Stop Game buttons — starts a game when idle, ends
+// the current one when active.
+el('start-btn').addEventListener('click', () => {
+  if (gameActive) {
+    endGame();
+  } else {
+    startGame();
+  }
+});
 
 // Lets the title and header buttons be dragged independently anywhere
 // on the screen, instead of staying locked together in the header bar.
@@ -782,4 +785,3 @@ function makeFreelyDraggable(el) {
 
 makeFreelyDraggable(document.querySelector('#top-bar .brand'));
 makeFreelyDraggable(el('start-btn'));
-makeFreelyDraggable(el('stop-btn'));
