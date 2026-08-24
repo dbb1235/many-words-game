@@ -207,6 +207,26 @@ body {
   text-align: right;
 }
 
+/* In this proportional font, "I" is much narrower than every other
+   letter — a scramble or guess word heavy in I's read as noticeably
+   shorter than one heavy in, say, E's, even at the same letter count.
+   Pins every I to a fixed width equal to this column's own E width (see
+   renderSummaryCellText in all6.js), so IIIIIIIIII and EEEEEEEEEE take
+   up the same total width. Measured per column since the two columns
+   render at different font weights (400 vs 700), which changes E's
+   width too. */
+.guess-summary-scramble .letter-i-wide {
+  display: inline-block;
+  width: 12.79px;
+  text-align: center;
+}
+
+.guess-summary-label .letter-i-wide {
+  display: inline-block;
+  width: 13.52px;
+  text-align: center;
+}
+
 /* Time Left box, 25% narrower than the shared 160px .info-block default.
    Score now matches it exactly instead of keeping the default width. */
 #info-block-3,

@@ -279,6 +279,27 @@ function toggleTopWildcardMenu(ctx, tileEl, index) {
   });
 }
 
+// Fills a guess-summary Scramble/Guess-word cell with text, wrapping each
+// "I" in a fixed-width span so a run of I's spans the same total width as
+// the same count of E's would — in the proportional font used here, I is
+// dramatically narrower than every other letter, which made scrambles/
+// words heavy in I's look noticeably shorter than the rest at a glance.
+// The fixed width itself lives in CSS (.letter-i-wide, sized per column
+// since the two columns use different font weights).
+function renderSummaryCellText(el, text) {
+  el.textContent = '';
+  for (const ch of text) {
+    if (ch === 'I') {
+      const span = document.createElement('span');
+      span.className = 'letter-i-wide';
+      span.textContent = ch;
+      el.appendChild(span);
+    } else {
+      el.appendChild(document.createTextNode(ch));
+    }
+  }
+}
+
 // Rebuilds one scramble's tray row from ctx.topTiles (the tiles still
 // remaining up there) and reattaches drag handlers. Used both for the
 // initial render and after a tile is dragged out, so the remaining tiles
@@ -292,8 +313,10 @@ function renderTopRow(ctx) {
   renderTileEls(ctx.tilesEl, ctx.topTiles);
   attachTileDragHandlers(ctx);
   if (ctx.summaryRowEl) {
-    ctx.summaryRowEl.querySelector('.guess-summary-scramble').textContent =
-      ctx.topTiles.map((t) => t.letter).join('');
+    renderSummaryCellText(
+      ctx.summaryRowEl.querySelector('.guess-summary-scramble'),
+      ctx.topTiles.map((t) => t.letter).join('')
+    );
   }
 }
 
@@ -395,7 +418,7 @@ function updateBottomWordScore(ctx) {
     : 0;
   ctx.guessScore = guessScore;
   if (ctx.summaryRowEl) {
-    ctx.summaryRowEl.querySelector('.guess-summary-label').textContent = word;
+    renderSummaryCellText(ctx.summaryRowEl.querySelector('.guess-summary-label'), word);
     ctx.summaryRowEl.querySelector('.guess-summary-score').textContent = guessScore;
   }
   updateGuessTotal();
