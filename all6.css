@@ -243,3 +243,11 @@ button,
   width: 26px;
   height: 31px;
 }
+
+/* The title and header buttons are now freely draggable (see
+   makeFreelyDraggable in all6.js) rather than staying locked together
+   in this bar, so its dark background is gone too — the same green as
+   the rest of the page shows through instead of a distinct black strip. */
+#top-bar {
+  background: #2e7d32;
+}

@@ -735,3 +735,51 @@ function endGame() {
 }
 
 el('start-btn').addEventListener('click', startGame);
+
+// Lets the title and header buttons be dragged independently anywhere
+// on the screen, instead of staying locked together in the header bar.
+// On first mousedown, the element is pinned to position:fixed at
+// whatever spot it's currently rendered at (no jump), breaking it out
+// of the header's flex layout; every later drag just continues moving
+// it from there.
+function makeFreelyDraggable(el) {
+  el.style.cursor = 'grab';
+  el.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    // A position:fixed descendant of a zoomed ancestor has its left/top
+    // style re-multiplied by the zoom factor at render time (see the
+    // same note in openLetterMenu), so divide by it whenever WRITING a
+    // left/top value — reading via getBoundingClientRect/clientX/Y is
+    // already in real/visual pixels and needs no adjustment.
+    const zoomFactor = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    const rect = el.getBoundingClientRect();
+
+    if (el.style.position !== 'fixed') {
+      el.style.position = 'fixed';
+      el.style.margin = '0';
+      el.style.zIndex = '20';
+      el.style.left = `${rect.left / zoomFactor}px`;
+      el.style.top = `${rect.top / zoomFactor}px`;
+    }
+
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+    el.style.cursor = 'grabbing';
+
+    function onMouseMove(e2) {
+      el.style.left = `${(e2.clientX - offsetX) / zoomFactor}px`;
+      el.style.top = `${(e2.clientY - offsetY) / zoomFactor}px`;
+    }
+    function onMouseUp() {
+      el.style.cursor = 'grab';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+}
+
+makeFreelyDraggable(document.querySelector('#top-bar .brand'));
+makeFreelyDraggable(el('start-btn'));
+makeFreelyDraggable(el('stop-btn'));
