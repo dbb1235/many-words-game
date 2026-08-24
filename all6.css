@@ -5,9 +5,24 @@
 
 /* Page background — overrides the shared cream background. Same
    selector/specificity as style.css's rule, so normal cascade order
-   (this file loads after it) is enough to win. */
+   (this file loads after it) is enough to win. Also set on html as a
+   fallback so any area outside the aspect-ratio-boxed body (below, on a
+   tall/narrow viewport) still reads as part of the page instead of
+   showing through to a default white background. */
+html {
+  background: #2e7d32;
+  /* aspect-ratio goes here, not on body: body already carries the
+     shared zoom:1.5, and applying aspect-ratio to the same zoomed
+     element compounds unpredictably (observed rendering well outside
+     the intended 16:9 box — e.g. 2400x1350 in a 1400x900 viewport
+     instead of a clean 16:9 fit). html has no zoom of its own, so its
+     width/height computation stays straightforward. */
+  aspect-ratio: 16 / 9;
+}
+
 body {
   background: #2e7d32;
+  min-height: 100%;
 }
 
 /* Removes the shared white "card" box behind each scramble's tile rows
