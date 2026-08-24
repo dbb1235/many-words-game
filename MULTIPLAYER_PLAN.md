@@ -133,7 +133,9 @@ scrambles once and caches them for the duration of that round.
 Resolved rules from the competitive-mechanics brainstorm, specific to
 multiplayer (single-player keeps its existing behavior unless noted):
 
-- **No word reuse — scoped to one scramble, not the whole round.** Once
+- **No word reuse — scoped to one scramble, not the whole round.** Not
+  yet implemented — lobbies/rounds now exist (§2 is done) so this is
+  buildable, just hasn't been done yet. Once
   any player successfully plays a word on a given rack, that exact word
   is locked on *that rack only* — unavailable to every other player on
   that same rack for the rest of the round. It does **not** block the
@@ -313,12 +315,18 @@ balancer or horizontal scaling needed to start.
    unique usernames + bcrypt-hashed passwords, stateless JWT-cookie
    sessions. `/api/game/new` and `/api/game/:id/guess` now require
    login and are scoped to the owning user.
-3. **Lobby matchmaking** — join/leave a waiting lobby, 5-minute countdown,
-   shared seeded round once it starts (§2). Replaces the earlier
-   fixed-clock scheduling idea.
-4. **Live standings** — per-round leaderboard, both per-rack leading
-   score and overall totals; front-end shape already prototyped in the
-   `gerbil-multiplayer-mockup.html` artifact.
+3. ~~**Lobby matchmaking**~~ — **done**: join/leave a waiting lobby,
+   5-minute countdown starting the instant a 2nd player joins, shared
+   seeded round once it starts (§2), lobby/round phase computed lazily
+   from stored timestamps (no background scheduler). `POST
+   /api/lobby/join`, `GET /api/lobby/:id`, `POST /api/lobby/:id/leave`.
+4. ~~**Live standings**~~ — **done**: `GET /api/round/:id/current`
+   (racks, phase, time remaining), `POST /api/round/:id/guess` (writes
+   to `best_scores`, best-score-only), `GET /api/round/:id/leaderboard`
+   (totals + per-rack leader, computed on read). Front-end for this
+   still needs wiring — the shape was prototyped in the
+   `gerbil-multiplayer-mockup.html` artifact but that mockup isn't
+   connected to these real endpoints yet.
 5. *(Optional, later)* live updates (WebSockets/SSE), abuse/rate-limit
    hardening, round history, polish.
 
