@@ -117,13 +117,17 @@ body {
 
 /* Guess1-6 summary list — each row is clickable to switch which
    tray/guess pair is shown; white "cards" read clearly against the
-   green page. Widened to fit the larger letters (see below) plus the
-   scramble column (up to 10 letters). */
+   green page. The scramble column needs to be wide enough that its
+   longest realistic content (up to 10 letters, proportional font) never
+   truncates — tested empirically across 300 full deals (1800 scrambles),
+   worst case was 238px, so 250px leaves a safety margin. That leaves the
+   list itself wider than it would be if it only needed to fit "GUESS N"
+   labels, even after trimming padding/gaps everywhere else. */
 #guess-summary {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 360px;
+  width: 415px;
   flex-shrink: 0;
   background: #fff;
   border-radius: 10px;
@@ -132,15 +136,16 @@ body {
 }
 
 /* Four columns: # | scramble | word (blank until started) | score. Every
-   character in the row — numbers and letters alike — is the same 20px
-   size. */
+   character in the row — numbers and letters alike — is the same 22px
+   size, same font as the tile letters (no font-family override here, so
+   it inherits the shared sans-serif stack, same as .tile .letter does). */
 .guess-summary-row {
   display: grid;
-  grid-template-columns: 26px 140px 1fr auto;
+  grid-template-columns: 22px 265px minmax(40px, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  font-size: 20px;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 22px;
   font-weight: 700;
   cursor: pointer;
   color: #2b2620;
@@ -156,13 +161,11 @@ body {
 }
 
 /* That scramble's current tray letters (kept in sync live — see
-   renderTopRow) — muted (but same size as the guess word) since it's
-   reference info, not the row's main "answer" data. Monospace so every
-   letter takes up the same horizontal space, unlike a proportional font
-   where e.g. "I" is narrower than "W". */
+   renderTopRow) — muted (but same size/font as the guess word) since
+   it's reference info, not the row's main "answer" data. */
 .guess-summary-scramble {
-  font-family: 'Courier New', Courier, monospace;
   font-weight: 400;
+  letter-spacing: 0.02em;
   color: #6b6355;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -183,4 +186,10 @@ body {
 
 .guess-summary-score {
   text-align: right;
+}
+
+/* Time Left box, 25% narrower than the shared 160px .info-block default
+   (Score keeps the default width). */
+#info-block-3 {
+  width: 120px;
 }
