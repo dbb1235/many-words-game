@@ -132,15 +132,15 @@ body {
 }
 
 /* Four columns: # | scramble | word (blank until started) | score. Every
-   number (# and score) is the same size, and every run of letters
-   (scramble and guess word) is the same size — about twice as tall as
-   the numbers. */
+   character in the row — numbers and letters alike — is the same 20px
+   size. */
 .guess-summary-row {
   display: grid;
   grid-template-columns: 26px 140px 1fr auto;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
+  font-size: 20px;
   font-weight: 700;
   cursor: pointer;
   color: #2b2620;
@@ -150,11 +150,6 @@ body {
   background: #f4f1ea;
 }
 
-.guess-summary-num,
-.guess-summary-score {
-  font-size: 11px;
-}
-
 .guess-summary-num {
   color: #6b6355;
   font-weight: 400;
@@ -162,11 +157,12 @@ body {
 
 /* That scramble's current tray letters (kept in sync live — see
    renderTopRow) — muted (but same size as the guess word) since it's
-   reference info, not the row's main "answer" data. */
+   reference info, not the row's main "answer" data. Monospace so every
+   letter takes up the same horizontal space, unlike a proportional font
+   where e.g. "I" is narrower than "W". */
 .guess-summary-scramble {
-  font-size: 22px;
+  font-family: 'Courier New', Courier, monospace;
   font-weight: 400;
-  letter-spacing: 0.02em;
   color: #6b6355;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -177,7 +173,6 @@ body {
    updateBottomWordScore); truncates instead of breaking the row's
    layout if a long word doesn't fit the list. */
 .guess-summary-label {
-  font-size: 22px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   overflow: hidden;
