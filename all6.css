@@ -192,9 +192,10 @@ body {
   text-align: right;
 }
 
-/* Time Left box, 25% narrower than the shared 160px .info-block default
-   (Score keeps the default width). */
-#info-block-3 {
+/* Time Left box, 25% narrower than the shared 160px .info-block default.
+   Score now matches it exactly instead of keeping the default width. */
+#info-block-3,
+#info-block-4 {
   width: 120px;
 }
 
