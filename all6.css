@@ -209,3 +209,21 @@ button,
 .letter-menu button {
   border-radius: 0;
 }
+
+/* Wildcard A-Z picker, 40% smaller (height and width) than the shared
+   defaults — every dimensional value here (cell size, gaps, padding) is
+   the shared value x 0.6. Font-size is deliberately left untouched so
+   the letters themselves stay the same size while the box around them
+   shrinks. It's fine for the smaller pulldown to cover other elements
+   when open — no repositioning logic changes needed for that. */
+.letter-menu {
+  grid-template-columns: repeat(6, 26px);
+  grid-auto-rows: 31px;
+  gap: 2px;
+  padding: 6px;
+}
+
+.letter-menu button {
+  width: 26px;
+  height: 31px;
+}
