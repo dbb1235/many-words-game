@@ -1,2 +1,6 @@
 node_modules/
 .DS_Store
+.jwt-secret
+gerbil.db
+gerbil.db-shm
+gerbil.db-wal

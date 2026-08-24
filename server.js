@@ -4,9 +4,12 @@
 // the letter bag logic — see MULTIPLAYER_PLAN.md step 1.
 
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const db = require('./db');
+const auth = require('./auth');
 
 const PORT = process.env.PORT || 8420;
 
@@ -26,8 +29,18 @@ const RACK_SIZE = 10;
 const NUM_SCRAMBLES = 6;
 const MIN_WORD_LEN = 3;
 const MAX_DUPLICATE_LETTERS = 2;
-const DOUBLE_LETTER_CHANCE = 0.08;
-const TRIPLE_LETTER_CHANCE = 0.04;
+// 10% of a rack's slots are double-letter; of the slots that leaves,
+// 10% are triple-letter (9% absolute, since it's 10% of the remaining
+// 90%) — see MULTIPLAYER_PLAN.md §3a "Competitive scoring rules" (was
+// 8%/4%, resolved to 10%/10%-of-remainder). rollBottomBonuses only
+// evaluates the 3L check once the 2L check has already failed, so this
+// constant is itself the "of remainder" conditional rate (0.10), not
+// the resulting 9% absolute figure — the 90%-remainder math falls out
+// of that structure automatically.
+const DOUBLE_LETTER_CHANCE = 0.10;
+const TRIPLE_LETTER_CHANCE = 0.10;
+const LONG_WORD_MIN_LEN = 8;
+const LONG_WORD_BONUS = 10;
 const WILDCARDS_PER_SCRAMBLE = 2;
 
 // Games expire after this long so the in-memory Map doesn't grow forever
@@ -171,11 +184,13 @@ function scoreGuess(scramble, cells) {
   const valid = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
   if (!valid) return { valid: false, word, score: 0 };
 
-  const score = sorted.reduce((sum, cell) => {
+  let score = sorted.reduce((sum, cell) => {
     const points = cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0);
     const bonus = bonusMultiplier(scramble.bottomBonuses[cell.position]);
     return sum + points * bonus;
   }, 0);
+
+  if (word.length >= LONG_WORD_MIN_LEN) score += LONG_WORD_BONUS;
 
   return { valid: true, word, score };
 }
@@ -184,13 +199,66 @@ function scoreGuess(scramble, cells) {
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.static(__dirname));
 
-app.post('/api/game/new', (req, res) => {
+// --- Accounts ---------------------------------------------------------
+// Registration/login required before either game mode — see
+// MULTIPLAYER_PLAN.md §2. Sessions are a stateless JWT cookie (auth.js),
+// not a server-side session store, so there's no in-memory session
+// state to lose on a restart.
+
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+const MIN_PASSWORD_LEN = 8;
+
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body || {};
+  if (typeof username !== 'string' || !USERNAME_RE.test(username)) {
+    return res.status(400).json({ error: 'Username must be 3-20 characters: letters, numbers, underscore.' });
+  }
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LEN) {
+    return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LEN} characters.` });
+  }
+  if (db.findUserByUsername(username)) {
+    return res.status(409).json({ error: 'That username is already taken.' });
+  }
+
+  const passwordHash = await auth.hashPassword(password);
+  const user = db.createUser(username, passwordHash);
+  auth.setAuthCookie(res, auth.issueToken(user));
+  res.status(201).json({ id: user.id, username: user.username });
+});
+
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body || {};
+  if (typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+
+  const user = db.findUserByUsername(username);
+  const passwordOk = user && await auth.verifyPassword(password, user.password_hash);
+  if (!passwordOk) {
+    return res.status(401).json({ error: 'Incorrect username or password.' });
+  }
+
+  auth.setAuthCookie(res, auth.issueToken(user));
+  res.json({ id: user.id, username: user.username });
+});
+
+app.post('/api/logout', (req, res) => {
+  auth.clearAuthCookie(res);
+  res.json({ ok: true });
+});
+
+app.get('/api/me', auth.attachUserIfPresent, (req, res) => {
+  res.json({ user: req.user || null });
+});
+
+app.post('/api/game/new', auth.requireAuth, (req, res) => {
   pruneExpiredGames();
   const scrambles = dealGame();
   const gameId = crypto.randomUUID();
-  games.set(gameId, { scrambles, createdAt: Date.now() });
+  games.set(gameId, { scrambles, createdAt: Date.now(), userId: req.user.id });
 
   res.json({
     gameId,
@@ -198,9 +266,10 @@ app.post('/api/game/new', (req, res) => {
   });
 });
 
-app.post('/api/game/:gameId/guess', (req, res) => {
+app.post('/api/game/:gameId/guess', auth.requireAuth, (req, res) => {
   const game = games.get(req.params.gameId);
   if (!game) return res.status(404).json({ error: 'Game not found or expired' });
+  if (game.userId !== req.user.id) return res.status(403).json({ error: 'Not your game' });
 
   const { scrambleIndex, cells } = req.body || {};
   const scramble = game.scrambles[scrambleIndex];
