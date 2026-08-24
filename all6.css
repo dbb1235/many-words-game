@@ -132,17 +132,19 @@ body {
 
 /* Guess1-6 summary list — each row is clickable to switch which
    tray/guess pair is shown; white "cards" read clearly against the
-   green page. The scramble column needs to be wide enough that its
+   green page. The scramble/word column needs to be wide enough that its
    longest realistic content (up to 10 letters, proportional font) never
    truncates — tested empirically across 300 full deals (1800 scrambles),
-   worst case was 238px, so 250px leaves a safety margin. That leaves the
-   list itself wider than it would be if it only needed to fit "GUESS N"
-   labels, even after trimming padding/gaps everywhere else. */
+   worst case was 238px, so 250px leaves a safety margin. Width is the
+   3 column tracks below (22 + 265 + 40 = 327px) plus their 2 gaps
+   (6px each) plus the row's own left/right padding (8px each) — 355px
+   total — so the box fits its content exactly with no leftover trailing
+   gap now that there are only 3 columns. */
 #guess-summary {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 350px;
+  width: 355px;
   flex-shrink: 0;
   background: #fff;
   border-radius: 10px;
@@ -150,19 +152,19 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
-/* Four columns: # | scramble | word (blank until started) | score. Every
-   character in the row — numbers and letters alike — is the same 22px
-   size, same font as the tile letters (no font-family override here, so
-   it inherits the shared sans-serif stack, same as .tile .letter does).
-   The guess-word column's floor and the gaps around it are squeezed to
-   their practical minimum, closing up the space between the scramble
-   and score columns as much as possible without shrinking the
-   no-truncation-safe scramble column itself. */
+/* Three columns: # | scramble-or-word | score. Every character in the
+   row — numbers and letters alike — is the same 22px size, same font as
+   the tile letters (no font-family override here, so it inherits the
+   shared sans-serif stack, same as .tile .letter does). The score
+   column is a fixed width (rather than auto) for the same reason the
+   scramble column is: each row is its own independent grid, so a fixed
+   width is what keeps every row's score flush against the same right
+   edge instead of drifting per row based on that row's own digit count. */
 .guess-summary-row {
   display: grid;
-  grid-template-columns: 22px 265px minmax(0, 1fr) auto;
+  grid-template-columns: 22px 265px 40px;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   padding: 6px 8px;
   font-size: 22px;
   font-weight: 700;
@@ -179,9 +181,13 @@ body {
   font-weight: 400;
 }
 
-/* That scramble's current tray letters (kept in sync live — see
-   renderTopRow) — muted (but same size/font as the guess word) since
-   it's reference info, not the row's main "answer" data. */
+/* Shows that scramble's current tray letters by default (kept in sync
+   live — see renderTopRow), muted since it's reference info rather than
+   an answer. The instant that guess row spells a valid dictionary word,
+   updateSummaryScrambleCell swaps this to show the word itself instead
+   and adds .solved, which switches it to the bolder/darker treatment the
+   old dedicated word column used to have — a quick visual cue that this
+   scramble has been solved. */
 .guess-summary-scramble {
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -191,16 +197,10 @@ body {
   white-space: nowrap;
 }
 
-/* Blank until a word's been started in that guess row (see
-   updateBottomWordScore); truncates instead of breaking the row's
-   layout if a long word doesn't fit the list. */
-.guess-summary-label {
-  text-transform: uppercase;
+.guess-summary-scramble.solved {
+  font-weight: 700;
   letter-spacing: 0.03em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
+  color: #2b2620;
 }
 
 .guess-summary-score {
@@ -212,19 +212,17 @@ body {
    shorter than one heavy in, say, E's, even at the same letter count.
    Pins every I to a fixed width equal to this column's own E width (see
    renderSummaryCellText in all6.js), so IIIIIIIIII and EEEEEEEEEE take
-   up the same total width. Measured per column since the two columns
-   render at different font weights (400 vs 700), which changes E's
-   width too. */
+   up the same total width. The unsolved (400) and solved (700) states
+   render at different font weights, which changes E's width too, so
+   each gets its own measured value. */
 .guess-summary-scramble .letter-i-wide {
   display: inline-block;
   width: 12.79px;
   text-align: center;
 }
 
-.guess-summary-label .letter-i-wide {
-  display: inline-block;
+.guess-summary-scramble.solved .letter-i-wide {
   width: 13.52px;
-  text-align: center;
 }
 
 /* Time Left box, 25% narrower than the shared 160px .info-block default.

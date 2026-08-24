@@ -300,24 +300,34 @@ function renderSummaryCellText(el, text) {
   }
 }
 
+// The summary list's second column shows this scramble's own tray
+// letters by default, and flips to showing the current guess word
+// instead the moment that guess is a valid dictionary word — reverting
+// back the instant it no longer is (letters removed, etc). Reads
+// ctx.isValid/ctx.guessWord, which updateBottomWordScore keeps current;
+// called from both that function and renderTopRow so this stays correct
+// no matter which of the two (tray changed vs. guess changed) fires
+// last.
+function updateSummaryScrambleCell(ctx) {
+  if (!ctx.summaryRowEl) return;
+  const cellEl = ctx.summaryRowEl.querySelector('.guess-summary-scramble');
+  if (ctx.isValid) {
+    renderSummaryCellText(cellEl, ctx.guessWord);
+    cellEl.classList.add('solved');
+  } else {
+    renderSummaryCellText(cellEl, ctx.topTiles.map((t) => t.letter).join(''));
+    cellEl.classList.remove('solved');
+  }
+}
+
 // Rebuilds one scramble's tray row from ctx.topTiles (the tiles still
 // remaining up there) and reattaches drag handlers. Used both for the
 // initial render and after a tile is dragged out, so the remaining tiles
-// always sit contiguous on the left with no gap left behind. Also keeps
-// the summary list's Scramble column in sync with whatever the tray
-// currently shows — it used to show the fixed original deal order
-// instead, which could look completely different from the live tray
-// (e.g. alphabetized) once that scramble was promoted, reading as an
-// unwanted reshuffle even though nothing had actually changed.
+// always sit contiguous on the left with no gap left behind.
 function renderTopRow(ctx) {
   renderTileEls(ctx.tilesEl, ctx.topTiles);
   attachTileDragHandlers(ctx);
-  if (ctx.summaryRowEl) {
-    renderSummaryCellText(
-      ctx.summaryRowEl.querySelector('.guess-summary-scramble'),
-      ctx.topTiles.map((t) => t.letter).join('')
-    );
-  }
+  updateSummaryScrambleCell(ctx);
 }
 
 // A wildcard (0 points) reverts to an unresolved '?' whenever it lands
@@ -403,11 +413,11 @@ function bonusMultiplierFor(cellEl) {
 // the score is the sum of each filled cell's point value — a wildcard
 // cell is always worth 0, no matter what letter was chosen for it, since
 // its dataset.pts never changes from 0. Otherwise the score is 0. Updates
-// that guess's word/score columns in the summary list (word column stays
-// blank until one's been started) and the running total (see
-// renderAllScrambles / updateGuessTotal) — there's no more per-row score
-// display next to the tiles themselves, since the summary list already
-// shows the same number for every guess at once.
+// that guess's summary-list cell (see updateSummaryScrambleCell) and
+// score column, plus the running total (see renderAllScrambles /
+// updateGuessTotal) — there's no more per-row score display next to the
+// tiles themselves, since the summary list already shows the same number
+// for every guess at once.
 function updateBottomWordScore(ctx) {
   if (!ctx) return;
   const filledCells = Array.from(ctx.tilesEl2.children).filter((c) => c.dataset.letter);
@@ -417,8 +427,10 @@ function updateBottomWordScore(ctx) {
     ? filledCells.reduce((sum, c) => sum + Number(c.dataset.pts) * bonusMultiplierFor(c), 0)
     : 0;
   ctx.guessScore = guessScore;
+  ctx.guessWord = word;
+  ctx.isValid = isValid;
+  updateSummaryScrambleCell(ctx);
   if (ctx.summaryRowEl) {
-    renderSummaryCellText(ctx.summaryRowEl.querySelector('.guess-summary-label'), word);
     ctx.summaryRowEl.querySelector('.guess-summary-score').textContent = guessScore;
   }
   updateGuessTotal();
@@ -691,16 +703,19 @@ function renderAllScrambles() {
       topTiles: [...scramble.displayTiles],
       cardEl: card,
       guessScore: 0,
+      guessWord: '',
+      isValid: false,
     };
     scrambleCtxs.push(ctx);
 
-    // Guess1-6 line: number, that scramble's tray letters (filled in by
-    // renderTopRow below, and kept in sync with the tray from then on),
-    // guess word (blank until one's started), score. Clickable to make
-    // this pair active.
+    // Guess1-6 line: number, then a single cell that shows that
+    // scramble's own tray letters by default and flips to showing the
+    // guess word instead the instant it's a valid one (see
+    // updateSummaryScrambleCell), then score (0 until valid). Clickable
+    // to make this pair active.
     const summaryRow = document.createElement('div');
     summaryRow.className = 'guess-summary-row';
-    summaryRow.innerHTML = `<span class="guess-summary-num">${idx + 1}</span><span class="guess-summary-scramble"></span><span class="guess-summary-label"></span><span class="guess-summary-score">0</span>`;
+    summaryRow.innerHTML = `<span class="guess-summary-num">${idx + 1}</span><span class="guess-summary-scramble"></span><span class="guess-summary-score">0</span>`;
     summaryRow.addEventListener('click', () => setActiveScramble(idx));
     summaryList.appendChild(summaryRow);
     ctx.summaryRowEl = summaryRow;
