@@ -197,3 +197,15 @@ body {
 #info-block-3 {
   width: 120px;
 }
+
+/* Square corners on every text box — overrides the shared rounded
+   defaults for buttons (Shuffle, Start/Restart, Stop), the Time
+   Left/Score info blocks, the guess summary list, and the wildcard A-Z
+   picker (both its outer panel and its individual letter buttons). */
+button,
+.info-block,
+#guess-summary,
+.letter-menu,
+.letter-menu button {
+  border-radius: 0;
+}
