@@ -133,13 +133,18 @@ scrambles once and caches them for the duration of that round.
 Resolved rules from the competitive-mechanics brainstorm, specific to
 multiplayer (single-player keeps its existing behavior unless noted):
 
-- **No word reuse.** Once any player successfully plays a word on a
-  given rack, that word is locked — unavailable to every other player
-  on that same rack for the rest of that round. This is the "first
-  claim locks it" mechanic from the brainstorm, now resolved as a firm
-  rule rather than an option. Requires near-real-time visibility into
-  claimed words per rack (see §7 — this is the case that actually needs
-  faster-than-polling updates, not just the leaderboard). Does **not**
+- **No word reuse — scoped to one scramble, not the whole round.** Once
+  any player successfully plays a word on a given rack, that exact word
+  is locked on *that rack only* — unavailable to every other player on
+  that same rack for the rest of the round. It does **not** block the
+  word anywhere else: if "MARKET" gets claimed on rack 1, it's still
+  completely playable on rack 3, rack 5, or any other rack in the same
+  round — each of the 6 racks tracks its own independent locked-word
+  list. This is the "first claim locks it" mechanic from the
+  brainstorm, now resolved as a firm rule rather than an option.
+  Requires near-real-time visibility into claimed words per rack (see
+  §7 — this is the case that actually needs faster-than-polling
+  updates, not just the leaderboard). Does **not**
   change single-player, which still explicitly allows repeating a word
   across your own 6 racks (an earlier, separate decision — see
   `SESSION_SUMMARY.md`).
