@@ -190,7 +190,7 @@
 
   .save-btn {
     border: none;
-    background: #ff8c1a;
+    background: #ffd23f;
     color: var(--dark);
     font-size: 12.5px;
     font-weight: 700;
@@ -267,6 +267,10 @@
   .next-btn:hover { filter: brightness(1.05); }
   .next-btn:active { transform: translateY(1px); }
   .next-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* Next Rack only — not the other buttons sharing .next-btn (Log In,
+     Register, Save profile, etc.), which stay their usual orange. */
+  #nav-next { background: #ffd23f; color: var(--dark); }
 
   .restart-link {
     border: none;
