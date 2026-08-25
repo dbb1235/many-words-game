@@ -542,7 +542,7 @@ app.post('/api/game/:gameId/guess', auth.requireAuth, (req, res) => {
 // "any request just calculates what phase we're in" approach the
 // original round-scheduling design used.
 
-const LOBBY_COUNTDOWN_MS = 5 * 60 * 1000;
+const LOBBY_COUNTDOWN_MS = 1 * 60 * 1000; // temporarily shortened from 5 min for easier testing
 const ROUND_MS = 10 * 60 * 1000;
 
 function regenerateRacks(seed) {
