@@ -1413,7 +1413,9 @@
     joinLobby();
   });
 
-  document.getElementById('leave-match-btn').addEventListener('click', async () => {
+  document.getElementById('leave-match-btn').addEventListener('click', leaveMatch);
+
+  async function leaveMatch() {
     stopAllPolling();
     if (currentLobbyId) {
       await fetch(`/api/lobby/${currentLobbyId}/leave`, { method: 'POST' });
@@ -1421,13 +1423,14 @@
     }
     showScreen(loadingScreen);
     joinLobby();
-  });
+  }
 
   function stopAllPolling() {
     clearInterval(lobbyPollHandle);
     clearInterval(roundResyncHandle);
     clearInterval(leaderboardPollHandle);
     clearInterval(timerHandle);
+    clearTimeout(roundEndedAutoLeaveHandle);
   }
 
   // ---------- Round state ----------
@@ -1443,11 +1446,14 @@
   let warned15s = false;
   let roundResyncHandle = null;
   let leaderboardPollHandle = null;
+  let roundEndedAutoLeaveHandle = null;
+  const ROUND_ENDED_DISPLAY_MS = 10 * 60 * 1000; // how long the final standings stay up before auto-continuing to a new match
   let latestLeaderboard = { overall: [], perRack: [], winner: null };
 
   async function enterRound(roundId) {
     currentRoundId = roundId;
     roundEnded = false;
+    clearTimeout(roundEndedAutoLeaveHandle);
     document.getElementById('round-ended-banner').classList.remove('show');
     document.getElementById('active-card').classList.remove('locked');
     document.getElementById('nav-next').disabled = false;
@@ -1502,6 +1508,9 @@
     document.getElementById('nav-next').disabled = true;
     document.getElementById('leave-match-btn').textContent = '↺ Find New Game';
     refreshLeaderboard();
+
+    clearTimeout(roundEndedAutoLeaveHandle);
+    roundEndedAutoLeaveHandle = setTimeout(leaveMatch, ROUND_ENDED_DISPLAY_MS);
   }
 
   // Each rack mirrors what the server dealt: tiles [{letter, points}]
