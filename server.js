@@ -241,7 +241,7 @@ function scoreGuess(scramble, cells) {
 // --- HTTP app ----------------------------------------------------------
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' })); // default 100kb is too tight for a resized profile photo
 app.use(cookieParser());
 app.use(express.static(__dirname));
 
@@ -295,6 +295,44 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/me', auth.attachUserIfPresent, (req, res) => {
   res.json({ user: req.user || null });
+});
+
+// --- Profile (avatar + location) ----------------------------------------
+// Stored as a small data URL directly in SQLite rather than a file on
+// disk — likely free-tier hosting has an ephemeral filesystem (see
+// MULTIPLAYER_PLAN.md's hosting notes), so anything saved to disk
+// outside the DB would vanish on the next redeploy. The client resizes
+// the image before it ever gets here; MAX_AVATAR_CHARS is just a floor
+// against a request that skips that step.
+
+const MAX_AVATAR_CHARS = 400000; // ~300KB raw — generous for a resized avatar, not for a full-size photo
+const MAX_LOCATION_LEN = 60;
+
+app.get('/api/profile', auth.requireAuth, (req, res) => {
+  const profile = db.getProfile(req.user.id);
+  res.json({ avatarData: profile?.avatar_data || null, location: profile?.location || null });
+});
+
+app.post('/api/profile', auth.requireAuth, (req, res) => {
+  let { avatarData, location } = req.body || {};
+
+  if (avatarData != null) {
+    if (typeof avatarData !== 'string' || !avatarData.startsWith('data:image/') || avatarData.length > MAX_AVATAR_CHARS) {
+      return res.status(400).json({ error: 'Invalid image.' });
+    }
+  } else {
+    avatarData = null;
+  }
+
+  if (location != null) {
+    if (typeof location !== 'string') return res.status(400).json({ error: 'Invalid location.' });
+    location = location.trim().slice(0, MAX_LOCATION_LEN) || null;
+  } else {
+    location = null;
+  }
+
+  db.updateProfile(req.user.id, { avatarData, location });
+  res.json({ ok: true });
 });
 
 // --- Owner-notification endpoints --------------------------------------
@@ -620,6 +658,27 @@ app.post('/api/round/:id/guess', auth.requireAuth, (req, res) => {
   res.json(result);
 });
 
+// Shared by the leaderboard GET and the winner-comment POST so "who's
+// currently in first" is computed exactly one way — the same reasoning
+// as scoring living in one place (see MULTIPLAYER_PLAN.md).
+function computeRoundStandings(roundId) {
+  const rows = db.getRoundScores(roundId);
+  const totals = new Map();
+  const perRack = Array.from({ length: NUM_SCRAMBLES }, () => null);
+  for (const row of rows) {
+    const entry = totals.get(row.user_id) || { userId: row.user_id, username: row.username, total: 0 };
+    entry.total += row.best_score;
+    totals.set(row.user_id, entry);
+
+    const leader = perRack[row.scramble_index];
+    if (!leader || row.best_score > leader.score) {
+      perRack[row.scramble_index] = { username: row.username, score: row.best_score };
+    }
+  }
+  const overall = [...totals.values()].sort((a, b) => b.total - a.total);
+  return { overall, perRack };
+}
+
 app.get('/api/round/:id/leaderboard', auth.requireAuth, (req, res) => {
   const round = db.getRound(req.params.id);
   if (!round) return res.status(404).json({ error: 'Round not found' });
@@ -628,23 +687,46 @@ app.get('/api/round/:id/leaderboard', auth.requireAuth, (req, res) => {
     return res.status(403).json({ error: 'Not a player in this round' });
   }
 
-  const rows = db.getRoundScores(round.id);
+  const { overall, perRack } = computeRoundStandings(round.id);
 
-  const totals = new Map();
-  const perRack = Array.from({ length: NUM_SCRAMBLES }, () => null);
-  for (const row of rows) {
-    totals.set(row.user_id, (totals.get(row.user_id) || { username: row.username, total: 0 }));
-    totals.get(row.user_id).total += row.best_score;
-    totals.get(row.user_id).username = row.username;
-
-    const leader = perRack[row.scramble_index];
-    if (!leader || row.best_score > leader.score) {
-      perRack[row.scramble_index] = { username: row.username, score: row.best_score };
-    }
+  // The winner callout only appears once the round is actually over —
+  // showing it mid-round would crown whoever's ahead at that instant,
+  // not the eventual winner.
+  let winner = null;
+  if (Date.now() >= round.end_at && overall.length > 0) {
+    const top = overall[0];
+    const profile = db.getProfile(top.userId);
+    const comment = db.getRoundComment(round.id, top.userId);
+    winner = {
+      username: top.username,
+      total: top.total,
+      avatarData: profile ? profile.avatar_data : null,
+      location: profile ? profile.location : null,
+      comment: comment ? comment.body : null,
+    };
   }
 
-  const overall = [...totals.values()].sort((a, b) => b.total - a.total);
-  res.json({ overall, perRack });
+  res.json({ overall, perRack, winner });
+});
+
+const MAX_COMMENT_LEN = 500;
+
+app.post('/api/round/:id/comment', auth.requireAuth, (req, res) => {
+  const round = db.getRound(req.params.id);
+  if (!round) return res.status(404).json({ error: 'Round not found' });
+  const { body } = req.body || {};
+  if (typeof body !== 'string' || !body.trim()) {
+    return res.status(400).json({ error: 'Comment cannot be empty.' });
+  }
+
+  const { overall } = computeRoundStandings(round.id);
+  const winnerId = overall.length > 0 ? overall[0].userId : null;
+  if (winnerId !== req.user.id) {
+    return res.status(403).json({ error: 'Only the round winner can leave a comment.' });
+  }
+
+  db.upsertRoundComment(round.id, req.user.id, body.trim().slice(0, MAX_COMMENT_LEN));
+  res.json({ ok: true });
 });
 
 app.listen(PORT, () => {

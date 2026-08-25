@@ -73,7 +73,28 @@ db.exec(`
     created_at INTEGER NOT NULL,
     read_at INTEGER
   );
+
+  CREATE TABLE IF NOT EXISTS round_comments (
+    round_id TEXT NOT NULL REFERENCES rounds(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE (round_id, user_id)
+  );
 `);
+
+// users.avatar_data/location were added after the table already existed
+// in deployed databases — SQLite has no "ADD COLUMN IF NOT EXISTS", so
+// this checks PRAGMA table_info first rather than risking a duplicate-
+// column error on every server start.
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+ensureColumn('users', 'avatar_data', 'TEXT');
+ensureColumn('users', 'location', 'TEXT');
 
 // ---------- Users ----------
 
@@ -89,6 +110,20 @@ function findUserByUsername(username) {
 
 function findUserById(id) {
   return db.prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(id);
+}
+
+// Deliberately separate from findUserById/findUserByUsername — those
+// are called on every request in the auth-check hot path, and there's
+// no reason to pull a (possibly tens-of-KB) avatar blob along for that
+// every time. Only the handful of call sites that actually need profile
+// display data reach for this one.
+function getProfile(userId) {
+  return db.prepare('SELECT id, username, avatar_data, location FROM users WHERE id = ?').get(userId);
+}
+
+function updateProfile(userId, { avatarData, location }) {
+  db.prepare('UPDATE users SET avatar_data = ?, location = ? WHERE id = ?')
+    .run(avatarData ?? null, location ?? null, userId);
 }
 
 // ---------- Lobbies ----------
@@ -217,6 +252,21 @@ function getRoundScores(roundId) {
   `).all(roundId);
 }
 
+// One optional public comment per (round, user) — only ever written by
+// whoever is the round's overall top scorer (enforced in server.js, not
+// here), shown alongside the per-round winner callout. Upsert rather
+// than insert-only so they can revise it while the round's still live.
+function upsertRoundComment(roundId, userId, body) {
+  db.prepare(`
+    INSERT INTO round_comments (round_id, user_id, body, created_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT (round_id, user_id) DO UPDATE SET body = excluded.body, created_at = excluded.created_at
+  `).run(roundId, userId, body, Date.now());
+}
+
+function getRoundComment(roundId, userId) {
+  return db.prepare('SELECT body FROM round_comments WHERE round_id = ? AND user_id = ?').get(roundId, userId);
+}
+
 // ---------- Blocks & direct messages ----------
 //
 // Messaging is only reachable from a shared standings panel (you can
@@ -304,12 +354,12 @@ function getConversations(userId) {
 }
 
 module.exports = {
-  createUser, findUserByUsername, findUserById,
+  createUser, findUserByUsername, findUserById, getProfile, updateProfile,
   MAX_LOBBY_PLAYERS, findJoinableLobby, findLobbyForUser, createLobby, addPlayerToLobby,
   removePlayerFromLobby, getLobby, getLobbyRoster, startLobbyCountdown,
   resetLobbyToWaiting, attachRoundToLobby,
   createRound, getRound, getRoundPlayers,
-  upsertBestScore, getBestScore, getRoundScores,
+  upsertBestScore, getBestScore, getRoundScores, upsertRoundComment, getRoundComment,
   blockUser, unblockUser, isBlocked, isBlockedEitherWay, getBlockedUsers,
   createMessage, getConversation, markMessagesRead, getConversations,
 };
