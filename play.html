@@ -10,7 +10,7 @@
     --red: #c1443c;
     --red-soft: #fdeceb;
     --tan: #6b6355;
-    --card: #ffffff;
+    --card: #4caf50;
     --good-green: #2f8f4e;
     --good-green-soft: #e3f5e9;
     --bonus2-bg: #8fd48f;
@@ -182,7 +182,7 @@
     min-height: 26px;
   }
 
-  .word-status.state-empty { color: #a89f8e; }
+  .word-status.state-empty { color: var(--dark); }
   .word-status.state-building { color: var(--dark); }
   .word-status.state-valid { background: var(--good-green-soft); color: var(--good-green); }
   .word-status.state-invalid { background: var(--red-soft); color: var(--red); }
@@ -222,14 +222,14 @@
   .restart-link {
     border: none;
     background: none;
-    color: #a89f8e;
+    color: var(--dark);
     font-size: 11.5px;
     font-weight: 600;
     cursor: pointer;
     text-decoration: underline;
     padding: 0;
   }
-  .restart-link:hover { color: var(--tan); }
+  .restart-link:hover { color: var(--dark); }
 
   /* Wildcard letter picker — appended to body, positioned near the
      clicked wildcard tile (see openWildcardPicker). */
@@ -274,7 +274,7 @@
     border-radius: 8px;
     border: 1.5px solid #e2ddd0;
     background: #fff;
-    color: var(--tan);
+    color: var(--dark);
     font-weight: 700;
     font-size: 14px;
     cursor: pointer;
@@ -285,7 +285,7 @@
     display: block;
     font-size: 13px;
     font-weight: 700;
-    color: var(--tan);
+    color: var(--dark);
     margin-bottom: 16px;
   }
 
@@ -301,7 +301,7 @@
   }
   .auth-input:focus { outline: none; border-color: var(--gold); }
 
-  .auth-hint { font-size: 11.5px; color: #a89f8e; font-weight: 500; margin-top: 5px; }
+  .auth-hint { font-size: 11.5px; color: var(--dark); font-weight: 500; margin-top: 5px; }
 
   .auth-error {
     color: var(--red);
@@ -337,7 +337,7 @@
   .loading-note {
     text-align: center;
     padding: 40px 22px;
-    color: var(--tan);
+    color: var(--dark);
     font-size: 14px;
     font-weight: 600;
   }
