@@ -145,8 +145,11 @@ function dealScramble(rng) {
   const bag = buildLetterBag(rng);
   const letters = drawRackLetters(bag, RACK_SIZE - WILDCARDS_PER_SCRAMBLE, MAX_DUPLICATE_LETTERS, rng);
   const tiles = letters.map((letter) => ({ letter, points: LETTER_DATA[letter].points }));
-  for (let i = 0; i < WILDCARDS_PER_SCRAMBLE; i++) tiles.push({ letter: '?', points: 0 });
+  // Only the real letters get shuffled — wildcards are appended after,
+  // unshuffled, so they always land in the rightmost WILDCARDS_PER_SCRAMBLE
+  // slots rather than being randomly scattered through the rack.
   shuffle(tiles, rng);
+  for (let i = 0; i < WILDCARDS_PER_SCRAMBLE; i++) tiles.push({ letter: '?', points: 0 });
   return {
     tiles,
     bottomBonuses: rollBottomBonuses(RACK_SIZE, rng),
