@@ -192,10 +192,11 @@
     border: none;
     background: #ffd23f;
     color: var(--dark);
-    font-size: 12.5px;
+    font-size: 21px;
     font-weight: 700;
-    border-radius: 7px;
-    padding: 5px 14px;
+    text-transform: uppercase;
+    border-radius: 12px;
+    padding: 9px 20px;
     cursor: pointer;
   }
   .save-btn:hover:not(:disabled) { filter: brightness(1.05); }
@@ -207,6 +208,7 @@
     color: var(--dark);
     font-size: 21px;
     font-weight: 700;
+    text-transform: uppercase;
     border-radius: 12px;
     padding: 9px 20px;
     cursor: pointer;
@@ -276,7 +278,7 @@
 
   /* Next Rack only — not the other buttons sharing .next-btn (Log In,
      Register, Save profile, etc.), which stay their usual orange. */
-  #nav-next { background: #ffd23f; color: var(--dark); }
+  #nav-next { background: #ffd23f; color: var(--dark); font-size: 21px; text-transform: uppercase; }
 
   .restart-link {
     border: none;
@@ -754,7 +756,7 @@
     <div class="tile-row guess" id="guess-tiles"></div>
 
     <div class="guess-toolbar">
-      <button class="save-btn" id="save-btn" disabled>Save Word</button>
+      <button class="save-btn" id="save-btn" disabled>Save</button>
       <button class="erase-btn" id="erase-btn">✕ Erase</button>
     </div>
 
