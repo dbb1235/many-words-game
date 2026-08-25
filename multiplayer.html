@@ -1412,7 +1412,7 @@
     showScreen(lobbyScreen);
     renderLobby(lobby);
     clearInterval(lobbyPollHandle);
-    lobbyPollHandle = setInterval(pollLobby, 2000);
+    lobbyPollHandle = setInterval(pollLobby, 1000);
   }
 
   async function pollLobby() {
