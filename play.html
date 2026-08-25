@@ -153,20 +153,33 @@
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
 
-  .guess-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .guess-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
 
-  .erase-btn {
-    border: 1px solid #e2b6b0;
-    background: var(--red-soft);
-    color: var(--red);
+  .save-btn {
+    border: none;
+    background: #ff8c1a;
+    color: var(--dark);
     font-size: 12.5px;
     font-weight: 700;
     border-radius: 7px;
-    padding: 5px 12px;
+    padding: 5px 14px;
     cursor: pointer;
   }
-  .erase-btn:hover { background: #fbd9d5; }
-  .erase-btn:disabled { opacity: 0.35; cursor: default; background: var(--red-soft); }
+  .save-btn:hover:not(:disabled) { filter: brightness(1.05); }
+  .save-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .erase-btn {
+    border: 1.5px solid #e0b400;
+    background: #ffd23f;
+    color: var(--dark);
+    font-size: 21px;
+    font-weight: 700;
+    border-radius: 12px;
+    padding: 9px 20px;
+    cursor: pointer;
+  }
+  .erase-btn:hover:not(:disabled) { background: #ffdc6b; }
+  .erase-btn:disabled { opacity: 0.35; cursor: default; background: #ffd23f; }
 
   /* Word + score, centered together as one group — color alone (black
      while forming, green valid, red invalid) carries the verdict, no
@@ -411,6 +424,7 @@
     <div class="tile-row guess" id="guess-tiles"></div>
 
     <div class="guess-toolbar">
+      <button class="save-btn" id="save-btn" disabled>Save Word</button>
       <button class="erase-btn" id="erase-btn">✕ Erase</button>
     </div>
 
@@ -667,9 +681,6 @@
       tiles: scramble.tiles,
       bottomBonuses: scramble.bottomBonuses,
       guessSlots: scramble.tiles.map(() => null),
-      lastWasValid: false,
-      lastWord: '',
-      badFired: false,
       lastResult: { word: '', valid: false, score: 0 },
       requestId: 0,
     };
@@ -799,35 +810,21 @@
 
   // ---------- Feedback firing (edge-triggered) ----------
 
-  function maybeFireFeedback(rack, evalResult) {
-    const { word, valid, score } = evalResult;
+  // Called exactly once per Save click (never while just typing), so
+  // there's no need for the edge-triggering this used to require —
+  // every call here is a deliberate submission and always fires.
+  function fireSaveFeedback(evalResult) {
+    const { valid, score } = evalResult;
     const card = document.getElementById('active-card');
-
-    if (valid) {
-      if (!rack.lastWasValid || rack.lastWord !== word) {
-        card.classList.remove('flash-bad');
-        void card.offsetWidth;
-        if (score >= 8) {
-          card.classList.add('flash-good');
-          playGoodChime();
-        } else {
-          card.classList.add('flash-bad');
-          playBadThud();
-        }
-      }
-      rack.badFired = false;
+    card.classList.remove('flash-good', 'flash-bad');
+    void card.offsetWidth;
+    if (valid && score >= 8) {
+      card.classList.add('flash-good');
+      playGoodChime();
     } else {
-      if (rack.lastWasValid || !rack.badFired) {
-        card.classList.remove('flash-good');
-        void card.offsetWidth;
-        card.classList.add('flash-bad');
-        playBadThud();
-        rack.badFired = true;
-      }
+      card.classList.add('flash-bad');
+      playBadThud();
     }
-
-    rack.lastWasValid = valid;
-    rack.lastWord = word;
   }
 
   // ---------- Rendering ----------
@@ -946,6 +943,13 @@
   function placeTile(rack, targetSlot, payload) {
     if (payload.fromSlot === targetSlot) return; // dropped back on itself
 
+    // An unresolved wildcard (payload.letter still '?') needs its letter
+    // chosen right now, not left blank for later — this is what makes
+    // "must be in the right position at the beginning" true: by the
+    // time this function returns, every wildcard in the guess row either
+    // already had a letter or is about to be asked for one immediately.
+    const needsWildcardPicker = payload.letter === '?';
+
     rack.guessSlots[targetSlot] = { trayIndex: payload.trayIndex, letter: payload.letter };
 
     if (payload.fromSlot !== null) {
@@ -956,6 +960,11 @@
     // references its trayIndex any more.
 
     renderActive();
+
+    if (needsWildcardPicker) {
+      const tileEl = document.querySelector(`#guess-tiles .tile[data-slot="${targetSlot}"]`);
+      if (tileEl) openWildcardPicker(rack, targetSlot, tileEl);
+    }
   }
 
   // ---------- Wildcard letter picker ----------
@@ -1014,24 +1023,26 @@
     }, 0);
   }
 
-  // Color alone carries the verdict (black while forming or checking,
-  // green valid, red invalid) — no icon, no "valid word"/"not a word"
-  // text. The score shows "…" while a guess is in flight to the
-  // server, then 0 by default, the real score once valid, or the
-  // actual (too-low) raw score so that number itself explains why a
-  // real word still isn't counting.
+  // Color alone carries the verdict (black while forming/checking/
+  // unsaved, green valid, red invalid) — no icon, no "valid word"/"not
+  // a word" text. Nothing here reflects the server's opinion of the
+  // current guess row until `saved` is true — placing or moving tiles
+  // is silent and neutral; only clicking Save (see saveWord) actually
+  // asks the server and shows a verdict, matching the "no fail beep
+  // until you save" rule this whole flow exists for.
   function renderWordStatus(evalResult) {
-    const { word, valid, belowMinimum, rawScore, score, checking } = evalResult;
+    const { word, valid, belowMinimum, rawScore, score, checking, saved } = evalResult;
     const statusEl = document.getElementById('word-status');
     const state = word.length === 0 ? 'empty'
-      : word.length < MIN_WORD_LEN ? 'building'
+      : !saved ? 'building'
       : checking ? 'building'
       : valid ? 'valid' : 'invalid';
     statusEl.className = 'word-status state-' + state;
     document.getElementById('word-text').textContent = word;
 
     let scoreText;
-    if (checking) scoreText = '…';
+    if (!saved) scoreText = '';
+    else if (checking) scoreText = '…';
     else if (state === 'valid') scoreText = score + ' pts';
     else if (state === 'invalid' && belowMinimum) scoreText = rawScore + ' pts';
     else scoreText = '0 pts';
@@ -1058,28 +1069,46 @@
     document.getElementById('erase-btn').disabled = rack.guessSlots.every((e) => e === null);
 
     const word = currentWordForRack(rack);
-    const myRequestId = ++rack.requestId;
+    const hasUnresolvedWildcard = rack.guessSlots.some((e) => e && e.letter === '?');
+    document.getElementById('save-btn').disabled = word.length < MIN_WORD_LEN || hasUnresolvedWildcard;
 
-    if (word.length < MIN_WORD_LEN) {
-      rack.lastWasValid = false;
-      rack.lastWord = '';
-      rack.badFired = false;
-      rack.lastResult = { word, valid: false, score: 0 };
-      renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0 });
-      renderHeaderScore();
-      return;
+    // Building/editing the guess row is silent and shows no verdict —
+    // only a Save click (see saveWord) actually asks the server. The
+    // one exception: what's currently placed is exactly the word this
+    // rack was last saved as (e.g. you navigated to another rack and
+    // back), so that saved verdict is still worth showing.
+    if (word.length > 0 && rack.lastResult.word === word) {
+      renderWordStatus({ ...rack.lastResult, saved: true });
+    } else {
+      renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, saved: false });
     }
-
-    renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true });
-
-    evaluateRackAsync(rack, currentIndex).then((result) => {
-      if (rack.requestId !== myRequestId) return; // superseded by a newer change
-      rack.lastResult = result;
-      renderWordStatus(result);
-      maybeFireFeedback(rack, result);
-      renderHeaderScore();
-    });
   }
+
+  // Explicit submission — the only thing that ever calls the server,
+  // updates the header score, or plays a sound. Building a word by
+  // placing/moving tiles never does any of that on its own.
+  async function saveWord(rack) {
+    const word = currentWordForRack(rack);
+    if (word.length < MIN_WORD_LEN) return;
+    if (rack.guessSlots.some((e) => e && e.letter === '?')) return; // unresolved wildcard — shouldn't happen, but don't submit a blank
+
+    document.getElementById('save-btn').disabled = true;
+    renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true, saved: true });
+
+    const myRequestId = ++rack.requestId;
+    const result = await evaluateRackAsync(rack, currentIndex);
+    if (rack.requestId !== myRequestId) return; // superseded by a newer save
+
+    rack.lastResult = result;
+    renderWordStatus({ ...result, saved: true });
+    fireSaveFeedback(result);
+    renderHeaderScore();
+    document.getElementById('save-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
+  }
+
+  document.getElementById('save-btn').addEventListener('click', () => {
+    saveWord(RACKS[currentIndex]);
+  });
 
   // Sends every placed tile back to the tray in one shot, so a dead-end
   // guess doesn't have to be undone letter by letter.
