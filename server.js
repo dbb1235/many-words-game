@@ -368,6 +368,88 @@ app.post('/api/feedback', auth.attachUserIfPresent, async (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Direct messages & blocking -----------------------------------------
+// Scoped by construction rather than by an explicit permission check:
+// there's no user search/directory, so a player can only message someone
+// whose exact username they already know — in practice, an opponent
+// they've seen on a standings panel. Blocking is checked both directions
+// before a send is allowed, but a GET only ever reveals blocks *you*
+// placed, not whether the other person blocked you — no reason to tell
+// a blocked sender why their message didn't go through.
+
+const MAX_MESSAGE_LEN = 1000;
+
+app.post('/api/messages', auth.requireAuth, (req, res) => {
+  if (isRateLimited(`msg:${req.user.id}`, 20, 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many messages — slow down a bit.' });
+  }
+  const { toUsername, body } = req.body || {};
+  if (typeof toUsername !== 'string' || !toUsername.trim()) {
+    return res.status(400).json({ error: 'Recipient is required.' });
+  }
+  if (typeof body !== 'string' || !body.trim()) {
+    return res.status(400).json({ error: 'Message cannot be empty.' });
+  }
+  const cleanBody = body.trim().slice(0, MAX_MESSAGE_LEN);
+  const recipient = db.findUserByUsername(toUsername.trim());
+  if (!recipient) return res.status(404).json({ error: 'That player was not found.' });
+  if (recipient.id === req.user.id) return res.status(400).json({ error: "You can't message yourself." });
+  if (db.isBlockedEitherWay(req.user.id, recipient.id)) {
+    return res.status(403).json({ error: 'Unable to deliver this message.' });
+  }
+
+  const message = db.createMessage(req.user.id, recipient.id, cleanBody);
+  res.status(201).json({
+    id: message.id, body: cleanBody, senderUsername: req.user.username,
+    mine: true, createdAt: message.createdAt,
+  });
+});
+
+app.get('/api/messages', auth.requireAuth, (req, res) => {
+  const conversations = db.getConversations(req.user.id).map((c) => ({
+    username: c.username,
+    lastBody: c.last_body,
+    lastAt: c.last_at,
+    lastFromMe: c.last_sender_id === req.user.id,
+    unread: c.unread,
+  }));
+  res.json({ conversations });
+});
+
+app.get('/api/messages/:username', auth.requireAuth, (req, res) => {
+  const other = db.findUserByUsername(req.params.username);
+  if (!other) return res.status(404).json({ error: 'That player was not found.' });
+
+  const messages = db.getConversation(req.user.id, other.id).map((m) => ({
+    id: m.id, body: m.body, senderUsername: m.sender_username,
+    mine: m.sender_id === req.user.id, createdAt: m.created_at,
+  }));
+  db.markMessagesRead(req.user.id, other.id);
+
+  res.json({ messages, blockedByMe: db.isBlocked(req.user.id, other.id) });
+});
+
+app.post('/api/block', auth.requireAuth, (req, res) => {
+  const { username } = req.body || {};
+  const target = typeof username === 'string' && db.findUserByUsername(username.trim());
+  if (!target) return res.status(404).json({ error: 'That player was not found.' });
+  if (target.id === req.user.id) return res.status(400).json({ error: "You can't block yourself." });
+  db.blockUser(req.user.id, target.id);
+  res.json({ ok: true });
+});
+
+app.post('/api/unblock', auth.requireAuth, (req, res) => {
+  const { username } = req.body || {};
+  const target = typeof username === 'string' && db.findUserByUsername(username.trim());
+  if (!target) return res.status(404).json({ error: 'That player was not found.' });
+  db.unblockUser(req.user.id, target.id);
+  res.json({ ok: true });
+});
+
+app.get('/api/blocked', auth.requireAuth, (req, res) => {
+  res.json({ blocked: db.getBlockedUsers(req.user.id) });
+});
+
 app.post('/api/game/new', auth.requireAuth, (req, res) => {
   pruneExpiredGames();
   const scrambles = dealGame(Math.random);

@@ -57,6 +57,22 @@ db.exec(`
     updated_at INTEGER NOT NULL,
     UNIQUE (round_id, user_id, scramble_index)
   );
+
+  CREATE TABLE IF NOT EXISTS blocks (
+    blocker_id INTEGER NOT NULL REFERENCES users(id),
+    blocked_id INTEGER NOT NULL REFERENCES users(id),
+    created_at INTEGER NOT NULL,
+    UNIQUE (blocker_id, blocked_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL REFERENCES users(id),
+    recipient_id INTEGER NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    read_at INTEGER
+  );
 `);
 
 // ---------- Users ----------
@@ -201,6 +217,92 @@ function getRoundScores(roundId) {
   `).all(roundId);
 }
 
+// ---------- Blocks & direct messages ----------
+//
+// Messaging is only reachable from a shared standings panel (you can
+// only message someone whose username you already know from playing
+// against them) — there's no user search/directory, so this is
+// naturally scoped without needing a separate access-control layer.
+// Blocking is one-directional to record but checked both ways before
+// any message is allowed to send.
+
+function blockUser(blockerId, blockedId) {
+  db.prepare('INSERT OR IGNORE INTO blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)')
+    .run(blockerId, blockedId, Date.now());
+}
+
+function unblockUser(blockerId, blockedId) {
+  db.prepare('DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?').run(blockerId, blockedId);
+}
+
+function isBlocked(blockerId, blockedId) {
+  return !!db.prepare('SELECT 1 FROM blocks WHERE blocker_id = ? AND blocked_id = ?').get(blockerId, blockedId);
+}
+
+function isBlockedEitherWay(userAId, userBId) {
+  return isBlocked(userAId, userBId) || isBlocked(userBId, userAId);
+}
+
+function getBlockedUsers(userId) {
+  return db.prepare(`
+    SELECT u.id, u.username FROM blocks b
+    JOIN users u ON u.id = b.blocked_id
+    WHERE b.blocker_id = ?
+    ORDER BY b.created_at DESC
+  `).all(userId);
+}
+
+function createMessage(senderId, recipientId, body) {
+  const createdAt = Date.now();
+  const info = db.prepare(`
+    INSERT INTO messages (sender_id, recipient_id, body, created_at) VALUES (?, ?, ?, ?)
+  `).run(senderId, recipientId, body, createdAt);
+  return { id: info.lastInsertRowid, senderId, recipientId, body, createdAt };
+}
+
+function getConversation(userAId, userBId, limit = 200) {
+  return db.prepare(`
+    SELECT m.*, su.username AS sender_username FROM messages m
+    JOIN users su ON su.id = m.sender_id
+    WHERE (m.sender_id = ? AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = ?)
+    ORDER BY m.created_at ASC
+    LIMIT ?
+  `).all(userAId, userBId, userBId, userAId, limit);
+}
+
+function markMessagesRead(recipientId, senderId) {
+  db.prepare(`
+    UPDATE messages SET read_at = ? WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL
+  `).run(Date.now(), recipientId, senderId);
+}
+
+// One row per other-user this player has ever exchanged messages with,
+// most-recently-active first, each carrying its own unread count —
+// everything the conversation-list UI needs in a single query.
+function getConversations(userId) {
+  return db.prepare(`
+    SELECT
+      other.id AS user_id,
+      other.username,
+      lm.body AS last_body,
+      lm.created_at AS last_at,
+      lm.sender_id AS last_sender_id,
+      (SELECT COUNT(*) FROM messages
+        WHERE recipient_id = ? AND sender_id = other.id AND read_at IS NULL) AS unread
+    FROM (
+      SELECT DISTINCT CASE WHEN sender_id = ? THEN recipient_id ELSE sender_id END AS other_id
+      FROM messages WHERE sender_id = ? OR recipient_id = ?
+    ) t
+    JOIN users other ON other.id = t.other_id
+    JOIN messages lm ON lm.id = (
+      SELECT id FROM messages
+      WHERE (sender_id = ? AND recipient_id = other.id) OR (sender_id = other.id AND recipient_id = ?)
+      ORDER BY created_at DESC LIMIT 1
+    )
+    ORDER BY lm.created_at DESC
+  `).all(userId, userId, userId, userId, userId, userId);
+}
+
 module.exports = {
   createUser, findUserByUsername, findUserById,
   MAX_LOBBY_PLAYERS, findJoinableLobby, findLobbyForUser, createLobby, addPlayerToLobby,
@@ -208,4 +310,6 @@ module.exports = {
   resetLobbyToWaiting, attachRoundToLobby,
   createRound, getRound, getRoundPlayers,
   upsertBestScore, getBestScore, getRoundScores,
+  blockUser, unblockUser, isBlocked, isBlockedEitherWay, getBlockedUsers,
+  createMessage, getConversation, markMessagesRead, getConversations,
 };
