@@ -308,6 +308,23 @@ app.get('/api/me', auth.attachUserIfPresent, (req, res) => {
 const MAX_AVATAR_CHARS = 400000; // ~300KB raw — generous for a resized avatar, not for a full-size photo
 const MAX_LOCATION_LEN = 60;
 
+// Icons only, no photos — checked against the actual file bytes, not
+// the client-claimed MIME type, so this can't be bypassed by relabeling
+// a JPEG as a PNG before it hits this endpoint. The color-complexity
+// heuristic that also runs client-side (see multiplayer.html) can't be
+// meaningfully replicated here without an image-decoding dependency, so
+// this format check is the one authoritative, unbypassable backstop.
+const ALLOWED_AVATAR_FORMATS = new Set(['png', 'gif', 'webp', 'svg']);
+
+function sniffImageFormat(buffer) {
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpeg';
+  if (buffer.length >= 6 && ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'))) return 'gif';
+  if (buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp';
+  if (/^(<\?xml|<svg)/i.test(buffer.subarray(0, 200).toString('utf8').trimStart())) return 'svg';
+  return null;
+}
+
 app.get('/api/profile', auth.requireAuth, (req, res) => {
   const profile = db.getProfile(req.user.id);
   res.json({ avatarData: profile?.avatar_data || null, location: profile?.location || null });
@@ -317,8 +334,13 @@ app.post('/api/profile', auth.requireAuth, (req, res) => {
   let { avatarData, location } = req.body || {};
 
   if (avatarData != null) {
-    if (typeof avatarData !== 'string' || !avatarData.startsWith('data:image/') || avatarData.length > MAX_AVATAR_CHARS) {
+    const match = typeof avatarData === 'string' && /^data:image\/[a-zA-Z+.-]+;base64,(.+)$/.exec(avatarData);
+    if (!match || avatarData.length > MAX_AVATAR_CHARS) {
       return res.status(400).json({ error: 'Invalid image.' });
+    }
+    const format = sniffImageFormat(Buffer.from(match[1], 'base64'));
+    if (!format || !ALLOWED_AVATAR_FORMATS.has(format)) {
+      return res.status(400).json({ error: 'Photos are not allowed — please upload a PNG, GIF, WEBP, or SVG icon/graphic.' });
     }
   } else {
     avatarData = null;

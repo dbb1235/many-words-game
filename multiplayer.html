@@ -587,22 +587,17 @@
     overflow: hidden;
     flex-shrink: 0;
   }
-  .profile-icon-grid { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 18px; }
-  .profile-icon-choice {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
+  .profile-upload-btn {
+    display: inline-block;
+    padding: 8px 14px;
     border: 1.5px solid #d8d2c2;
-    background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
     cursor: pointer;
-    padding: 0;
-    overflow: hidden;
+    color: var(--dark);
   }
-  .profile-icon-choice img { width: 100%; height: 100%; }
-  .profile-icon-choice:hover, .profile-icon-choice.selected { border-color: var(--gold); border-width: 2px; }
+  .profile-upload-btn:hover { border-color: var(--gold); }
 
   /* ---------- Lobby (matchmaking) screen ---------- */
 
@@ -793,12 +788,14 @@
 <div class="modal-overlay" id="profile-overlay">
   <div class="modal-card">
     <div class="modal-title">Your profile</div>
-    <div class="profile-note">Shown to opponents if you win a round. Nothing here is reviewed before it's shown.</div>
+    <div class="profile-note">Shown to opponents if you win a round. Nothing here is reviewed before it's shown. Icons/graphics only — PNG, GIF, WEBP, or SVG. Photos (JPEG) are rejected automatically.</div>
     <div class="profile-avatar-row">
       <div class="profile-avatar-preview" id="profile-avatar-preview">?</div>
-      <div class="auth-label" style="margin:0;">Pick an icon</div>
+      <label class="profile-upload-btn">
+        Upload an icon
+        <input type="file" accept="image/png,image/gif,image/webp,image/svg+xml" id="profile-file-input" style="display:none;">
+      </label>
     </div>
-    <div class="profile-icon-grid" id="profile-icon-grid"></div>
     <label class="auth-label">
       Location <span style="font-weight:500; color:#a89f8e;">(optional)</span>
       <input class="auth-input" id="profile-location" maxlength="60" placeholder="e.g. Austin, TX">
@@ -1008,21 +1005,28 @@
   });
 
   // ---------- Profile (avatar + location) ----------
-  // Icons come from DiceBear's "thumbs" style (dicebear.com, MIT
-  // licensed, no attribution required) — deliberately not a photo
-  // upload: user-submitted photos are a real moderation problem for a
-  // public callout with zero review, and DiceBear's generated icons
-  // sidestep that entirely while still giving each player something
-  // distinct. Selecting one fetches its SVG once and embeds it as a
-  // data URL, so the saved avatar is self-contained in the DB — no
-  // dependency on DiceBear's API staying reachable at render time.
+  // Players upload their own icon/graphic — deliberately not a photo.
+  // Two checks, in order:
+  //  1. Format gate: only PNG/GIF/WEBP/SVG accepted; JPEG (what every
+  //     phone camera produces) is rejected outright, both here and
+  //     again server-side against the actual file bytes (not just the
+  //     claimed type), so this can't be bypassed by relabeling a file.
+  //  2. Color-complexity heuristic: a real photo has hundreds of
+  //     distinct colors even in a tiny downsampled sample; a flat
+  //     icon/logo has a handful. Not perfect — a very detailed/gradient
+  //     icon could get flagged, a heavily posterized photo could slip
+  //     through — but it's a real, zero-cost, zero-dependency filter,
+  //     which is the honest tradeoff at this stage (see mailer.js's
+  //     reasoning for the same "good enough, no paid service" logic).
 
-  const THUMBS_SEEDS = ['Nibbles', 'Squeak', 'Peanut', 'Biscuit', 'Pepper', 'Clover', 'Ziggy', 'Momo', 'Sunny', 'Ollie'];
-  const thumbsPreviewUrl = (seed) => `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(seed)}`;
+  const REJECTED_TYPE_MESSAGE = "Photos aren't allowed — please upload a PNG, GIF, WEBP, or SVG icon/graphic instead.";
+  const LOOKS_LIKE_PHOTO_MESSAGE = "That image looks like a photo, not an icon/graphic — please upload something simpler (a logo, drawing, or flat-color icon).";
+  const ALLOWED_TYPES = ['image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+  const MAX_UNIQUE_COLORS = 120; // out of up to 1024 sampled pixels (32x32) after quantizing to 16 levels/channel
 
   const profileOverlay = document.getElementById('profile-overlay');
   const profileAvatarPreview = document.getElementById('profile-avatar-preview');
-  const profileIconGrid = document.getElementById('profile-icon-grid');
+  const profileFileInput = document.getElementById('profile-file-input');
   const profileLocationInput = document.getElementById('profile-location');
   const profileError = document.getElementById('profile-error');
   const profileSuccess = document.getElementById('profile-success');
@@ -1037,24 +1041,72 @@
       : escapeHtml((ME?.username || '?')[0].toUpperCase());
   }
 
-  async function fetchThumbsAvatar(seed) {
-    const res = await fetch(thumbsPreviewUrl(seed));
-    const svgText = await res.text();
-    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgText)))}`;
+  function loadImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
-  profileIconGrid.innerHTML = THUMBS_SEEDS.map((seed) =>
-    `<button type="button" class="profile-icon-choice" data-seed="${seed}"><img src="${thumbsPreviewUrl(seed)}" alt=""></button>`
-  ).join('');
-  profileIconGrid.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.profile-icon-choice');
-    if (!btn) return;
+  // Counts distinct colors in a small downsampled render of the image,
+  // quantized to 16 levels/channel so JPEG-style compression noise and
+  // anti-aliasing on a flat icon don't inflate the count.
+  function looksLikePhoto(img) {
+    const n = 32;
+    const canvas = document.createElement('canvas');
+    canvas.width = n;
+    canvas.height = n;
+    const c = canvas.getContext('2d');
+    c.drawImage(img, 0, 0, n, n);
+    const pixels = c.getImageData(0, 0, n, n).data;
+    const seen = new Set();
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i] >> 4, g = pixels[i + 1] >> 4, b = pixels[i + 2] >> 4;
+      seen.add((r << 8) | (g << 4) | b);
+    }
+    return seen.size > MAX_UNIQUE_COLORS;
+  }
+
+  function drawResized(img) {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const c = canvas.getContext('2d');
+    const scale = Math.max(size / img.width, size / img.height);
+    const w = img.width * scale, h = img.height * scale;
+    c.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    return canvas.toDataURL('image/png');
+  }
+
+  profileFileInput.addEventListener('change', async () => {
+    const file = profileFileInput.files[0];
+    if (!file) return;
     profileError.textContent = '';
-    profileIconGrid.querySelectorAll('.profile-icon-choice').forEach((b) => b.classList.toggle('selected', b === btn));
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      profileError.textContent = REJECTED_TYPE_MESSAGE;
+      profileFileInput.value = '';
+      return;
+    }
+
     try {
-      setAvatarPreview(await fetchThumbsAvatar(btn.dataset.seed));
+      const img = await loadImageFile(file);
+      if (file.type !== 'image/svg+xml' && looksLikePhoto(img)) {
+        profileError.textContent = LOOKS_LIKE_PHOTO_MESSAGE;
+        profileFileInput.value = '';
+        return;
+      }
+      setAvatarPreview(drawResized(img));
     } catch (err) {
-      profileError.textContent = "Couldn't load that icon — try another one.";
+      profileError.textContent = "Couldn't read that file — try a different one.";
     }
   });
 
@@ -1063,7 +1115,6 @@
     profileSuccess.style.display = 'none';
     profileOverlay.classList.add('open');
     setAvatarPreview(null);
-    profileIconGrid.querySelectorAll('.profile-icon-choice.selected').forEach((b) => b.classList.remove('selected'));
     profileLocationInput.value = '';
     try {
       const res = await fetch('/api/profile');
