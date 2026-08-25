@@ -420,6 +420,85 @@
     font-size: 14px;
     font-weight: 600;
   }
+
+  /* ---------- Layout editor ---------- */
+  /* Only #game-screen's direct pieces (see EDITABLE_IDS in the script
+     below) become moveable/resizable objects — everything else on the
+     page is untouched. No rotation handle anywhere, by design. */
+
+  #game-screen.edit-mode { position: relative; }
+
+  /* One transparent layer over the whole screen while editing — all
+     mouse hit-testing goes through here (via editHitTest in the
+     script), never through the game's own tiles/buttons underneath,
+     so this can't collide with the tile drag-and-drop system. */
+  .edit-capture-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 400;
+    cursor: default;
+    display: none;
+  }
+  #game-screen.edit-mode .edit-capture-layer { display: block; }
+
+  .edit-outline {
+    position: absolute;
+    border: 2px solid #2b7de9;
+    background: rgba(43, 125, 233, 0.08);
+    pointer-events: none;
+    z-index: 410;
+    border-radius: 4px;
+  }
+  .edit-outline.is-group { border-style: dashed; border-color: #9b4fd6; background: rgba(155, 79, 214, 0.08); }
+
+  .edit-handle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: 2px solid #2b7de9;
+    border-radius: 3px;
+    z-index: 420;
+    transform: translate(-50%, -50%);
+  }
+  .edit-handle[data-dir="nw"], .edit-handle[data-dir="se"] { cursor: nwse-resize; }
+  .edit-handle[data-dir="ne"], .edit-handle[data-dir="sw"] { cursor: nesw-resize; }
+  .edit-handle[data-dir="n"], .edit-handle[data-dir="s"] { cursor: ns-resize; }
+  .edit-handle[data-dir="e"], .edit-handle[data-dir="w"] { cursor: ew-resize; }
+
+  .edit-toolbar {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--dark);
+    color: var(--cream);
+    padding: 12px 16px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+  .edit-toolbar-label { font-size: 12.5px; opacity: 0.8; margin-right: 6px; }
+  .edit-toolbar-btn {
+    border: 1.5px solid rgba(244,241,234,0.35);
+    background: transparent;
+    color: var(--cream);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .edit-toolbar-btn:disabled { opacity: 0.35; cursor: default; }
+  .edit-toolbar-btn:hover:not(:disabled) { border-color: var(--gold); }
+  .edit-toolbar-done { background: #ffd23f; color: var(--dark); border-color: #ffd23f; }
+
+  /* Stays clickable (to exit edit mode) even though the capture layer
+     sits visually above the rest of the top-bar once editing starts. */
+  #edit-layout-btn { position: relative; z-index: 450; }
 </style>
 
 <div class="screen" id="auth-screen" style="display:none;">
@@ -470,19 +549,20 @@
 
 <div class="screen" id="game-screen" style="display:none;">
   <div class="top-bar">
-    <div class="brand">GERBIL SINGLE PLAYER</div>
+    <div class="brand" id="brand-title">GERBIL SINGLE PLAYER</div>
     <span class="username-label" id="username-label"></span>
     <div class="stat" id="timer-stat">
       <div class="label">Time</div>
       <div class="value" id="timer-value">10:00</div>
     </div>
-    <div class="stat">
+    <div class="stat" id="score-stat">
       <div class="label">Score</div>
       <div class="value" id="score-value">0</div>
     </div>
     <button class="icon-btn" id="mute-btn" title="Mute sound">🔔</button>
     <button class="icon-btn" id="feedback-btn" title="Send feedback">💬</button>
     <button class="icon-btn" id="logout-btn" title="Log out">⎋</button>
+    <button class="icon-btn" id="edit-layout-btn" title="Edit layout">✏️</button>
   </div>
 
   <div class="active-card" id="active-card">
@@ -507,15 +587,24 @@
   <div style="text-align:center; padding: 0 22px 16px;">
     <button class="restart-link" id="new-game-btn">↺ New Game</button>
   </div>
+
+  <div class="rack-summary-panel" id="rack-summary-panel">
+    <div class="rack-summary-title">Your words</div>
+    <div class="rack-summary-list" id="rack-summary-list"></div>
+    <div class="rack-summary-total">
+      <span>Total</span>
+      <span id="rack-summary-total-score">0 pts</span>
+    </div>
+  </div>
+  <div class="edit-capture-layer" id="edit-capture-layer"></div>
 </div>
 
-<div class="rack-summary-panel" id="rack-summary-panel">
-  <div class="rack-summary-title">Your words</div>
-  <div class="rack-summary-list" id="rack-summary-list"></div>
-  <div class="rack-summary-total">
-    <span>Total</span>
-    <span id="rack-summary-total-score">0 pts</span>
-  </div>
+<div class="edit-toolbar" id="edit-toolbar" style="display:none;">
+  <span class="edit-toolbar-label">Editing layout — drag to move, drag a handle to resize</span>
+  <button class="edit-toolbar-btn" id="group-btn" disabled>Group</button>
+  <button class="edit-toolbar-btn" id="ungroup-btn" disabled>Ungroup</button>
+  <button class="edit-toolbar-btn" id="reset-layout-btn">Reset layout</button>
+  <button class="edit-toolbar-btn edit-toolbar-done" id="done-editing-btn">Done</button>
 </div>
 
 <div class="screen" id="loading-screen">
@@ -1274,4 +1363,378 @@
   document.getElementById('new-game-btn').addEventListener('click', () => {
     startGame();
   });
+
+  // ---------- Layout editor ----------
+  // Every id listed below becomes an independently moveable/resizable
+  // object once edit mode is on — drag to move, drag a corner/edge
+  // handle to resize, shift-click to multi-select, Group/Ungroup to
+  // combine or split a selection. Deliberately no rotation anywhere.
+  // Positions persist in localStorage and are re-applied on every load
+  // (in or out of edit mode), so a custom arrangement sticks around.
+  //
+  // Only the objects listed here are individually placeable — the
+  // tile rows move/resize as whole rows, not tile-by-tile, since
+  // individual tiles are regenerated by the game logic on every
+  // render and can't hold a stable independent position.
+
+  const LAYOUT_STORAGE_KEY = 'gerbil_layout_v1';
+  const EDITABLE_IDS = [
+    'brand-title', 'username-label', 'timer-stat', 'score-stat',
+    'mute-btn', 'feedback-btn', 'logout-btn',
+    'tray-tiles', 'guess-tiles', 'save-btn', 'erase-btn',
+    'word-status', 'rack-indicator', 'nav-next', 'new-game-btn',
+    'rack-summary-panel',
+  ];
+
+  let layout = {};    // id -> { x, y, w, h, groupId? }
+  let groups = {};    // groupId -> { memberIds: [...] }
+  let editModeOn = false;
+  let selection = new Set(); // object ids and/or group ids
+  let nextGroupNum = 1;
+  let dragState = null;
+
+  const captureLayer = document.getElementById('edit-capture-layer');
+  const editToolbar = document.getElementById('edit-toolbar');
+  const groupBtn = document.getElementById('group-btn');
+  const ungroupBtn = document.getElementById('ungroup-btn');
+
+  function loadLayoutFromStorage() {
+    try {
+      const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      layout = parsed.layout || {};
+      groups = parsed.groups || {};
+    } catch (err) {
+      layout = {};
+      groups = {};
+    }
+  }
+
+  function persistLayout() {
+    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ layout, groups }));
+  }
+
+  // Converts whatever's currently on screen (native flow position, via
+  // CSS) into an absolute {x,y,w,h} relative to #game-screen — called
+  // once per id, the first time it's ever touched, so nothing jumps
+  // when edit mode is first turned on.
+  function captureRect(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const elRect = el.getBoundingClientRect();
+    const containerRect = gameScreen.getBoundingClientRect();
+    return {
+      x: Math.round(elRect.left - containerRect.left),
+      y: Math.round(elRect.top - containerRect.top),
+      w: Math.round(elRect.width),
+      h: Math.round(elRect.height),
+    };
+  }
+
+  function ensureLayoutEntries() {
+    EDITABLE_IDS.forEach((id) => {
+      if (!layout[id]) {
+        const rect = captureRect(id);
+        if (rect) layout[id] = rect;
+      }
+    });
+  }
+
+  // Applies layout[] to the real DOM elements. Safe to call any time —
+  // idempotent, a no-op for any id with no layout entry yet.
+  function applyLayoutStyles() {
+    let maxBottom = 0;
+    let any = false;
+    EDITABLE_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      const L = layout[id];
+      if (!el || !L) return;
+      any = true;
+      el.style.position = 'absolute';
+      el.style.left = L.x + 'px';
+      el.style.top = L.y + 'px';
+      el.style.width = L.w + 'px';
+      el.style.height = L.h + 'px';
+      el.style.margin = '0';
+      maxBottom = Math.max(maxBottom, L.y + L.h);
+    });
+    if (any) {
+      gameScreen.style.position = 'relative';
+      gameScreen.style.minHeight = (maxBottom + 40) + 'px';
+    }
+  }
+
+  function groupIdForObject(id) {
+    return layout[id] && layout[id].groupId;
+  }
+
+  function memberIdsOf(selIds) {
+    const out = [];
+    selIds.forEach((id) => {
+      if (groups[id]) groups[id].memberIds.forEach((m) => out.push(m));
+      else out.push(id);
+    });
+    return out;
+  }
+
+  function boundsOf(selIds) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    memberIdsOf(selIds).forEach((id) => {
+      const L = layout[id];
+      if (!L) return;
+      minX = Math.min(minX, L.x);
+      minY = Math.min(minY, L.y);
+      maxX = Math.max(maxX, L.x + L.w);
+      maxY = Math.max(maxY, L.y + L.h);
+    });
+    if (minX === Infinity) return null;
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+
+  function hitTest(x, y) {
+    // Later ids sit later in the DOM (rendered on top) in this app —
+    // search in reverse to find the topmost hit.
+    for (let i = EDITABLE_IDS.length - 1; i >= 0; i--) {
+      const id = EDITABLE_IDS[i];
+      const L = layout[id];
+      if (!L) continue;
+      if (x >= L.x && x <= L.x + L.w && y >= L.y && y <= L.y + L.h) {
+        return groupIdForObject(id) || id;
+      }
+    }
+    return null;
+  }
+
+  function localPoint(e) {
+    const rect = gameScreen.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  // ---------- Selection rendering ----------
+
+  function clearSelectionVisuals() {
+    gameScreen.querySelectorAll('.edit-outline, .edit-handle').forEach((el) => el.remove());
+  }
+
+  function renderSelection() {
+    clearSelectionVisuals();
+    const selArr = [...selection];
+    groupBtn.disabled = selection.size < 2;
+    ungroupBtn.disabled = !(selection.size === 1 && groups[selArr[0]]);
+
+    selArr.forEach((id) => {
+      const isGroup = !!groups[id];
+      const box = isGroup ? boundsOf([id]) : layout[id];
+      if (!box) return;
+      const outline = document.createElement('div');
+      outline.className = 'edit-outline' + (isGroup ? ' is-group' : '');
+      outline.style.left = box.x + 'px';
+      outline.style.top = box.y + 'px';
+      outline.style.width = box.w + 'px';
+      outline.style.height = box.h + 'px';
+      gameScreen.appendChild(outline);
+    });
+
+    if (selection.size === 1) {
+      const id = selArr[0];
+      const isGroup = !!groups[id];
+      const box = isGroup ? boundsOf([id]) : layout[id];
+      if (box) renderHandles(box);
+    }
+  }
+
+  const HANDLE_DIRS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+
+  function handlePosition(box, dir) {
+    const midX = box.x + box.w / 2;
+    const midY = box.y + box.h / 2;
+    switch (dir) {
+      case 'nw': return { x: box.x, y: box.y };
+      case 'n': return { x: midX, y: box.y };
+      case 'ne': return { x: box.x + box.w, y: box.y };
+      case 'e': return { x: box.x + box.w, y: midY };
+      case 'se': return { x: box.x + box.w, y: box.y + box.h };
+      case 's': return { x: midX, y: box.y + box.h };
+      case 'sw': return { x: box.x, y: box.y + box.h };
+      case 'w': return { x: box.x, y: midY };
+    }
+  }
+
+  function renderHandles(box) {
+    HANDLE_DIRS.forEach((dir) => {
+      const handle = document.createElement('div');
+      handle.className = 'edit-handle';
+      handle.dataset.dir = dir;
+      const pos = handlePosition(box, dir);
+      handle.style.left = pos.x + 'px';
+      handle.style.top = pos.y + 'px';
+      handle.addEventListener('mousedown', (e) => startResize(e, dir));
+      gameScreen.appendChild(handle);
+    });
+  }
+
+  // ---------- Move ----------
+
+  captureLayer.addEventListener('mousedown', (e) => {
+    const pt = localPoint(e);
+    const hitId = hitTest(pt.x, pt.y);
+
+    if (!hitId) {
+      selection.clear();
+      renderSelection();
+      return;
+    }
+
+    if (e.shiftKey) {
+      if (selection.has(hitId)) selection.delete(hitId); else selection.add(hitId);
+    } else if (!selection.has(hitId)) {
+      selection = new Set([hitId]);
+    }
+    renderSelection();
+
+    const members = memberIdsOf(selection);
+    if (members.length === 0) return;
+
+    dragState = {
+      kind: 'move',
+      startX: pt.x,
+      startY: pt.y,
+      starts: members.map((id) => ({ id, x: layout[id].x, y: layout[id].y })),
+    };
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragState) return;
+    const pt = localPoint(e);
+    if (dragState.kind === 'move') {
+      const dx = pt.x - dragState.startX;
+      const dy = pt.y - dragState.startY;
+      dragState.starts.forEach(({ id, x, y }) => {
+        layout[id].x = x + dx;
+        layout[id].y = y + dy;
+      });
+      applyLayoutStyles();
+      renderSelection();
+    } else if (dragState.kind === 'resize') {
+      applyResize(pt);
+      applyLayoutStyles();
+      renderSelection();
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragState) return;
+    dragState = null;
+    persistLayout();
+  });
+
+  // ---------- Resize ----------
+
+  const MIN_SIZE = 20;
+
+  function startResize(e, dir) {
+    e.stopPropagation();
+    e.preventDefault();
+    const id = [...selection][0];
+    const isGroup = !!groups[id];
+    const box = isGroup ? boundsOf([id]) : layout[id];
+    const memberIds = isGroup ? groups[id].memberIds : [id];
+    dragState = {
+      kind: 'resize',
+      dir,
+      startBox: { ...box },
+      memberStarts: memberIds.map((mid) => ({ id: mid, ...layout[mid] })),
+    };
+  }
+
+  function applyResize(pt) {
+    const { dir, startBox, memberStarts } = dragState;
+    let { x, y, w, h } = startBox;
+    const right = startBox.x + startBox.w;
+    const bottom = startBox.y + startBox.h;
+
+    if (dir.includes('e')) w = Math.max(MIN_SIZE, pt.x - startBox.x);
+    if (dir.includes('s')) h = Math.max(MIN_SIZE, pt.y - startBox.y);
+    if (dir.includes('w')) { x = Math.min(pt.x, right - MIN_SIZE); w = right - x; }
+    if (dir.includes('n')) { y = Math.min(pt.y, bottom - MIN_SIZE); h = bottom - y; }
+
+    const scaleX = startBox.w === 0 ? 1 : w / startBox.w;
+    const scaleY = startBox.h === 0 ? 1 : h / startBox.h;
+
+    memberStarts.forEach((m) => {
+      layout[m.id] = {
+        ...layout[m.id],
+        x: Math.round(x + (m.x - startBox.x) * scaleX),
+        y: Math.round(y + (m.y - startBox.y) * scaleY),
+        w: Math.round(Math.max(MIN_SIZE, m.w * scaleX)),
+        h: Math.round(Math.max(MIN_SIZE, m.h * scaleY)),
+      };
+    });
+  }
+
+  // ---------- Group / ungroup ----------
+
+  groupBtn.addEventListener('click', () => {
+    if (selection.size < 2) return;
+    const members = memberIdsOf(selection);
+    selection.forEach((id) => { if (groups[id]) delete groups[id]; });
+
+    const groupId = 'group-' + (nextGroupNum++);
+    groups[groupId] = { memberIds: members };
+    members.forEach((id) => { layout[id].groupId = groupId; });
+
+    selection = new Set([groupId]);
+    persistLayout();
+    renderSelection();
+  });
+
+  ungroupBtn.addEventListener('click', () => {
+    if (selection.size !== 1) return;
+    const groupId = [...selection][0];
+    const group = groups[groupId];
+    if (!group) return;
+    group.memberIds.forEach((id) => { if (layout[id]) delete layout[id].groupId; });
+    delete groups[groupId];
+    selection = new Set(group.memberIds);
+    persistLayout();
+    renderSelection();
+  });
+
+  // ---------- Mode toggle ----------
+
+  function enterEditMode() {
+    editModeOn = true;
+    ensureLayoutEntries();
+    applyLayoutStyles();
+    gameScreen.classList.add('edit-mode');
+    editToolbar.style.display = 'flex';
+    selection = new Set();
+    renderSelection();
+  }
+
+  function exitEditMode() {
+    editModeOn = false;
+    gameScreen.classList.remove('edit-mode');
+    editToolbar.style.display = 'none';
+    selection = new Set();
+    clearSelectionVisuals();
+  }
+
+  document.getElementById('edit-layout-btn').addEventListener('click', () => {
+    if (editModeOn) exitEditMode(); else enterEditMode();
+  });
+  document.getElementById('done-editing-btn').addEventListener('click', exitEditMode);
+
+  document.getElementById('reset-layout-btn').addEventListener('click', () => {
+    if (!confirm('Reset the layout back to default?')) return;
+    localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    location.reload();
+  });
+
+  // Re-applies any previously-saved layout on every load, in or out of
+  // edit mode, so a custom arrangement sticks around across sessions.
+  loadLayoutFromStorage();
+  applyLayoutStyles();
 </script>
