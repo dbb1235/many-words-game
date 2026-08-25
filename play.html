@@ -184,15 +184,21 @@
   /* Word + score, centered together as one group — color alone (black
      while forming, green valid, red invalid) carries the verdict, no
      icon or "valid word"/"not a word" text needed alongside it. */
+  /* Sized to fit its actual content — a word up to RACK_SIZE letters
+     plus a 3-digit score ("999 pts") — rather than stretching the full
+     card width, with margin: 0 auto to stay centered at that size. */
   .word-status {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 28px;
-    padding: 11px 15px;
+    gap: 20px;
+    padding: 12px 24px;
     border-radius: 10px;
     background: #f4f1ea;
     min-height: 26px;
+    width: fit-content;
+    max-width: 340px;
+    margin: 0 auto;
   }
 
   .word-status.state-empty { color: var(--dark); }
