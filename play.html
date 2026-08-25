@@ -1033,37 +1033,34 @@
     }, 0);
   }
 
-  // Color alone carries the verdict (black while forming/checking/
-  // unsaved, green valid, red invalid) — no icon, no "valid word"/"not
-  // a word" text. Nothing here reflects the server's opinion of the
-  // current guess row until `saved` is true — placing or moving tiles
-  // is silent and neutral; only clicking Save (see saveWord) actually
-  // asks the server and shows a verdict, matching the "no fail beep
-  // until you save" rule this whole flow exists for.
+  // Color alone carries the verdict (black while forming/checking,
+  // green valid, red invalid) — no icon, no "valid word"/"not a word"
+  // text. This runs continuously as tiles are placed — you always know
+  // whether the word you've built is valid and what it's worth before
+  // deciding to save it. What it never does on its own is make a
+  // sound, touch the header score, or count toward anything — that's
+  // only ever saveWord's job, triggered by the Save button.
   function renderWordStatus(evalResult) {
-    const { word, valid, belowMinimum, rawScore, score, checking, saved } = evalResult;
+    const { word, valid, belowMinimum, rawScore, score, checking } = evalResult;
     const statusEl = document.getElementById('word-status');
     const state = word.length === 0 ? 'empty'
-      : !saved ? 'building'
+      : word.length < MIN_WORD_LEN ? 'building'
       : checking ? 'building'
       : valid ? 'valid' : 'invalid';
     statusEl.className = 'word-status state-' + state;
     document.getElementById('word-text').textContent = word;
 
     let scoreText;
-    if (!saved) scoreText = '';
-    else if (checking) scoreText = '…';
+    if (checking) scoreText = '…';
     else if (state === 'valid') scoreText = score + ' pts';
     else if (state === 'invalid' && belowMinimum) scoreText = rawScore + ' pts';
     else scoreText = '0 pts';
     document.getElementById('verdict-score').textContent = scoreText;
   }
 
-  // The header total is the sum of each rack's last known live score —
-  // not a running best-of-round — matching the original prototype's
-  // "score reflects whatever's currently sitting in each tray" design.
-  // Racks other than the active one keep their last-fetched value
-  // rather than being re-queried on every render.
+  // The header total is the sum of each rack's last known SAVED
+  // score — never the live preview — so it only moves when you
+  // actually click Save, not while you're still fiddling with tiles.
   function renderHeaderScore() {
     const total = RACKS.reduce((sum, r) => sum + (r.lastResult ? r.lastResult.score : 0), 0);
     document.getElementById('score-value').textContent = total;
@@ -1081,36 +1078,37 @@
     const word = currentWordForRack(rack);
     const hasUnresolvedWildcard = rack.guessSlots.some((e) => e && e.letter === '?');
     document.getElementById('save-btn').disabled = word.length < MIN_WORD_LEN || hasUnresolvedWildcard;
+    const myRequestId = ++rack.requestId;
 
-    // Building/editing the guess row is silent and shows no verdict —
-    // only a Save click (see saveWord) actually asks the server. The
-    // one exception: what's currently placed is exactly the word this
-    // rack was last saved as (e.g. you navigated to another rack and
-    // back), so that saved verdict is still worth showing.
-    if (word.length > 0 && rack.lastResult.word === word) {
-      renderWordStatus({ ...rack.lastResult, saved: true });
-    } else {
-      renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, saved: false });
+    if (word.length < MIN_WORD_LEN) {
+      renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0 });
+      return;
     }
+
+    renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true });
+
+    evaluateRackAsync(rack, currentIndex).then((result) => {
+      if (rack.requestId !== myRequestId) return; // superseded by a newer change
+      renderWordStatus(result); // preview only — no sound, no score update yet
+    });
   }
 
-  // Explicit submission — the only thing that ever calls the server,
-  // updates the header score, or plays a sound. Building a word by
-  // placing/moving tiles never does any of that on its own.
+  // Explicit submission — the only thing that ever updates the header
+  // score or plays a sound. It re-checks with the server rather than
+  // trusting whatever the live preview last showed, so a save is
+  // always accurate even if something changed mid-flight.
   async function saveWord(rack) {
     const word = currentWordForRack(rack);
     if (word.length < MIN_WORD_LEN) return;
     if (rack.guessSlots.some((e) => e && e.letter === '?')) return; // unresolved wildcard — shouldn't happen, but don't submit a blank
 
     document.getElementById('save-btn').disabled = true;
-    renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true, saved: true });
-
     const myRequestId = ++rack.requestId;
     const result = await evaluateRackAsync(rack, currentIndex);
-    if (rack.requestId !== myRequestId) return; // superseded by a newer save
+    if (rack.requestId !== myRequestId) return; // superseded by a newer change
 
     rack.lastResult = result;
-    renderWordStatus({ ...result, saved: true });
+    renderWordStatus(result);
     fireSaveFeedback(result);
     renderHeaderScore();
     document.getElementById('save-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;

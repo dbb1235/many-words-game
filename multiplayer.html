@@ -1911,22 +1911,23 @@
     }, 0);
   }
 
-  // Nothing here reflects the server's opinion of the current guess row
-  // until `saved` is true — placing/moving tiles is silent and neutral;
-  // only a Save click (see saveWord) actually asks the server.
+  // Runs continuously as tiles are placed — you always know whether
+  // the word you've built is valid and what it's worth before deciding
+  // to save it. What it never does on its own is make a sound, touch
+  // the shared leaderboard, or count toward your total — that's only
+  // ever saveWord's job, triggered by the Save button.
   function renderWordStatus(evalResult) {
-    const { word, valid, belowMinimum, rawScore, score, checking, saved } = evalResult;
+    const { word, valid, belowMinimum, rawScore, score, checking } = evalResult;
     const statusEl = document.getElementById('word-status');
     const state = word.length === 0 ? 'empty'
-      : !saved ? 'building'
+      : word.length < MIN_WORD_LEN ? 'building'
       : checking ? 'building'
       : valid ? 'valid' : 'invalid';
     statusEl.className = 'word-status state-' + state;
     document.getElementById('word-text').textContent = word;
 
     let scoreText;
-    if (!saved) scoreText = '';
-    else if (checking) scoreText = '…';
+    if (checking) scoreText = '…';
     else if (state === 'valid') scoreText = score + ' pts';
     else if (state === 'invalid' && belowMinimum) scoreText = rawScore + ' pts';
     else scoreText = '0 pts';
@@ -2067,43 +2068,44 @@
 
     if (roundEnded) {
       document.getElementById('save-btn').disabled = true;
-      renderWordStatus({ word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0, saved: false });
+      renderWordStatus({ word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 });
       return;
     }
 
     const word = currentWordForRack(rack);
     const hasUnresolvedWildcard = rack.guessSlots.some((e) => e && e.letter === '?');
     document.getElementById('save-btn').disabled = word.length < MIN_WORD_LEN || hasUnresolvedWildcard;
+    const myRequestId = ++rack.requestId;
 
-    // Building/editing the guess row is silent and shows no verdict —
-    // only a Save click (see saveWord) actually asks the server. The
-    // one exception: what's currently placed is exactly the word this
-    // rack was last saved as, so that saved verdict is still worth
-    // showing (e.g. navigating back to another rack and returning).
-    if (word.length > 0 && rack.lastResult.word === word) {
-      renderWordStatus({ ...rack.lastResult, saved: true });
-    } else {
-      renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, saved: false });
+    if (word.length < MIN_WORD_LEN) {
+      renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0 });
+      return;
     }
+
+    renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true });
+
+    evaluateRackAsync(rack, currentIndex).then((result) => {
+      if (rack.requestId !== myRequestId) return; // superseded by a newer change
+      renderWordStatus(result); // preview only — no sound, no leaderboard update yet
+    });
   }
 
-  // Explicit submission — the only thing that ever calls the server,
-  // fires a sound, or refreshes the shared leaderboard. Building a word
-  // by placing/moving tiles never does any of that on its own.
+  // Explicit submission — the only thing that ever fires a sound or
+  // refreshes the shared leaderboard. Re-checks with the server rather
+  // than trusting whatever the live preview last showed, so a save is
+  // always accurate even if something changed mid-flight.
   async function saveWord(rack) {
     const word = currentWordForRack(rack);
     if (word.length < MIN_WORD_LEN || roundEnded) return;
     if (rack.guessSlots.some((e) => e && e.letter === '?')) return; // unresolved wildcard — shouldn't happen, but don't submit a blank
 
     document.getElementById('save-btn').disabled = true;
-    renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true, saved: true });
-
     const myRequestId = ++rack.requestId;
     const result = await evaluateRackAsync(rack, currentIndex);
-    if (rack.requestId !== myRequestId) return; // superseded by a newer save
+    if (rack.requestId !== myRequestId) return; // superseded by a newer change
 
     rack.lastResult = result;
-    renderWordStatus({ ...result, saved: true });
+    renderWordStatus(result);
     fireSaveFeedback(result);
     if (result.valid) refreshLeaderboard();
     document.getElementById('save-btn').disabled = roundEnded || currentWordForRack(rack).length < MIN_WORD_LEN;
