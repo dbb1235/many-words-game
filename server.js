@@ -8,8 +8,11 @@ const cookieParser = require('cookie-parser');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+require('dotenv').config();
+
 const db = require('./db');
 const auth = require('./auth');
+const mailer = require('./mailer');
 
 const PORT = process.env.PORT || 8420;
 
@@ -292,6 +295,77 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/me', auth.attachUserIfPresent, (req, res) => {
   res.json({ user: req.user || null });
+});
+
+// --- Owner-notification endpoints --------------------------------------
+// There's no self-service password reset yet — both of these just relay
+// a message to the site owner's inbox via mailer.js, who handles it
+// manually. Pure abuse-prevention throttle below (not durable state, so
+// losing it on a restart is fine — see MULTIPLAYER_PLAN.md's "no
+// in-memory state as the primary copy of anything that matters", which
+// this isn't: nothing here is the source of truth for game state).
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const rateLimitHits = new Map(); // ip -> recent request timestamps
+
+function isRateLimited(ip, max, windowMs) {
+  const now = Date.now();
+  const hits = (rateLimitHits.get(ip) || []).filter((t) => now - t < windowMs);
+  hits.push(now);
+  rateLimitHits.set(ip, hits);
+  return hits.length > max;
+}
+
+app.post('/api/forgot-password', async (req, res) => {
+  if (isRateLimited(req.ip, 5, 15 * 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many requests — please try again later.' });
+  }
+  const { username, contactEmail, message } = req.body || {};
+  if (typeof username !== 'string' || !username.trim()) {
+    return res.status(400).json({ error: 'Username is required.' });
+  }
+  if (typeof contactEmail !== 'string' || !EMAIL_RE.test(contactEmail.trim())) {
+    return res.status(400).json({ error: 'A valid email is required so we can reach you.' });
+  }
+  const cleanUsername = username.trim();
+  const cleanMessage = typeof message === 'string' ? message.trim().slice(0, 2000) : '';
+  const user = db.findUserByUsername(cleanUsername);
+
+  await mailer.sendOwnerEmail({
+    subject: `Gerbil password reset request: ${cleanUsername}`,
+    text: [
+      `Username: ${cleanUsername}`,
+      `Account found: ${user ? 'yes' : 'no'}`,
+      `Contact email: ${contactEmail.trim()}`,
+      cleanMessage ? `Message: ${cleanMessage}` : null,
+    ].filter(Boolean).join('\n'),
+  });
+
+  // Always a generic success, regardless of whether the username was
+  // found — avoids letting this endpoint be used to test which
+  // usernames exist.
+  res.json({ ok: true });
+});
+
+app.post('/api/feedback', auth.attachUserIfPresent, async (req, res) => {
+  if (isRateLimited(req.ip, 5, 15 * 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many requests — please try again later.' });
+  }
+  const { message } = req.body || {};
+  if (typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Message is required.' });
+  }
+  const cleanMessage = message.trim().slice(0, 2000);
+
+  await mailer.sendOwnerEmail({
+    subject: `Gerbil feedback${req.user ? ` from ${req.user.username}` : ''}`,
+    text: [
+      `From: ${req.user ? req.user.username : 'anonymous (not logged in)'}`,
+      `Message: ${cleanMessage}`,
+    ].join('\n'),
+  });
+
+  res.json({ ok: true });
 });
 
 app.post('/api/game/new', auth.requireAuth, (req, res) => {

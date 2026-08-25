@@ -377,6 +377,27 @@
   .auth-error { color: var(--red); font-size: 13px; font-weight: 600; min-height: 18px; margin-bottom: 10px; }
   .auth-submit { width: 100%; margin-top: 4px; }
 
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    padding: 26px;
+    width: 100%;
+    max-width: 360px;
+  }
+  .modal-title { font-size: 16px; font-weight: 800; color: var(--dark); margin-bottom: 16px; }
+
   /* ---------- Lobby (matchmaking) screen ---------- */
 
   .lobby-body { padding: 34px 26px 38px; text-align: center; }
@@ -447,6 +468,26 @@
       <div class="auth-error" id="auth-error"></div>
       <button class="next-btn auth-submit" id="auth-submit" type="submit">Log In</button>
     </form>
+    <button class="restart-link" id="forgot-link" type="button">Forgot your password?</button>
+
+    <form id="forgot-form" style="display:none;">
+      <label class="auth-label">
+        Username
+        <input class="auth-input" id="forgot-username" required>
+      </label>
+      <label class="auth-label">
+        Your email (so we can reply)
+        <input class="auth-input" id="forgot-email" type="email" required>
+      </label>
+      <label class="auth-label">
+        What happened? (optional)
+        <textarea class="auth-input" id="forgot-message" rows="3" style="resize:vertical;"></textarea>
+      </label>
+      <div class="auth-error" id="forgot-error"></div>
+      <div class="auth-error" id="forgot-success" style="display:none; color: var(--good-green);"></div>
+      <button class="next-btn auth-submit" id="forgot-submit" type="submit">Send request</button>
+      <button class="restart-link" id="forgot-cancel" type="button">← Back to log in</button>
+    </form>
   </div>
 </div>
 
@@ -477,6 +518,7 @@
       <div class="value" id="score-value">0</div>
     </div>
     <button class="icon-btn" id="mute-btn" title="Mute sound">🔔</button>
+    <button class="icon-btn" id="feedback-btn" title="Send feedback">💬</button>
     <button class="icon-btn" id="logout-btn" title="Log out">⎋</button>
   </div>
 
@@ -516,6 +558,22 @@
 
 <div class="screen" id="loading-screen">
   <div class="loading-note">Loading…</div>
+</div>
+
+<div class="modal-overlay" id="feedback-overlay">
+  <div class="modal-card">
+    <div class="modal-title">Send feedback</div>
+    <form id="feedback-form">
+      <label class="auth-label">
+        Comments or suggestions
+        <textarea class="auth-input" id="feedback-message" rows="4" required style="resize:vertical;"></textarea>
+      </label>
+      <div class="auth-error" id="feedback-error"></div>
+      <div class="auth-error" id="feedback-success" style="display:none; color: var(--good-green);"></div>
+      <button class="next-btn auth-submit" id="feedback-submit" type="submit">Send</button>
+      <button class="restart-link" id="feedback-cancel" type="button">Cancel</button>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -600,6 +658,103 @@
     stopAllPolling();
     await fetch('/api/logout', { method: 'POST' });
     showScreen(authScreen);
+  });
+
+  // ---------- Forgot password ----------
+  // No self-service reset yet — this just relays the request to the
+  // site owner's inbox (see mailer.js), who handles it manually.
+
+  const authTabs = document.querySelector('.auth-tabs');
+  const forgotLink = document.getElementById('forgot-link');
+  const forgotForm = document.getElementById('forgot-form');
+  const forgotError = document.getElementById('forgot-error');
+  const forgotSuccess = document.getElementById('forgot-success');
+  const forgotSubmit = document.getElementById('forgot-submit');
+
+  function showForgot(show) {
+    authTabs.style.display = show ? 'none' : 'flex';
+    authForm.style.display = show ? 'none' : 'block';
+    forgotLink.style.display = show ? 'none' : 'block';
+    forgotForm.style.display = show ? 'block' : 'none';
+    forgotError.textContent = '';
+    forgotSuccess.style.display = 'none';
+  }
+  forgotLink.addEventListener('click', () => showForgot(true));
+  document.getElementById('forgot-cancel').addEventListener('click', () => showForgot(false));
+
+  forgotForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    forgotError.textContent = '';
+    forgotSuccess.style.display = 'none';
+    const username = document.getElementById('forgot-username').value.trim();
+    const contactEmail = document.getElementById('forgot-email').value.trim();
+    const message = document.getElementById('forgot-message').value.trim();
+    forgotSubmit.disabled = true;
+    try {
+      const res = await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, contactEmail, message }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        forgotError.textContent = data.error || 'Something went wrong.';
+        return;
+      }
+      forgotForm.reset();
+      forgotSuccess.textContent = "Thanks — we'll be in touch soon.";
+      forgotSuccess.style.display = 'block';
+    } catch (err) {
+      forgotError.textContent = 'Network error — is the server running?';
+    } finally {
+      forgotSubmit.disabled = false;
+    }
+  });
+
+  // ---------- Feedback ----------
+
+  const feedbackOverlay = document.getElementById('feedback-overlay');
+  const feedbackForm = document.getElementById('feedback-form');
+  const feedbackError = document.getElementById('feedback-error');
+  const feedbackSuccess = document.getElementById('feedback-success');
+  const feedbackSubmit = document.getElementById('feedback-submit');
+
+  document.getElementById('feedback-btn').addEventListener('click', () => {
+    feedbackForm.reset();
+    feedbackError.textContent = '';
+    feedbackSuccess.style.display = 'none';
+    feedbackOverlay.classList.add('open');
+  });
+  document.getElementById('feedback-cancel').addEventListener('click', () => {
+    feedbackOverlay.classList.remove('open');
+  });
+
+  feedbackForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    feedbackError.textContent = '';
+    const message = document.getElementById('feedback-message').value.trim();
+    if (!message) { feedbackError.textContent = 'Please enter a message.'; return; }
+    feedbackSubmit.disabled = true;
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        feedbackError.textContent = data.error || 'Something went wrong.';
+        return;
+      }
+      feedbackForm.reset();
+      feedbackSuccess.textContent = 'Thanks — sent!';
+      feedbackSuccess.style.display = 'block';
+      setTimeout(() => feedbackOverlay.classList.remove('open'), 1200);
+    } catch (err) {
+      feedbackError.textContent = 'Network error — is the server running?';
+    } finally {
+      feedbackSubmit.disabled = false;
+    }
   });
 
   (async function init() {
