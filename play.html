@@ -160,7 +160,7 @@
 
   .guess-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
 
-  .save-btn {
+  .hold-btn {
     border: none;
     background: #ffd23f;
     color: var(--dark);
@@ -171,8 +171,22 @@
     padding: 9px 20px;
     cursor: pointer;
   }
-  .save-btn:hover:not(:disabled) { filter: brightness(1.05); }
-  .save-btn:disabled { opacity: 0.4; cursor: default; }
+  .hold-btn:hover:not(:disabled) { filter: brightness(1.05); }
+  .hold-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .override-btn {
+    border: 1.5px solid #b45f06;
+    background: #ffb84d;
+    color: var(--dark);
+    font-size: 21px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-radius: 12px;
+    padding: 9px 20px;
+    cursor: pointer;
+  }
+  .override-btn:hover:not(:disabled) { filter: brightness(1.05); }
+  .override-btn:disabled { opacity: 0.4; cursor: default; }
 
   .erase-btn {
     border: 1.5px solid #e0b400;
@@ -570,7 +584,8 @@
     <div class="tile-row guess" id="guess-tiles"></div>
 
     <div class="guess-toolbar">
-      <button class="save-btn" id="save-btn" disabled>Save</button>
+      <button class="hold-btn" id="hold-btn" disabled>Hold</button>
+      <button class="override-btn" id="override-btn" disabled>Override</button>
       <button class="erase-btn" id="erase-btn">✕ Erase</button>
     </div>
 
@@ -838,18 +853,17 @@
     startTimer();
   }
 
-  // One row per rack showing whatever word was last saved for it (blank
-  // + 0 pts if nothing's been saved yet), plus the sum across all 6 —
-  // a running record of the round distinct from the single active-rack
-  // view above. Only ever reflects saveWord's committed results, same
-  // as the header score.
+  // One row per rack showing its computed result (see computeRackResult:
+  // blank + 0 pts if nothing's been held yet), plus the sum across all
+  // 6 — a running record of the round distinct from the single
+  // active-rack view above.
   function renderRackSummary() {
     const listEl = document.getElementById('rack-summary-list');
     let total = 0;
     listEl.innerHTML = RACKS.map((r, i) => {
-      const saved = r.lastResult && r.lastResult.valid;
-      const word = saved ? r.lastResult.word : '';
-      const score = saved ? r.lastResult.score : 0;
+      const result = computeRackResult(r);
+      const word = result.valid ? result.word : '';
+      const score = result.valid ? result.score : 0;
       total += score;
       return `
         <div class="rack-summary-row">
@@ -870,9 +884,27 @@
       tiles: scramble.tiles,
       bottomBonuses: scramble.bottomBonuses,
       guessSlots: scramble.tiles.map(() => null),
-      lastResult: { word: '', valid: false, score: 0 },
+      heldWords: [], // { word, score }, in the order Hold was clicked
+      overrideWord: null, // explicit choice from Override, beats heldWords entirely
       requestId: 0,
     };
+  }
+
+  // The rack's scored word: an explicit Override always wins; otherwise
+  // the highest-scoring held word, ties broken toward whichever was
+  // held first (heldWords is already in hold order, and only a strictly
+  // greater score replaces the current best).
+  function computeRackResult(rack) {
+    if (rack.overrideWord) {
+      const held = rack.heldWords.find((h) => h.word === rack.overrideWord);
+      return { word: rack.overrideWord, valid: true, score: held ? held.score : 0 };
+    }
+    if (rack.heldWords.length === 0) return { word: '', valid: false, score: 0 };
+    let best = rack.heldWords[0];
+    for (const h of rack.heldWords) {
+      if (h.score > best.score) best = h;
+    }
+    return { word: best.word, valid: true, score: best.score };
   }
 
   // A tray tile is "in the rack" (available to drag) exactly when no
@@ -1216,9 +1248,9 @@
   // green valid, red invalid) — no icon, no "valid word"/"not a word"
   // text. This runs continuously as tiles are placed — you always know
   // whether the word you've built is valid and what it's worth before
-  // deciding to save it. What it never does on its own is make a
-  // sound, touch the header score, or count toward anything — that's
-  // only ever saveWord's job, triggered by the Save button.
+  // deciding to hold or override it. What it never does on its own is
+  // make a sound, touch the header score, or count toward anything —
+  // that's only ever holdWord's/applyOverride's job.
   function renderWordStatus(evalResult) {
     const { word, valid, belowMinimum, rawScore, score, checking } = evalResult;
     const statusEl = document.getElementById('word-status');
@@ -1237,11 +1269,12 @@
     document.getElementById('verdict-score').textContent = scoreText;
   }
 
-  // The header total is the sum of each rack's last known SAVED
-  // score — never the live preview — so it only moves when you
-  // actually click Save, not while you're still fiddling with tiles.
+  // The header total is the sum of each rack's computed result (see
+  // computeRackResult) — never the live preview — so it only moves when
+  // you Hold or Override a word, not while you're still fiddling with
+  // tiles.
   function renderHeaderScore() {
-    const total = RACKS.reduce((sum, r) => sum + (r.lastResult ? r.lastResult.score : 0), 0);
+    const total = RACKS.reduce((sum, r) => sum + computeRackResult(r).score, 0);
     document.getElementById('score-value').textContent = total;
   }
 
@@ -1256,7 +1289,9 @@
 
     const word = currentWordForRack(rack);
     const hasUnresolvedWildcard = rack.guessSlots.some((e) => e && e.letter === '?');
-    document.getElementById('save-btn').disabled = word.length < MIN_WORD_LEN || hasUnresolvedWildcard;
+    const disableActions = word.length < MIN_WORD_LEN || hasUnresolvedWildcard;
+    document.getElementById('hold-btn').disabled = disableActions;
+    document.getElementById('override-btn').disabled = disableActions;
     const myRequestId = ++rack.requestId;
 
     if (word.length < MIN_WORD_LEN) {
@@ -1272,30 +1307,72 @@
     });
   }
 
-  // Explicit submission — the only thing that ever updates the header
-  // score or plays a sound. It re-checks with the server rather than
-  // trusting whatever the live preview last showed, so a save is
-  // always accurate even if something changed mid-flight.
-  async function saveWord(rack) {
+  // Hold — remembers the current word as a candidate for this rack
+  // without necessarily becoming the one that's scored. Whichever held
+  // candidate has the highest score is what counts (see
+  // computeRackResult); holding a lower-scoring word never displaces a
+  // better one already held, it just adds another option. Re-checks
+  // with the server rather than trusting whatever the live preview
+  // last showed, so a hold is always accurate even if something
+  // changed mid-flight.
+  async function holdWord(rack) {
     const word = currentWordForRack(rack);
     if (word.length < MIN_WORD_LEN) return;
     if (rack.guessSlots.some((e) => e && e.letter === '?')) return; // unresolved wildcard — shouldn't happen, but don't submit a blank
 
-    document.getElementById('save-btn').disabled = true;
+    document.getElementById('hold-btn').disabled = true;
     const myRequestId = ++rack.requestId;
     const result = await evaluateRackAsync(rack, currentIndex);
     if (rack.requestId !== myRequestId) return; // superseded by a newer change
 
-    rack.lastResult = result;
     renderWordStatus(result);
     fireSaveFeedback(result);
+
+    if (result.valid) {
+      const existing = rack.heldWords.find((h) => h.word === result.word);
+      if (existing) existing.score = result.score;
+      else rack.heldWords.push({ word: result.word, score: result.score });
+    }
+
     renderHeaderScore();
     renderRackSummary();
-    document.getElementById('save-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
+    document.getElementById('hold-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
   }
 
-  document.getElementById('save-btn').addEventListener('click', () => {
-    saveWord(RACKS[currentIndex]);
+  document.getElementById('hold-btn').addEventListener('click', () => {
+    holdWord(RACKS[currentIndex]);
+  });
+
+  // Override — forces the current word to be the one scored for this
+  // rack, regardless of what's held or what scores higher. Also holds
+  // it (if not already held) so it has a score to report.
+  async function applyOverride(rack) {
+    const word = currentWordForRack(rack);
+    if (word.length < MIN_WORD_LEN) return;
+    if (rack.guessSlots.some((e) => e && e.letter === '?')) return;
+
+    document.getElementById('override-btn').disabled = true;
+    const myRequestId = ++rack.requestId;
+    const result = await evaluateRackAsync(rack, currentIndex);
+    if (rack.requestId !== myRequestId) return;
+
+    renderWordStatus(result);
+    fireSaveFeedback(result);
+
+    if (result.valid) {
+      const existing = rack.heldWords.find((h) => h.word === result.word);
+      if (existing) existing.score = result.score;
+      else rack.heldWords.push({ word: result.word, score: result.score });
+      rack.overrideWord = result.word;
+    }
+
+    renderHeaderScore();
+    renderRackSummary();
+    document.getElementById('override-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
+  }
+
+  document.getElementById('override-btn').addEventListener('click', () => {
+    applyOverride(RACKS[currentIndex]);
   });
 
   // Sends every placed tile back to the tray in one shot, so a dead-end
@@ -1381,7 +1458,7 @@
   const EDITABLE_IDS = [
     'brand-title', 'username-label', 'timer-stat', 'score-stat',
     'mute-btn', 'feedback-btn', 'logout-btn',
-    'tray-tiles', 'guess-tiles', 'save-btn', 'erase-btn',
+    'tray-tiles', 'guess-tiles', 'hold-btn', 'override-btn', 'erase-btn',
     'word-status', 'rack-indicator', 'nav-next', 'new-game-btn',
     'rack-summary-panel',
   ];
