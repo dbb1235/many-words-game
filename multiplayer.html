@@ -262,6 +262,41 @@
   .word-status .word-text { font-size: 23px; font-weight: 800; letter-spacing: 0.02em; }
   .word-status .score-num { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
+  /* Every word Held for the active rack, all visible together — click
+     one to make it this rack's chosen word (same effect as rebuilding
+     it and clicking Override). The chosen word (auto-highest, or an
+     explicit choice) is picked out with a green border/fill so it's
+     obvious which candidate currently counts. */
+  .candidates-panel {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .candidate-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 2px solid #d8d2c2;
+    background: #f4f1ea;
+    color: var(--dark);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+  }
+  .candidate-chip:hover { filter: brightness(0.97); }
+  .candidate-chip .candidate-score { font-variant-numeric: tabular-nums; opacity: 0.7; }
+  .candidate-chip.active {
+    border-color: var(--good-green);
+    background: var(--good-green-soft);
+    color: var(--good-green);
+  }
+
   /* Single control for moving through the six racks — no prev, no dots,
      just Next, wrapping 6 back to 1. */
   .rack-nav {
@@ -811,6 +846,8 @@
       <span class="word-text" id="word-text"></span>
       <span class="score-num" id="verdict-score"></span>
     </div>
+
+    <div class="candidates-panel" id="candidates-panel"></div>
 
     <div class="rack-nav">
       <span class="rack-indicator-group">
@@ -1767,20 +1804,25 @@
     return word;
   }
 
-  async function evaluateRackAsync(rack, scrambleIndex, force) {
+  // The server payload for whatever's currently placed in the guess
+  // row — captured separately from evaluateRackAsync so a held
+  // candidate's cells can be stashed and resubmitted later (see
+  // chooseCandidate), without needing the tiles rebuilt on the tray.
+  function cellsForRack(rack) {
     const filled = [];
     for (let slot = 0; slot < rack.guessSlots.length; slot++) {
       const entry = rack.guessSlots[slot];
       if (!entry) break;
       filled.push({ entry, slot });
     }
-
-    const cells = filled.map(({ entry, slot }) => ({
+    return filled.map(({ entry, slot }) => ({
       position: slot,
       letter: entry.letter,
       isWildcard: rack.tiles[entry.trayIndex].letter === '?',
     }));
+  }
 
+  async function submitCells(cells, scrambleIndex, force) {
     const res = await fetch(`/api/round/${currentRoundId}/guess`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1794,12 +1836,18 @@
     if (res.status === 400) {
       // Most likely "round has ended" — resync to confirm and lock the board.
       resyncRound();
-      return { word: currentWordForRack(rack), valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+      return { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
     }
     if (!res.ok) {
-      return { word: currentWordForRack(rack), valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+      return { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
     }
     return res.json();
+  }
+
+  async function evaluateRackAsync(rack, scrambleIndex, force) {
+    const result = await submitCells(cellsForRack(rack), scrambleIndex, force);
+    if (!result.word) result.word = currentWordForRack(rack);
+    return result;
   }
 
   // ---------- Feedback firing ----------
@@ -2163,6 +2211,7 @@
 
     renderTray(rack);
     renderGuess(rack);
+    renderCandidates(rack);
 
     document.getElementById('rack-indicator').textContent = `Rack ${currentIndex + 1} of ${RACKS.length}`;
     document.getElementById('erase-btn').disabled = roundEnded || rack.guessSlots.every((e) => e === null);
@@ -2195,6 +2244,47 @@
     });
   }
 
+  // Every word Held for the active rack, shown together so the player
+  // can compare them instead of only seeing whatever's currently on
+  // the tray. The chip for whichever word computeRackResult would
+  // currently pick (auto-highest, or an explicit override) is
+  // highlighted; clicking any other chip chooses it directly — the
+  // same effect as rebuilding that word and clicking Override, without
+  // needing to actually rebuild it.
+  function renderCandidates(rack) {
+    const panel = document.getElementById('candidates-panel');
+    if (rack.heldWords.length === 0) {
+      panel.innerHTML = '';
+      return;
+    }
+    const result = computeRackResult(rack);
+    panel.innerHTML = rack.heldWords.map((h) => `
+      <button type="button" class="candidate-chip${h.word === result.word ? ' active' : ''}" data-word="${h.word}">
+        ${h.word}<span class="candidate-score">${h.score} pts</span>
+      </button>`).join('');
+    Array.from(panel.children).forEach((chip) => {
+      chip.addEventListener('click', () => chooseCandidate(rack, chip.dataset.word));
+    });
+  }
+
+  // Picking a candidate straight from the list. Unlike single-player,
+  // multiplayer's score is server-authoritative and best-score-only, so
+  // choosing a candidate that isn't already the leaderboard's best word
+  // has to resubmit its stashed cells with force:true (see the `force`
+  // param on POST /api/round/:id/guess) — otherwise the shared
+  // leaderboard would keep showing the old higher score even though the
+  // local UI picked something else.
+  async function chooseCandidate(rack, word) {
+    if (roundEnded) return;
+    const held = rack.heldWords.find((h) => h.word === word);
+    if (!held) return;
+    rack.overrideWord = word;
+    renderRackSummary();
+    renderCandidates(rack);
+    await submitCells(held.cells, currentIndex, true);
+    refreshLeaderboard();
+  }
+
   // Hold — remembers the current word as a candidate for this rack
   // without necessarily becoming the one that's scored. Whichever held
   // candidate has the highest score is what counts (see
@@ -2209,6 +2299,7 @@
     if (rack.guessSlots.some((e) => e && e.letter === '?')) return; // unresolved wildcard — shouldn't happen, but don't submit a blank
 
     document.getElementById('hold-btn').disabled = true;
+    const cells = cellsForRack(rack);
     const myRequestId = ++rack.requestId;
     const result = await evaluateRackAsync(rack, currentIndex);
     if (rack.requestId !== myRequestId) return; // superseded by a newer change
@@ -2217,14 +2308,15 @@
 
     if (result.valid) {
       const existing = rack.heldWords.find((h) => h.word === result.word);
-      if (existing) existing.score = result.score;
-      else rack.heldWords.push({ word: result.word, score: result.score });
+      if (existing) { existing.score = result.score; existing.cells = cells; }
+      else rack.heldWords.push({ word: result.word, score: result.score, cells });
 
       renderRackSummary();
       refreshLeaderboard();
 
       // Clear the guess row so the tiles return to the tray and the
       // next candidate can be built fresh, without a manual Erase.
+      // renderActive() also re-renders the candidates panel.
       rack.guessSlots = rack.guessSlots.map(() => null);
       renderActive();
     } else {
@@ -2250,6 +2342,7 @@
     if (rack.guessSlots.some((e) => e && e.letter === '?')) return;
 
     document.getElementById('override-btn').disabled = true;
+    const cells = cellsForRack(rack);
     const myRequestId = ++rack.requestId;
     const result = await evaluateRackAsync(rack, currentIndex, true);
     if (rack.requestId !== myRequestId) return;
@@ -2259,12 +2352,13 @@
 
     if (result.valid) {
       const existing = rack.heldWords.find((h) => h.word === result.word);
-      if (existing) existing.score = result.score;
-      else rack.heldWords.push({ word: result.word, score: result.score });
+      if (existing) { existing.score = result.score; existing.cells = cells; }
+      else rack.heldWords.push({ word: result.word, score: result.score, cells });
       rack.overrideWord = result.word;
     }
 
     renderRackSummary();
+    renderCandidates(rack);
     if (result.valid) refreshLeaderboard();
     document.getElementById('override-btn').disabled = roundEnded || currentWordForRack(rack).length < MIN_WORD_LEN;
   }
