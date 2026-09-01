@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const db = require('./db');
 
 const SECRET_FILE = path.join(__dirname, '.jwt-secret');
 const COOKIE_NAME = 'gerbil_token';
@@ -64,10 +65,19 @@ function clearAuthCookie(res) {
 
 // Rejects the request if there's no valid token. Use on any route that
 // needs to know who the player is.
+//
+// A token can be cryptographically valid but stale — the user row it
+// points at may have been deleted (manual DB cleanup, a future
+// account-deletion feature) while the JWT's 30-day expiry hasn't caught
+// up yet. Without this check that stale id flows straight into
+// FK-constrained writes (e.g. addPlayerToLobby) and crashes with an
+// uncaught SqliteError instead of a clean re-login prompt.
 function requireAuth(req, res, next) {
   const token = req.cookies?.[COOKIE_NAME];
   const payload = token && verifyToken(token);
-  if (!payload) return res.status(401).json({ error: 'Not logged in' });
+  if (!payload || !db.findUserById(payload.sub)) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
   req.user = { id: payload.sub, username: payload.username };
   next();
 }
