@@ -415,34 +415,6 @@
     margin-bottom: 10px;
   }
 
-  /* ---------- Rack summary (all 6 words + running total) ---------- */
-
-  .rack-summary-list { display: flex; flex-direction: column; gap: 6px; }
-
-  .rack-summary-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background: #f4f1ea;
-  }
-  .rack-summary-num { font-size: 13px; font-weight: 800; color: var(--tan); width: 16px; flex-shrink: 0; }
-  .rack-summary-word { flex: 1; font-size: 16px; font-weight: 700; color: var(--dark); letter-spacing: 0.02em; min-height: 1.2em; }
-  .rack-summary-score { font-size: 14px; font-weight: 700; color: var(--dark); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-
-  .rack-summary-total {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid #ece7db;
-    font-size: 16px;
-    font-weight: 800;
-    color: var(--dark);
-  }
-
   .mp-avatar {
     width: 26px;
     height: 26px;
@@ -875,14 +847,6 @@
 </div>
 
 <div class="mp-panel" id="mp-panel">
-  <div class="mp-section">
-    <div class="mp-section-title">Your words</div>
-    <div class="rack-summary-list" id="rack-summary-list"></div>
-    <div class="rack-summary-total">
-      <span>Total</span>
-      <span id="rack-summary-total-score">0 pts</span>
-    </div>
-  </div>
   <div class="mp-section">
     <div class="mp-section-title">Overall standings</div>
     <div class="winner-callout" id="winner-callout" style="display:none;"></div>
@@ -1654,7 +1618,6 @@
     currentIndex = 0;
     showScreen(gameScreen);
     renderActive();
-    renderRackSummary();
     startTimer();
     await refreshLeaderboard();
 
@@ -2055,8 +2018,8 @@
   // Runs continuously as tiles are placed — you always know whether
   // the word you've built is valid and what it's worth before deciding
   // to hold or override it. What it never does on its own is make a
-  // sound or update the local rack-summary display — that's only ever
-  // holdWord's/applyOverride's job.
+  // sound or update the leaderboard — that's only ever holdWord's/
+  // applyOverride's job.
   function renderWordStatus(evalResult) {
     const { word, valid, belowMinimum, rawScore, score, checking } = evalResult;
     const statusEl = document.getElementById('word-status');
@@ -2170,28 +2133,6 @@
     }
   }
 
-  // One row per rack showing its computed result (see computeRackResult:
-  // blank + 0 pts if nothing's been held yet), plus the sum across all
-  // 6 — a running record of the round distinct from the single
-  // active-rack view above.
-  function renderRackSummary() {
-    const listEl = document.getElementById('rack-summary-list');
-    let total = 0;
-    listEl.innerHTML = RACKS.map((r, i) => {
-      const result = computeRackResult(r);
-      const word = result.valid ? result.word : '';
-      const score = result.valid ? result.score : 0;
-      total += score;
-      return `
-        <div class="rack-summary-row">
-          <span class="rack-summary-num">${i + 1}</span>
-          <span class="rack-summary-word">${word}</span>
-          <span class="rack-summary-score">${score} pts</span>
-        </div>`;
-    }).join('');
-    document.getElementById('rack-summary-total-score').textContent = total + ' pts';
-  }
-
   function renderMultiplayerPanel() {
     renderWinnerCallout(latestLeaderboard.winner);
 
@@ -2292,7 +2233,6 @@
     const held = rack.heldWords.find((h) => h.word === word);
     if (!held) return;
     rack.overrideWord = word;
-    renderRackSummary();
     renderCandidates(rack);
     await submitCells(held.cells, currentIndex, true);
     refreshLeaderboard();
@@ -2324,7 +2264,6 @@
       if (existing) { existing.score = result.score; existing.cells = cells; }
       else rack.heldWords.push({ word: result.word, score: result.score, cells });
 
-      renderRackSummary();
       refreshLeaderboard();
 
       // Clear the guess row so the tiles return to the tray and the
@@ -2334,7 +2273,6 @@
       renderActive();
     } else {
       renderWordStatus(result);
-      renderRackSummary();
       document.getElementById('hold-btn').disabled = roundEnded || currentWordForRack(rack).length < MIN_WORD_LEN;
     }
   }
@@ -2370,7 +2308,6 @@
       rack.overrideWord = result.word;
     }
 
-    renderRackSummary();
     renderCandidates(rack);
     if (result.valid) refreshLeaderboard();
     document.getElementById('override-btn').disabled = roundEnded || currentWordForRack(rack).length < MIN_WORD_LEN;

@@ -425,55 +425,6 @@
   }
   .modal-title { font-size: 16px; font-weight: 800; color: var(--dark); margin-bottom: 16px; }
 
-  /* ---------- Rack summary (all 6 words + running total) ---------- */
-
-  .rack-summary-panel {
-    width: 100%;
-    max-width: 1180px;
-    background: var(--card);
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.35);
-    margin: 14px auto 0;
-    padding: 20px 22px 24px;
-    display: none;
-  }
-  .rack-summary-panel.show { display: block; }
-
-  .rack-summary-title {
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--dark);
-    margin-bottom: 10px;
-  }
-
-  .rack-summary-list { display: flex; flex-direction: column; gap: 6px; }
-
-  .rack-summary-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background: #f4f1ea;
-  }
-  .rack-summary-num { font-size: 13px; font-weight: 800; color: var(--tan); width: 16px; flex-shrink: 0; }
-  .rack-summary-word { flex: 1; font-size: 16px; font-weight: 700; color: var(--dark); letter-spacing: 0.02em; min-height: 1.2em; }
-  .rack-summary-score { font-size: 14px; font-weight: 700; color: var(--dark); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-
-  .rack-summary-total {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid #ece7db;
-    font-size: 16px;
-    font-weight: 800;
-    color: var(--dark);
-  }
-
   .loading-note {
     text-align: center;
     padding: 40px 22px;
@@ -652,14 +603,6 @@
     <button class="restart-link" id="new-game-btn">↺ New Game</button>
   </div>
 
-  <div class="rack-summary-panel" id="rack-summary-panel">
-    <div class="rack-summary-title">Your words</div>
-    <div class="rack-summary-list" id="rack-summary-list"></div>
-    <div class="rack-summary-total">
-      <span>Total</span>
-      <span id="rack-summary-total-score">0 pts</span>
-    </div>
-  </div>
   <div class="edit-capture-layer" id="edit-capture-layer"></div>
 </div>
 
@@ -725,7 +668,6 @@
     authScreen.style.display = el === authScreen ? 'block' : 'none';
     gameScreen.style.display = el === gameScreen ? 'block' : 'none';
     loadingScreen.style.display = el === loadingScreen ? 'block' : 'none';
-    document.getElementById('rack-summary-panel').classList.toggle('show', el === gameScreen);
   }
 
   authForm.addEventListener('submit', async (e) => {
@@ -898,30 +840,7 @@
     currentIndex = 0;
     document.getElementById('nav-next').disabled = false;
     renderActive();
-    renderRackSummary();
     startTimer();
-  }
-
-  // One row per rack showing its computed result (see computeRackResult:
-  // blank + 0 pts if nothing's been held yet), plus the sum across all
-  // 6 — a running record of the round distinct from the single
-  // active-rack view above.
-  function renderRackSummary() {
-    const listEl = document.getElementById('rack-summary-list');
-    let total = 0;
-    listEl.innerHTML = RACKS.map((r, i) => {
-      const result = computeRackResult(r);
-      const word = result.valid ? result.word : '';
-      const score = result.valid ? result.score : 0;
-      total += score;
-      return `
-        <div class="rack-summary-row">
-          <span class="rack-summary-num">${i + 1}</span>
-          <span class="rack-summary-word">${word}</span>
-          <span class="rack-summary-score">${score} pts</span>
-        </div>`;
-    }).join('');
-    document.getElementById('rack-summary-total-score').textContent = total + ' pts';
   }
 
   // Each rack mirrors what the server dealt: tiles [{letter, points}]
@@ -1399,7 +1318,6 @@
     if (!rack.heldWords.some((h) => h.word === word)) return;
     rack.overrideWord = word;
     renderHeaderScore();
-    renderRackSummary();
     renderCandidates(rack);
   }
 
@@ -1429,7 +1347,6 @@
       else rack.heldWords.push({ word: result.word, score: result.score });
 
       renderHeaderScore();
-      renderRackSummary();
 
       // Clear the guess row so the tiles return to the tray and the
       // next candidate can be built fresh, without a manual Erase.
@@ -1439,7 +1356,6 @@
     } else {
       renderWordStatus(result);
       renderHeaderScore();
-      renderRackSummary();
       document.getElementById('hold-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
     }
   }
@@ -1472,7 +1388,6 @@
     }
 
     renderHeaderScore();
-    renderRackSummary();
     renderCandidates(rack);
     document.getElementById('override-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
   }
@@ -1566,7 +1481,6 @@
     'mute-btn', 'feedback-btn', 'logout-btn',
     'tray-tiles', 'guess-tiles', 'hold-btn', 'override-btn', 'erase-btn',
     'word-status', 'candidates-panel', 'rack-indicator', 'nav-next', 'new-game-btn',
-    'rack-summary-panel',
   ];
 
   let layout = {};    // id -> { x, y, w, h, groupId? }
