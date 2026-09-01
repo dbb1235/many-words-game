@@ -814,10 +814,11 @@
   // bottomBonuses, a same-length array of null | '2L' | '3L' | '2W'
   // keyed by guess-slot position, not by which tile ends up sitting
   // there. `rows` holds up to CANDIDATE_ROWS candidate words being
-  // built at once from the same tray — but it's one shared rack of 10
-  // physical tiles, not four independent copies, so a tile placed in
-  // one row is unavailable to the others until it's freed again (see
-  // isTrayIndexPlaced).
+  // built at once from the same tray, and tiles are shared across them
+  // — placing a tile in one row doesn't remove it from another, so e.g.
+  // WATER can sit in one row and WATERY in another at the same time,
+  // reusing the same W/A/T/E/R. A tile can only occupy one slot *within
+  // a single row* though (see isTrayIndexPlacedInRow).
   function makeRack(scramble) {
     return {
       tiles: scramble.tiles,
@@ -1008,24 +1009,29 @@
     catch { return null; }
   }
 
-  // A tray tile is "in the rack" (available to drag) exactly when no
-  // row's guess slot currently holds it — checked across all rows, not
-  // just one, since a tile is shared rack-wide rather than per-row.
-  function isTrayIndexPlaced(rack, trayIndex) {
-    return rack.rows.some((row) => row.guessSlots.some((e) => e && e.trayIndex === trayIndex));
+  // A tray tile is "in this row" exactly when this row's own guess
+  // slots hold it — checked per row, not rack-wide, so the same tile
+  // can be used in multiple candidate rows at once (e.g. WATER in one
+  // row and WATERY in another, sharing the W/A/T/E/R). The only thing
+  // it can't do is occupy two slots within the *same* row.
+  function isTrayIndexPlacedInRow(row, trayIndex) {
+    return row.guessSlots.some((e) => e && e.trayIndex === trayIndex);
   }
 
   // For typing: finds a tray tile to use for a typed letter, same as
-  // reaching for it by hand would — an unplaced real tile of that exact
-  // letter first, falling back to an unplaced wildcard (auto-resolved to
-  // that letter, same end state as dragging a wildcard then picking a
-  // letter). Returns -1 if neither is available.
-  function findAvailableTrayIndexForLetter(rack, letter) {
+  // reaching for it by hand would — a real tile of that exact letter not
+  // already used *in this row* first, falling back to a wildcard not
+  // already used in this row (auto-resolved to that letter, same end
+  // state as dragging a wildcard then picking a letter). Availability is
+  // per-row (see isTrayIndexPlacedInRow), so a letter already used in a
+  // different row is still fair game here. Returns -1 if neither is
+  // available.
+  function findAvailableTrayIndexForLetter(rack, row, letter) {
     for (let i = 0; i < rack.tiles.length; i++) {
-      if (rack.tiles[i].letter === letter && !isTrayIndexPlaced(rack, i)) return i;
+      if (rack.tiles[i].letter === letter && !isTrayIndexPlacedInRow(row, i)) return i;
     }
     for (let i = 0; i < rack.tiles.length; i++) {
-      if (rack.tiles[i].letter === '?' && !isTrayIndexPlaced(rack, i)) return i;
+      if (rack.tiles[i].letter === '?' && !isTrayIndexPlacedInRow(row, i)) return i;
     }
     return -1;
   }
@@ -1041,15 +1047,16 @@
     }
   }
 
+  // The tray never dims a tile as "used" — every one of the 10 tiles is
+  // always available to every row, since a row's own contents are the
+  // only thing that limit it (see isTrayIndexPlacedInRow).
   function renderTray(rack) {
     const el = document.getElementById('tray-tiles');
-    el.innerHTML = rack.tiles.map((t, i) => {
-      const placed = isTrayIndexPlaced(rack, i);
-      return `<div class="tile${placed ? ' used' : ' draggable'}" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
-    }).join('');
+    el.innerHTML = rack.tiles.map((t, i) =>
+      `<div class="tile draggable" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`
+    ).join('');
 
     Array.from(el.children).forEach((tileEl, i) => {
-      if (isTrayIndexPlaced(rack, i)) return;
       const t = rack.tiles[i];
       tileEl.draggable = true;
       tileEl.addEventListener('dragstart', (e) => {
@@ -1143,13 +1150,14 @@
   // occupied that slot is displaced back to the tray (not swapped into
   // the drag source). Two rules keep every row a clean, contiguous
   // in-progress word:
-  //  - A tile can only sit in one slot rack-wide (see
-  //    isTrayIndexPlaced) — this scans every row itself (rather than
-  //    trusting payload.fromRow/fromSlot) and clears every other
-  //    occurrence of this trayIndex it finds, re-evaluating any other
-  //    row that loses one and closing the gap it leaves — so the
-  //    invariant holds even if a caller ever passes a stale or
-  //    inaccurate origin.
+  //  - A tile can only sit in one slot *within this row* (see
+  //    isTrayIndexPlacedInRow) — clears any other occurrence of this
+  //    trayIndex found in THIS row's own slots. A drag from a
+  //    *different* row is a deliberate move and vacates that other
+  //    row's slot too (closing the gap it leaves); a drag from the tray
+  //    never touches any other row, since tiles are shared across rows
+  //    by design (see makeRack) — that's what lets WATER sit in one row
+  //    and WATERY in another at the same time.
   //  - A drop past the first open slot would leave a gap — and
   //    everything after a gap is silently dropped from the word by
   //    currentWordForRow anyway — so it's rejected outright rather
@@ -1171,18 +1179,21 @@
 
     row.guessSlots[targetSlot] = { trayIndex: payload.trayIndex, letter: payload.letter };
 
-    const otherRows = new Set();
-    rack.rows.forEach((r, i) => {
-      r.guessSlots.forEach((entry, slot) => {
-        if ((i === rowIndex && slot === targetSlot) || !entry || entry.trayIndex !== payload.trayIndex) return;
-        r.guessSlots[slot] = null;
-        if (i !== rowIndex) otherRows.add(i);
-      });
+    row.guessSlots.forEach((entry, slot) => {
+      if (slot !== targetSlot && entry && entry.trayIndex === payload.trayIndex) {
+        row.guessSlots[slot] = null;
+      }
     });
-    otherRows.forEach((i) => closeGaps(rack.rows[i]));
+
+    let otherRowIndex = null;
+    if (payload.fromRow !== null && payload.fromRow !== rowIndex && payload.fromSlot !== null) {
+      otherRowIndex = payload.fromRow;
+      rack.rows[otherRowIndex].guessSlots[payload.fromSlot] = null;
+      closeGaps(rack.rows[otherRowIndex]);
+    }
 
     handleRowChanged(rack, rowIndex);
-    otherRows.forEach((i) => handleRowChanged(rack, i));
+    if (otherRowIndex !== null) handleRowChanged(rack, otherRowIndex);
 
     if (needsWildcardPicker) {
       const tileEl = document.querySelector(`#guess-tiles-${rowIndex} .tile[data-slot="${targetSlot}"]`);
@@ -1190,16 +1201,13 @@
     }
   }
 
-  // Re-evaluates one row after it changes: re-renders its tiles and the
-  // tray right away (a tile placed or freed here changes what's
-  // available rack-wide, see isTrayIndexPlaced), then checks the word
-  // with the server (live preview, same as before — no sound or scoring
-  // yet) and, once that resolves, updates every row's
-  // total/button/highlight, since a change in one row can shift which
-  // row is currently the rack's effective winner.
+  // Re-evaluates one row after it changes: re-renders its tiles right
+  // away, then checks the word with the server (live preview, same as
+  // before — no sound or scoring yet) and, once that resolves, updates
+  // every row's total/button/highlight, since a change in one row can
+  // shift which row is currently the rack's effective winner.
   async function handleRowChanged(rack, rowIndex) {
     renderRowTiles(rack, rowIndex);
-    renderTray(rack);
 
     const row = rack.rows[rowIndex];
     const word = currentWordForRow(row);
@@ -1395,8 +1403,8 @@
     if (targetSlot === -1) return; // row already full
 
     const letter = e.key.toUpperCase();
-    const trayIndex = findAvailableTrayIndexForLetter(rack, letter);
-    if (trayIndex === -1) return; // don't have that letter, or a spare wildcard, available
+    const trayIndex = findAvailableTrayIndexForLetter(rack, row, letter);
+    if (trayIndex === -1) return; // don't have that letter, or a spare wildcard, available in this row
 
     placeTileInRow(rack, rowIndex, targetSlot, { trayIndex, letter, fromRow: null, fromSlot: null });
   }
