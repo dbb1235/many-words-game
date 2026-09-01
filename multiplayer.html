@@ -1886,10 +1886,14 @@
     });
   }
 
-  // Drops `payload` into row.guessSlots[targetSlot]. Only vacates the
-  // drag's origin slot when it came from *this same row* — a drag from
-  // the tray or from another row always just adds a fresh placement
-  // here (tiles are shared across rows, see makeRack).
+  // Drops `payload` into row.guessSlots[targetSlot]. Tiles are shared
+  // *across* rows (see makeRack), but the same physical tile can still
+  // only occupy one slot *within* a given row — a tray tile is always
+  // draggable regardless of where else it's used, so this vacates any
+  // other slot in THIS row that already holds the same trayIndex,
+  // whether the drag came from that slot, from elsewhere in this row,
+  // or fresh from the tray while already placed here from an earlier
+  // drag.
   function placeTileInRow(rack, rowIndex, targetSlot, payload) {
     if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return;
 
@@ -1898,9 +1902,11 @@
 
     row.guessSlots[targetSlot] = { trayIndex: payload.trayIndex, letter: payload.letter };
 
-    if (payload.fromRow === rowIndex && payload.fromSlot !== null) {
-      row.guessSlots[payload.fromSlot] = null;
-    }
+    row.guessSlots.forEach((entry, slot) => {
+      if (slot !== targetSlot && entry && entry.trayIndex === payload.trayIndex) {
+        row.guessSlots[slot] = null;
+      }
+    });
 
     handleRowChanged(rack, rowIndex);
 
