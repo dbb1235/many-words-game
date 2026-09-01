@@ -13,8 +13,8 @@
     --card: #4caf50;
     --good-green: #2f8f4e;
     --good-green-soft: #e3f5e9;
-    --bonus2-bg: #8fd48f;
-    --bonus2-border: #5fae5f;
+    --bonus2-bg: #ef8878;
+    --bonus2-border: #cf4a35;
     --bonus3-bg: #8ec3f0;
     --bonus3-border: #5f9bd8;
   }
@@ -180,12 +180,20 @@
   .tile-row.guess .tile.dragging { opacity: 0.35; }
   .tile-row.guess .tile.wildcard-placed { cursor: pointer; }
 
-  /* Bonus cells are colored (no text — the color IS the label), and a
-     tile keeps that color for as long as it sits there — the tile
-     itself reads as "boosted," not just its point number. Move the
-     tile off this slot and both the color and the ×2/×3 go away. */
+  /* Bonus cells are colored, and an empty one also spells out "2L"/"3L"
+     so its effect is obvious before anything's placed there. A tile
+     keeps the color for as long as it sits there — the tile itself
+     reads as "boosted," not just its point number. Move the tile off
+     this slot and the color, label, and ×2/×3 all go away together. */
   .tile-row.guess .tile.bonus2 { background: var(--bonus2-bg) !important; border-color: var(--bonus2-border); }
   .tile-row.guess .tile.bonus3 { background: var(--bonus3-bg) !important; border-color: var(--bonus3-border); }
+  .tile-row.guess .tile.empty .bonus-label {
+    font-size: clamp(14px, 3vw, 26px);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--dark);
+    opacity: 0.75;
+  }
 
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
@@ -1919,7 +1927,8 @@
       const bonus = rack.bottomBonuses[slot];
       const bonusClass = bonus === '2L' ? ' bonus2' : bonus === '3L' ? ' bonus3' : '';
       if (!entry) {
-        return `<div class="tile empty${bonusClass}" data-slot="${slot}"></div>`;
+        const label = bonus === '2L' ? '2L' : bonus === '3L' ? '3L' : '';
+        return `<div class="tile empty${bonusClass}" data-slot="${slot}">${label ? `<span class="bonus-label">${label}</span>` : ''}</div>`;
       }
       const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
       const pts = rack.tiles[entry.trayIndex].points * bonusMultiplier(rack, slot);

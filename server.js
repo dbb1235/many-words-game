@@ -32,19 +32,18 @@ const RACK_SIZE = 10;
 const NUM_SCRAMBLES = 6;
 const MIN_WORD_LEN = 3;
 const MAX_DUPLICATE_LETTERS = 2;
-// 10% of a rack's slots are double-letter; of the slots that leaves,
-// 10% are triple-letter (9% absolute, since it's 10% of the remaining
-// 90%) — see MULTIPLAYER_PLAN.md §3a "Competitive scoring rules" (was
-// 8%/4%, resolved to 10%/10%-of-remainder). rollBottomBonuses only
+// 20% of a rack's slots are double-letter; of the slots that leaves,
+// 15% are triple-letter (12% absolute, since it's 15% of the remaining
+// 80%) — 32% of slots carry some bonus overall. rollBottomBonuses only
 // evaluates the 3L check once the 2L check has already failed, so this
-// constant is itself the "of remainder" conditional rate (0.10), not
-// the resulting 9% absolute figure — the 90%-remainder math falls out
+// constant is itself the "of remainder" conditional rate (0.15), not
+// the resulting 12% absolute figure — the 80%-remainder math falls out
 // of that structure automatically.
-const DOUBLE_LETTER_CHANCE = 0.10;
-const TRIPLE_LETTER_CHANCE = 0.10;
+const DOUBLE_LETTER_CHANCE = 0.20;
+const TRIPLE_LETTER_CHANCE = 0.15;
 const LONG_WORD_MIN_LEN = 8;
 const LONG_WORD_BONUS = 10;
-const WILDCARDS_PER_SCRAMBLE = 2;
+const WILDCARDS_PER_SCRAMBLE = 1;
 // A word must clear this many points to count at all, even if it's a
 // real dictionary word — see MULTIPLAYER_PLAN.md §3a. Matches the
 // front-end mockup's previous client-only floor.
