@@ -176,7 +176,14 @@
     padding: 6px;
     border-radius: 12px;
   }
-  .candidate-row .tile-row.guess { flex: 1 1 auto; margin-bottom: 0; min-width: 0; }
+  .candidate-row .tile-row { flex: 1 1 auto; margin-bottom: 0; min-width: 0; }
+
+  /* The tray reuses .candidate-row's exact flex layout (same gap, same
+     padding) with a hidden total + button "ghost" filling the same
+     space theirs would — so the tray's tiles size and left-align to
+     match the four rows below it, instead of stretching the full
+     card width. */
+  .ghost { visibility: hidden; pointer-events: none; }
 
   /* The row currently in effect — whichever word is actually going to
      be scored for this rack, whether picked automatically (highest
@@ -185,8 +192,7 @@
   .candidate-row.is-effective { background: var(--good-green-soft); }
 
   .candidate-total {
-    flex-shrink: 0;
-    min-width: 70px;
+    flex: 0 0 70px;
     text-align: right;
     font-size: clamp(15px, 2.6vw, 22px);
     font-weight: 800;
@@ -518,7 +524,11 @@
   </div>
 
   <div class="active-card" id="active-card">
-    <div class="tile-row tray" id="tray-tiles"></div>
+    <div class="candidate-row tray-row">
+      <div class="tile-row tray" id="tray-tiles"></div>
+      <div class="candidate-total ghost" aria-hidden="true">0 pts</div>
+      <button type="button" class="use-btn ghost" aria-hidden="true" tabindex="-1">Use</button>
+    </div>
 
     <div class="candidate-row" id="candidate-row-0">
       <div class="tile-row guess" id="guess-tiles-0"></div>
