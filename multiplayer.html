@@ -1922,6 +1922,15 @@
   // viewport width. Reels are staggered slightly and finish in
   // sequence, like an actual one-armed bandit, landing around 2.5-3.2s.
   const REEL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  // Decorative only — matches server.js's LETTER_DATA point values so a
+  // random letter mid-spin shows the same number it would for real,
+  // rather than sitting blank until the reel lands. Never used for
+  // scoring; the server remains the sole scoring authority.
+  const REEL_LETTER_POINTS = {
+    A: 1, B: 3, C: 2, D: 2, E: 1, F: 5, G: 3, H: 3, I: 1, J: 10, K: 5, L: 2,
+    M: 3, N: 1, O: 1, P: 2, Q: 10, R: 1, S: 1, T: 1, U: 2, V: 5, W: 5, X: 7,
+    Y: 3, Z: 7,
+  };
   const REEL_LENGTH = 18;
   const SPIN_BASE_MS = 2500;
   const SPIN_STAGGER_MS = 80;
@@ -1931,9 +1940,10 @@
 
     const el = document.getElementById('tray-tiles');
     el.innerHTML = rack.tiles.map((t, i) => {
-      const randomCells = Array.from({ length: REEL_LENGTH - 1 }, () =>
-        `<div class="reel-cell">${REEL_LETTERS[Math.floor(Math.random() * REEL_LETTERS.length)]}</div>`
-      ).join('');
+      const randomCells = Array.from({ length: REEL_LENGTH - 1 }, () => {
+        const letter = REEL_LETTERS[Math.floor(Math.random() * REEL_LETTERS.length)];
+        return `<div class="reel-cell">${letter}<span class="pts">${REEL_LETTER_POINTS[letter]}</span></div>`;
+      }).join('');
       return `<div class="tile spinning" data-i="${i}"><div class="reel">${randomCells}<div class="reel-cell">${t.letter}<span class="pts">${t.points}</span></div></div></div>`;
     }).join('');
 
