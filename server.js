@@ -29,7 +29,7 @@ const LETTER_DATA = {
 };
 
 const RACK_SIZE = 10;
-const NUM_SCRAMBLES = 6;
+const NUM_SCRAMBLES = 3;
 const MIN_WORD_LEN = 3;
 const MAX_DUPLICATE_LETTERS = 2;
 const LONG_WORD_MIN_LEN = 8;
