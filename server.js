@@ -670,7 +670,7 @@ app.post('/api/round/:id/guess', auth.requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Round has ended' });
   }
 
-  const { scrambleIndex, cells } = req.body || {};
+  const { scrambleIndex, cells, force } = req.body || {};
   const scrambles = regenerateRacks(round.seed);
   const scramble = scrambles[scrambleIndex];
   if (!scramble) return res.status(400).json({ error: 'Invalid scrambleIndex' });
@@ -678,7 +678,12 @@ app.post('/api/round/:id/guess', auth.requireAuth, (req, res) => {
 
   const result = scoreGuess(scramble, cells);
   if (result.valid) {
-    db.upsertBestScore(round.id, req.user.id, scrambleIndex, result.word, result.score);
+    // `force` is the Override button — a player deliberately choosing to
+    // score a lower word than one already on record for this rack.
+    // Everywhere else (Hold, and single-player), the normal "only if
+    // higher" rule applies.
+    if (force) db.forceSetBestScore(round.id, req.user.id, scrambleIndex, result.word, result.score);
+    else db.upsertBestScore(round.id, req.user.id, scrambleIndex, result.word, result.score);
   }
   res.json(result);
 });

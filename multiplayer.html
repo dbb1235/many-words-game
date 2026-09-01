@@ -192,7 +192,7 @@
 
   .guess-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
 
-  .save-btn {
+  .hold-btn {
     border: none;
     background: #ffd23f;
     color: var(--dark);
@@ -203,8 +203,22 @@
     padding: 9px 20px;
     cursor: pointer;
   }
-  .save-btn:hover:not(:disabled) { filter: brightness(1.05); }
-  .save-btn:disabled { opacity: 0.4; cursor: default; }
+  .hold-btn:hover:not(:disabled) { filter: brightness(1.05); }
+  .hold-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .override-btn {
+    border: 1.5px solid #b45f06;
+    background: #ffb84d;
+    color: var(--dark);
+    font-size: 21px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-radius: 12px;
+    padding: 9px 20px;
+    cursor: pointer;
+  }
+  .override-btn:hover:not(:disabled) { filter: brightness(1.05); }
+  .override-btn:disabled { opacity: 0.4; cursor: default; }
 
   .erase-btn {
     border: 1.5px solid #e0b400;
@@ -788,7 +802,8 @@
     <div class="tile-row guess" id="guess-tiles"></div>
 
     <div class="guess-toolbar">
-      <button class="save-btn" id="save-btn" disabled>Save</button>
+      <button class="hold-btn" id="hold-btn" disabled>Hold</button>
+      <button class="override-btn" id="override-btn" disabled>Override</button>
       <button class="erase-btn" id="erase-btn">✕ Erase</button>
     </div>
 
@@ -1625,7 +1640,8 @@
     document.getElementById('active-card').classList.add('locked');
     document.getElementById('nav-next').disabled = true;
     document.getElementById('erase-btn').disabled = true;
-    document.getElementById('save-btn').disabled = true;
+    document.getElementById('hold-btn').disabled = true;
+    document.getElementById('override-btn').disabled = true;
     document.getElementById('leave-match-btn').textContent = '↺ Find New Game';
     refreshLeaderboard();
 
@@ -1641,9 +1657,30 @@
       tiles: scramble.tiles,
       bottomBonuses: scramble.bottomBonuses,
       guessSlots: scramble.tiles.map(() => null),
-      lastResult: { word: '', valid: false, score: 0 },
+      heldWords: [], // { word, score }, in the order Hold was clicked
+      overrideWord: null, // explicit choice from Override, beats heldWords entirely
       requestId: 0,
     };
+  }
+
+  // The rack's scored word: an explicit Override always wins; otherwise
+  // the highest-scoring held word, ties broken toward whichever was
+  // held first (heldWords is already in hold order, and only a strictly
+  // greater score replaces the current best). This mirrors the
+  // server's best_scores logic (see server.js POST /api/round/:id/guess
+  // and db.js upsertBestScore/forceSetBestScore) so the local display
+  // and the real competitive score never disagree.
+  function computeRackResult(rack) {
+    if (rack.overrideWord) {
+      const held = rack.heldWords.find((h) => h.word === rack.overrideWord);
+      return { word: rack.overrideWord, valid: true, score: held ? held.score : 0 };
+    }
+    if (rack.heldWords.length === 0) return { word: '', valid: false, score: 0 };
+    let best = rack.heldWords[0];
+    for (const h of rack.heldWords) {
+      if (h.score > best.score) best = h;
+    }
+    return { word: best.word, valid: true, score: best.score };
   }
 
   function isTrayIndexPlaced(rack, trayIndex) {
@@ -1730,7 +1767,7 @@
     return word;
   }
 
-  async function evaluateRackAsync(rack, scrambleIndex) {
+  async function evaluateRackAsync(rack, scrambleIndex, force) {
     const filled = [];
     for (let slot = 0; slot < rack.guessSlots.length; slot++) {
       const entry = rack.guessSlots[slot];
@@ -1747,7 +1784,7 @@
     const res = await fetch(`/api/round/${currentRoundId}/guess`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scrambleIndex, cells }),
+      body: JSON.stringify({ scrambleIndex, cells, force: !!force }),
     });
 
     if (res.status === 401) {
@@ -1956,9 +1993,9 @@
 
   // Runs continuously as tiles are placed — you always know whether
   // the word you've built is valid and what it's worth before deciding
-  // to save it. What it never does on its own is make a sound, touch
-  // the shared leaderboard, or count toward your total — that's only
-  // ever saveWord's job, triggered by the Save button.
+  // to hold or override it. What it never does on its own is make a
+  // sound or update the local rack-summary display — that's only ever
+  // holdWord's/applyOverride's job.
   function renderWordStatus(evalResult) {
     const { word, valid, belowMinimum, rawScore, score, checking } = evalResult;
     const statusEl = document.getElementById('word-status');
@@ -2072,18 +2109,17 @@
     }
   }
 
-  // One row per rack showing whatever word was last saved for it (blank
-  // + 0 pts if nothing's been saved yet), plus the sum across all 6 —
-  // a running record of the round distinct from the single active-rack
-  // view above. Only ever reflects saveWord's committed results, same
-  // as the header score.
+  // One row per rack showing its computed result (see computeRackResult:
+  // blank + 0 pts if nothing's been held yet), plus the sum across all
+  // 6 — a running record of the round distinct from the single
+  // active-rack view above.
   function renderRackSummary() {
     const listEl = document.getElementById('rack-summary-list');
     let total = 0;
     listEl.innerHTML = RACKS.map((r, i) => {
-      const saved = r.lastResult && r.lastResult.valid;
-      const word = saved ? r.lastResult.word : '';
-      const score = saved ? r.lastResult.score : 0;
+      const result = computeRackResult(r);
+      const word = result.valid ? result.word : '';
+      const score = result.valid ? result.score : 0;
       total += score;
       return `
         <div class="rack-summary-row">
@@ -2133,14 +2169,17 @@
     renderRackLeading();
 
     if (roundEnded) {
-      document.getElementById('save-btn').disabled = true;
+      document.getElementById('hold-btn').disabled = true;
+      document.getElementById('override-btn').disabled = true;
       renderWordStatus({ word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 });
       return;
     }
 
     const word = currentWordForRack(rack);
     const hasUnresolvedWildcard = rack.guessSlots.some((e) => e && e.letter === '?');
-    document.getElementById('save-btn').disabled = word.length < MIN_WORD_LEN || hasUnresolvedWildcard;
+    const disableActions = word.length < MIN_WORD_LEN || hasUnresolvedWildcard;
+    document.getElementById('hold-btn').disabled = disableActions;
+    document.getElementById('override-btn').disabled = disableActions;
     const myRequestId = ++rack.requestId;
 
     if (word.length < MIN_WORD_LEN) {
@@ -2156,30 +2195,75 @@
     });
   }
 
-  // Explicit submission — the only thing that ever fires a sound or
-  // refreshes the shared leaderboard. Re-checks with the server rather
-  // than trusting whatever the live preview last showed, so a save is
-  // always accurate even if something changed mid-flight.
-  async function saveWord(rack) {
+  // Hold — remembers the current word as a candidate for this rack
+  // without necessarily becoming the one that's scored. Whichever held
+  // candidate has the highest score is what counts (see
+  // computeRackResult), matching the server's own "only if higher"
+  // best_scores rule, so the local total and the real leaderboard total
+  // stay in agreement. Re-checks with the server rather than trusting
+  // whatever the live preview last showed, so a hold is always accurate
+  // even if something changed mid-flight.
+  async function holdWord(rack) {
     const word = currentWordForRack(rack);
     if (word.length < MIN_WORD_LEN || roundEnded) return;
     if (rack.guessSlots.some((e) => e && e.letter === '?')) return; // unresolved wildcard — shouldn't happen, but don't submit a blank
 
-    document.getElementById('save-btn').disabled = true;
+    document.getElementById('hold-btn').disabled = true;
     const myRequestId = ++rack.requestId;
     const result = await evaluateRackAsync(rack, currentIndex);
     if (rack.requestId !== myRequestId) return; // superseded by a newer change
 
-    rack.lastResult = result;
     renderWordStatus(result);
     fireSaveFeedback(result);
+
+    if (result.valid) {
+      const existing = rack.heldWords.find((h) => h.word === result.word);
+      if (existing) existing.score = result.score;
+      else rack.heldWords.push({ word: result.word, score: result.score });
+    }
+
     renderRackSummary();
     if (result.valid) refreshLeaderboard();
-    document.getElementById('save-btn').disabled = roundEnded || currentWordForRack(rack).length < MIN_WORD_LEN;
+    document.getElementById('hold-btn').disabled = roundEnded || currentWordForRack(rack).length < MIN_WORD_LEN;
   }
 
-  document.getElementById('save-btn').addEventListener('click', () => {
-    saveWord(RACKS[currentIndex]);
+  document.getElementById('hold-btn').addEventListener('click', () => {
+    holdWord(RACKS[currentIndex]);
+  });
+
+  // Override — forces the current word to be the one scored for this
+  // rack, regardless of what's held or what scores higher. Also holds
+  // it (if not already held) so it has a score to report, and submits
+  // with force:true so the server's best_scores row is overwritten even
+  // if it's currently sitting on a higher score (see the `force` param
+  // on POST /api/round/:id/guess in server.js).
+  async function applyOverride(rack) {
+    const word = currentWordForRack(rack);
+    if (word.length < MIN_WORD_LEN || roundEnded) return;
+    if (rack.guessSlots.some((e) => e && e.letter === '?')) return;
+
+    document.getElementById('override-btn').disabled = true;
+    const myRequestId = ++rack.requestId;
+    const result = await evaluateRackAsync(rack, currentIndex, true);
+    if (rack.requestId !== myRequestId) return;
+
+    renderWordStatus(result);
+    fireSaveFeedback(result);
+
+    if (result.valid) {
+      const existing = rack.heldWords.find((h) => h.word === result.word);
+      if (existing) existing.score = result.score;
+      else rack.heldWords.push({ word: result.word, score: result.score });
+      rack.overrideWord = result.word;
+    }
+
+    renderRackSummary();
+    if (result.valid) refreshLeaderboard();
+    document.getElementById('override-btn').disabled = roundEnded || currentWordForRack(rack).length < MIN_WORD_LEN;
+  }
+
+  document.getElementById('override-btn').addEventListener('click', () => {
+    applyOverride(RACKS[currentIndex]);
   });
 
   function clearGuess(rack) {

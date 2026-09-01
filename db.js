@@ -235,6 +235,18 @@ function upsertBestScore(roundId, userId, scrambleIndex, word, score) {
   `).run(roundId, userId, scrambleIndex, word, score, Date.now());
 }
 
+// Unlike upsertBestScore, this always wins regardless of the stored
+// score — the deliberate escape hatch for a player's own Override
+// action, which lets them choose to score a lower word on purpose.
+function forceSetBestScore(roundId, userId, scrambleIndex, word, score) {
+  db.prepare(`
+    INSERT INTO best_scores (round_id, user_id, scramble_index, best_word, best_score, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT (round_id, user_id, scramble_index)
+    DO UPDATE SET best_word = excluded.best_word, best_score = excluded.best_score, updated_at = excluded.updated_at
+  `).run(roundId, userId, scrambleIndex, word, score, Date.now());
+}
+
 function getBestScore(roundId, userId, scrambleIndex) {
   return db.prepare(`
     SELECT * FROM best_scores WHERE round_id = ? AND user_id = ? AND scramble_index = ?
@@ -359,7 +371,7 @@ module.exports = {
   removePlayerFromLobby, getLobby, getLobbyRoster, startLobbyCountdown,
   resetLobbyToWaiting, attachRoundToLobby,
   createRound, getRound, getRoundPlayers,
-  upsertBestScore, getBestScore, getRoundScores, upsertRoundComment, getRoundComment,
+  upsertBestScore, forceSetBestScore, getBestScore, getRoundScores, upsertRoundComment, getRoundComment,
   blockUser, unblockUser, isBlocked, isBlockedEitherWay, getBlockedUsers,
   createMessage, getConversation, markMessagesRead, getConversations,
 };
