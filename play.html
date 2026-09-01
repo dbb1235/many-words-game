@@ -108,14 +108,9 @@
   }
 
   .active-card.flash-good { animation: flashGood 0.9s ease; }
-  .active-card.flash-bad { animation: flashBad 0.5s ease; }
 
   @keyframes flashGood {
     0% { background: var(--good-green-soft); }
-    100% { background: var(--card); }
-  }
-  @keyframes flashBad {
-    0% { background: var(--red-soft); }
     100% { background: var(--card); }
   }
 
@@ -170,112 +165,57 @@
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
 
-  .guess-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
+  /* Each candidate row is the guess tiles plus, to their right, that
+     row's live total and a yellow "Use" button — one visual unit so a
+     row and its own controls always move/scale together. */
+  .candidate-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 1.4vw, 16px);
+    margin-bottom: 10px;
+    padding: 6px;
+    border-radius: 12px;
+  }
+  .candidate-row .tile-row.guess { flex: 1 1 auto; margin-bottom: 0; min-width: 0; }
 
-  .hold-btn {
+  /* The row currently in effect — whichever word is actually going to
+     be scored for this rack, whether picked automatically (highest
+     score) or pinned via its Use button — gets a soft green wash so
+     it's obvious at a glance among the four rows. */
+  .candidate-row.is-effective { background: var(--good-green-soft); }
+
+  .candidate-total {
+    flex-shrink: 0;
+    min-width: 70px;
+    text-align: right;
+    font-size: clamp(15px, 2.6vw, 22px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--dark);
+  }
+  .candidate-total.state-invalid { color: var(--red); }
+  .candidate-total.state-valid { color: var(--good-green); }
+
+  .use-btn {
+    flex-shrink: 0;
     border: none;
     background: #ffd23f;
     color: var(--dark);
-    font-size: 21px;
-    font-weight: 700;
+    font-size: clamp(13px, 2vw, 18px);
+    font-weight: 800;
     text-transform: uppercase;
-    border-radius: 12px;
-    padding: 9px 20px;
-    cursor: pointer;
-  }
-  .hold-btn:hover:not(:disabled) { filter: brightness(1.05); }
-  .hold-btn:disabled { opacity: 0.4; cursor: default; }
-
-  .override-btn {
-    border: 1.5px solid #b45f06;
-    background: #ffb84d;
-    color: var(--dark);
-    font-size: 21px;
-    font-weight: 700;
-    text-transform: uppercase;
-    border-radius: 12px;
-    padding: 9px 20px;
-    cursor: pointer;
-  }
-  .override-btn:hover:not(:disabled) { filter: brightness(1.05); }
-  .override-btn:disabled { opacity: 0.4; cursor: default; }
-
-  .erase-btn {
-    border: 1.5px solid #e0b400;
-    background: #ffd23f;
-    color: var(--dark);
-    font-size: 21px;
-    font-weight: 700;
-    text-transform: uppercase;
-    border-radius: 12px;
-    padding: 9px 20px;
-    cursor: pointer;
-  }
-  .erase-btn:hover:not(:disabled) { background: #ffdc6b; }
-  .erase-btn:disabled { opacity: 0.35; cursor: default; background: #ffd23f; }
-
-  /* Word + score, centered together as one group — color alone (black
-     while forming, green valid, red invalid) carries the verdict, no
-     icon or "valid word"/"not a word" text needed alongside it. */
-  /* Sized to fit its actual content — a word up to RACK_SIZE letters
-     plus a 3-digit score ("999 pts") — rather than stretching the full
-     card width, with margin: 0 auto to stay centered at that size. */
-  .word-status {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    padding: 12px 24px;
     border-radius: 10px;
-    background: #f4f1ea;
-    min-height: 26px;
-    width: fit-content;
-    max-width: 340px;
-    margin: 0 auto;
-  }
-
-  .word-status.state-empty { color: var(--dark); }
-  .word-status.state-building { color: var(--dark); }
-  .word-status.state-valid { background: var(--good-green-soft); color: var(--good-green); }
-  .word-status.state-invalid { background: var(--red-soft); color: var(--red); }
-
-  .word-status .word-text { font-size: 23px; font-weight: 800; letter-spacing: 0.02em; }
-  .word-status .score-num { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
-
-  /* Every word Held for the active rack, all visible together — click
-     one to make it this rack's chosen word (same effect as rebuilding
-     it and clicking Override). The chosen word (auto-highest, or an
-     explicit choice) is picked out with a green border/fill so it's
-     obvious which candidate currently counts. */
-  .candidates-panel {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    margin: 12px 0;
-  }
-
-  .candidate-chip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 2px solid #d8d2c2;
-    background: #f4f1ea;
-    color: var(--dark);
-    border-radius: 20px;
-    padding: 6px 14px;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    padding: clamp(8px, 1.6vw, 12px) clamp(12px, 2.4vw, 20px);
     cursor: pointer;
   }
-  .candidate-chip:hover { filter: brightness(0.97); }
-  .candidate-chip .candidate-score { font-variant-numeric: tabular-nums; opacity: 0.7; }
-  .candidate-chip.active {
-    border-color: var(--good-green);
-    background: var(--good-green-soft);
-    color: var(--good-green);
-  }
+  .use-btn:hover:not(:disabled) { filter: brightness(1.05); }
+  .use-btn:disabled { opacity: 0.35; cursor: default; }
+
+  /* Explicitly pinned via a press — solid green, distinct from the
+     row-level "currently winning" wash so a deliberate pick still reads
+     differently from an automatic one. */
+  .use-btn.pressed { background: var(--good-green); color: #fff; }
+  .use-btn.auto-winner:not(.pressed) { box-shadow: 0 0 0 2px var(--good-green) inset; }
 
   /* Single control for moving through the six racks — no prev, no dots,
      just Next, wrapping 6 back to 1. */
@@ -579,20 +519,27 @@
 
   <div class="active-card" id="active-card">
     <div class="tile-row tray" id="tray-tiles"></div>
-    <div class="tile-row guess" id="guess-tiles"></div>
 
-    <div class="guess-toolbar">
-      <button class="hold-btn" id="hold-btn" disabled>Hold</button>
-      <button class="override-btn" id="override-btn" disabled>Override</button>
-      <button class="erase-btn" id="erase-btn">✕ Erase</button>
+    <div class="candidate-row" id="candidate-row-0">
+      <div class="tile-row guess" id="guess-tiles-0"></div>
+      <div class="candidate-total" id="candidate-total-0">0 pts</div>
+      <button type="button" class="use-btn" id="use-btn-0" disabled>Use</button>
     </div>
-
-    <div class="word-status" id="word-status">
-      <span class="word-text" id="word-text"></span>
-      <span class="score-num" id="verdict-score"></span>
+    <div class="candidate-row" id="candidate-row-1">
+      <div class="tile-row guess" id="guess-tiles-1"></div>
+      <div class="candidate-total" id="candidate-total-1">0 pts</div>
+      <button type="button" class="use-btn" id="use-btn-1" disabled>Use</button>
     </div>
-
-    <div class="candidates-panel" id="candidates-panel"></div>
+    <div class="candidate-row" id="candidate-row-2">
+      <div class="tile-row guess" id="guess-tiles-2"></div>
+      <div class="candidate-total" id="candidate-total-2">0 pts</div>
+      <button type="button" class="use-btn" id="use-btn-2" disabled>Use</button>
+    </div>
+    <div class="candidate-row" id="candidate-row-3">
+      <div class="tile-row guess" id="guess-tiles-3"></div>
+      <div class="candidate-total" id="candidate-total-3">0 pts</div>
+      <button type="button" class="use-btn" id="use-btn-3" disabled>Use</button>
+    </div>
 
     <div class="rack-nav">
       <span class="rack-indicator" id="rack-indicator"></span>
@@ -843,43 +790,54 @@
     startTimer();
   }
 
+  const CANDIDATE_ROWS = 4;
+
   // Each rack mirrors what the server dealt: tiles [{letter, points}]
   // (10 per rack — 9 real letters + 1 wildcard, server-side) and
-  // bottomBonuses, a same-length array of null | '2L' | '3L' keyed by
-  // guess-slot position, not by which tile ends up sitting there.
+  // bottomBonuses, a same-length array of null | '2L' | '3L' | '2W'
+  // keyed by guess-slot position, not by which tile ends up sitting
+  // there. `rows` holds up to CANDIDATE_ROWS independent candidate
+  // words being built at once from the same tray — a tile placed in
+  // one row doesn't remove it from the others, since each row is its
+  // own hypothesis, not a shared consumable pool.
   function makeRack(scramble) {
     return {
       tiles: scramble.tiles,
       bottomBonuses: scramble.bottomBonuses,
-      guessSlots: scramble.tiles.map(() => null),
-      heldWords: [], // { word, score }, in the order Hold was clicked
-      overrideWord: null, // explicit choice from Override, beats heldWords entirely
-      requestId: 0,
+      rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
+      pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
     };
   }
 
-  // The rack's scored word: an explicit Override always wins; otherwise
-  // the highest-scoring held word, ties broken toward whichever was
-  // held first (heldWords is already in hold order, and only a strictly
-  // greater score replaces the current best).
-  function computeRackResult(rack) {
-    if (rack.overrideWord) {
-      const held = rack.heldWords.find((h) => h.word === rack.overrideWord);
-      return { word: rack.overrideWord, valid: true, score: held ? held.score : 0 };
-    }
-    if (rack.heldWords.length === 0) return { word: '', valid: false, score: 0 };
-    let best = rack.heldWords[0];
-    for (const h of rack.heldWords) {
-      if (h.score > best.score) best = h;
-    }
-    return { word: best.word, valid: true, score: best.score };
+  function makeRow(scramble) {
+    return {
+      guessSlots: scramble.tiles.map(() => null),
+      requestId: 0,
+      // Live evaluation of whatever's currently placed in this row.
+      lastEval: { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: false },
+    };
   }
 
-  // A tray tile is "in the rack" (available to drag) exactly when no
-  // guess slot currently holds it — derived rather than tracked
-  // separately, so there's no separate flag that can drift out of sync.
-  function isTrayIndexPlaced(rack, trayIndex) {
-    return rack.guessSlots.some((e) => e && e.trayIndex === trayIndex);
+  // Which row index is actually in effect for this rack right now: the
+  // pinned row if it's still a valid word, otherwise whichever valid
+  // row scores highest (ties go to the lowest row index, since only a
+  // strictly greater score displaces the current best). Returns null if
+  // no row currently holds a valid word.
+  function effectiveRowIndex(rack) {
+    if (rack.pinnedRow !== null && rack.rows[rack.pinnedRow].lastEval.valid) return rack.pinnedRow;
+    let bestIndex = null;
+    rack.rows.forEach((row, i) => {
+      if (!row.lastEval.valid) return;
+      if (bestIndex === null || row.lastEval.score > rack.rows[bestIndex].lastEval.score) bestIndex = i;
+    });
+    return bestIndex;
+  }
+
+  function computeRackResult(rack) {
+    const idx = effectiveRowIndex(rack);
+    if (idx === null) return { word: '', valid: false, score: 0 };
+    const { word, score } = rack.rows[idx].lastEval;
+    return { word, valid: true, score };
   }
 
   // ---------- Audio (synthesized — no external files) ----------
@@ -911,13 +869,6 @@
     tone(523.25, now, 0.16, 'sine', 0.18);
     tone(659.25, now + 0.1, 0.16, 'sine', 0.18);
     tone(783.99, now + 0.2, 0.28, 'sine', 0.2);
-  }
-
-  function playBadThud() {
-    if (muted) return;
-    const c = ctx(); const now = c.currentTime;
-    tone(160, now, 0.22, 'square', 0.12);
-    tone(110, now + 0.08, 0.26, 'square', 0.1);
   }
 
   function playWarnBeep(urgent) {
@@ -955,36 +906,33 @@
     return 1;
   }
 
-  function currentWordForRack(rack) {
+  function currentWordForRow(row) {
     let word = '';
-    for (const entry of rack.guessSlots) {
+    for (const entry of row.guessSlots) {
       if (!entry) break;
       word += entry.letter;
     }
     return word;
   }
 
-  // Builds the server payload from the contiguous run and POSTs it to
-  // /api/game/:id/guess, which returns the authoritative
-  // { valid, word, score, belowMinimum, rawScore }.
-  // The server payload for whatever's currently placed in the guess
-  // row — captured separately from evaluateRackAsync so a held
-  // candidate's cells can be stashed and resubmitted later (see
-  // chooseCandidate), without needing the tiles rebuilt on the tray.
-  function cellsForRack(rack) {
+  // Builds the server payload from a row's contiguous run of placed
+  // tiles.
+  function cellsForRow(row, tiles) {
     const filled = [];
-    for (let slot = 0; slot < rack.guessSlots.length; slot++) {
-      const entry = rack.guessSlots[slot];
+    for (let slot = 0; slot < row.guessSlots.length; slot++) {
+      const entry = row.guessSlots[slot];
       if (!entry) break;
       filled.push({ entry, slot });
     }
     return filled.map(({ entry, slot }) => ({
       position: slot,
       letter: entry.letter,
-      isWildcard: rack.tiles[entry.trayIndex].letter === '?',
+      isWildcard: tiles[entry.trayIndex].letter === '?',
     }));
   }
 
+  // POSTs to /api/game/:id/guess, which returns the authoritative
+  // { valid, word, score, belowMinimum, rawScore }.
   async function submitCells(cells, scrambleIndex) {
     const res = await fetch(`/api/game/${GAME_ID}/guess`, {
       method: 'POST',
@@ -1002,36 +950,37 @@
     return res.json();
   }
 
-  async function evaluateRackAsync(rack, scrambleIndex) {
-    const result = await submitCells(cellsForRack(rack), scrambleIndex);
-    if (!result.word) result.word = currentWordForRack(rack);
+  async function evaluateRowAsync(rack, row, scrambleIndex) {
+    const result = await submitCells(cellsForRow(row, rack.tiles), scrambleIndex);
+    if (!result.word) result.word = currentWordForRow(row);
     return result;
   }
 
   // ---------- Feedback firing (edge-triggered) ----------
 
-  // Called exactly once per Save click (never while just typing), so
-  // there's no need for the edge-triggering this used to require —
-  // every call here is a deliberate submission and always fires.
-  function fireSaveFeedback(evalResult) {
-    const { valid, score } = evalResult;
+  // Called exactly once per Use press (never while just typing), so
+  // there's no need for edge-triggering — every call here is a
+  // deliberate pin and always fires. Pressing Use is only ever possible
+  // on an already-valid row (see the button's disabled state), so this
+  // is always the "good" feedback — there's no failure path to flash.
+  function fireUseFeedback() {
     const card = document.getElementById('active-card');
-    card.classList.remove('flash-good', 'flash-bad');
+    card.classList.remove('flash-good');
     void card.offsetWidth;
-    if (valid && score >= 8) {
-      card.classList.add('flash-good');
-      playGoodChime();
-    } else {
-      card.classList.add('flash-bad');
-      playBadThud();
-    }
+    card.classList.add('flash-good');
+    playGoodChime();
   }
 
   // ---------- Rendering ----------
 
-  // Drag payload shape: { trayIndex, letter, fromSlot } — fromSlot is
-  // the guess-row slot index if the drag started there, or null if it
-  // started in the tray. Carried as JSON in dataTransfer.
+  // Drag payload shape: { trayIndex, letter, fromRow, fromSlot } —
+  // fromRow/fromSlot identify the candidate row and slot the drag
+  // started from, or null/null if it started in the tray. Tiles are
+  // shared across the four candidate rows (see makeRack), so a payload
+  // is only ever removed from its origin when fromRow matches the row
+  // being dropped into — dragging from the tray, or from a *different*
+  // row, always just adds a fresh placement without touching anywhere
+  // else that tile is used.
 
   function setDragPayload(e, payload) {
     e.dataTransfer.effectAllowed = 'move';
@@ -1043,27 +992,28 @@
     catch { return null; }
   }
 
+  // The tray never dims a tile as "used" — every one of the 10 tiles is
+  // always available to every row, since rows don't consume a shared
+  // pool (see makeRack).
   function renderTray(rack) {
     const el = document.getElementById('tray-tiles');
-    el.innerHTML = rack.tiles.map((t, i) => {
-      const placed = isTrayIndexPlaced(rack, i);
-      return `<div class="tile${placed ? ' used' : ' draggable'}" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
-    }).join('');
+    el.innerHTML = rack.tiles.map((t, i) =>
+      `<div class="tile draggable" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`
+    ).join('');
 
     Array.from(el.children).forEach((tileEl, i) => {
-      if (isTrayIndexPlaced(rack, i)) return;
       const t = rack.tiles[i];
       tileEl.draggable = true;
       tileEl.addEventListener('dragstart', (e) => {
-        setDragPayload(e, { trayIndex: i, letter: t.letter, fromSlot: null });
+        setDragPayload(e, { trayIndex: i, letter: t.letter, fromRow: null, fromSlot: null });
         tileEl.classList.add('dragging');
       });
       tileEl.addEventListener('dragend', () => tileEl.classList.remove('dragging'));
     });
 
-    // Dropping a guess tile back onto the tray area removes it from the
-    // guess row — it becomes available again purely by no longer being
-    // referenced in guessSlots (see isTrayIndexPlaced).
+    // Dropping a candidate-row tile back onto the tray removes it from
+    // whichever row it came from — a no-op if the drag started in the
+    // tray itself (fromRow is null).
     el.ondragover = (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
@@ -1071,16 +1021,17 @@
     el.ondrop = (e) => {
       e.preventDefault();
       const payload = getDragPayload(e);
-      if (!payload || payload.fromSlot === null) return;
-      rack.guessSlots[payload.fromSlot] = null;
-      renderActive();
+      if (!payload || payload.fromRow === null || payload.fromSlot === null) return;
+      rack.rows[payload.fromRow].guessSlots[payload.fromSlot] = null;
+      handleRowChanged(rack, payload.fromRow);
     };
   }
 
-  function renderGuess(rack) {
-    const el = document.getElementById('guess-tiles');
+  function renderRowTiles(rack, rowIndex) {
+    const row = rack.rows[rowIndex];
+    const el = document.getElementById('guess-tiles-' + rowIndex);
     el.innerHTML = rack.tiles.map((_, slot) => {
-      const entry = rack.guessSlots[slot];
+      const entry = row.guessSlots[slot];
       const bonus = rack.bottomBonuses[slot];
       const bonusClass = bonus === '2L' ? ' bonus2' : bonus === '3L' ? ' bonus3' : bonus === '2W' ? ' bonus2w' : '';
       if (!entry) {
@@ -1093,12 +1044,12 @@
     }).join('');
 
     Array.from(el.children).forEach((tileEl, slot) => {
-      const entry = rack.guessSlots[slot];
+      const entry = row.guessSlots[slot];
 
       if (entry) {
         tileEl.draggable = true;
         tileEl.addEventListener('dragstart', (e) => {
-          setDragPayload(e, { trayIndex: entry.trayIndex, letter: entry.letter, fromSlot: slot });
+          setDragPayload(e, { trayIndex: entry.trayIndex, letter: entry.letter, fromRow: rowIndex, fromSlot: slot });
           tileEl.classList.add('dragging');
         });
         tileEl.addEventListener('dragend', () => tileEl.classList.remove('dragging'));
@@ -1113,11 +1064,11 @@
           e.preventDefault();
           const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
           if (isWildcard && entry.letter === '?') {
-            openWildcardPicker(rack, slot, tileEl);
+            openWildcardPicker(rack, rowIndex, slot, tileEl);
             return;
           }
-          rack.guessSlots[slot] = null;
-          renderActive();
+          row.guessSlots[slot] = null;
+          handleRowChanged(rack, rowIndex);
         });
       }
 
@@ -1132,40 +1083,69 @@
         tileEl.classList.remove('drop-hover');
         const payload = getDragPayload(e);
         if (!payload) return;
-        placeTile(rack, slot, payload);
+        placeTileInRow(rack, rowIndex, slot, payload);
       });
     });
   }
 
-  // Drops `payload` into guessSlots[targetSlot]. Whatever already
+  // Drops `payload` into row.guessSlots[targetSlot]. Whatever already
   // occupied that slot is displaced back to the tray (not swapped into
-  // the drag source) — same rule as the real game. If the drag came
-  // from another guess slot, that slot is vacated.
-  function placeTile(rack, targetSlot, payload) {
-    if (payload.fromSlot === targetSlot) return; // dropped back on itself
+  // the drag source). Only vacates the drag's origin slot when it came
+  // from *this same row* — a drag from the tray or from another row
+  // always just adds a fresh placement here (see the payload comment
+  // above).
+  function placeTileInRow(rack, rowIndex, targetSlot, payload) {
+    if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return; // dropped back on itself
+
+    const row = rack.rows[rowIndex];
 
     // An unresolved wildcard (payload.letter still '?') needs its letter
-    // chosen right now, not left blank for later — this is what makes
-    // "must be in the right position at the beginning" true: by the
-    // time this function returns, every wildcard in the guess row either
-    // already had a letter or is about to be asked for one immediately.
+    // chosen right now, not left blank for later.
     const needsWildcardPicker = payload.letter === '?';
 
-    rack.guessSlots[targetSlot] = { trayIndex: payload.trayIndex, letter: payload.letter };
+    row.guessSlots[targetSlot] = { trayIndex: payload.trayIndex, letter: payload.letter };
 
-    if (payload.fromSlot !== null) {
-      rack.guessSlots[payload.fromSlot] = null;
+    if (payload.fromRow === rowIndex && payload.fromSlot !== null) {
+      row.guessSlots[payload.fromSlot] = null;
     }
-    // The displaced occupant (if any) needs no explicit handling — it's
-    // back in the tray automatically the moment nothing in guessSlots
-    // references its trayIndex any more.
 
-    renderActive();
+    handleRowChanged(rack, rowIndex);
 
     if (needsWildcardPicker) {
-      const tileEl = document.querySelector(`#guess-tiles .tile[data-slot="${targetSlot}"]`);
-      if (tileEl) openWildcardPicker(rack, targetSlot, tileEl);
+      const tileEl = document.querySelector(`#guess-tiles-${rowIndex} .tile[data-slot="${targetSlot}"]`);
+      if (tileEl) openWildcardPicker(rack, rowIndex, targetSlot, tileEl);
     }
+  }
+
+  // Re-evaluates one row after it changes: re-renders its tiles right
+  // away, then checks the word with the server (live preview, same as
+  // before — no sound or scoring yet) and, once that resolves, updates
+  // every row's total/button/highlight, since a change in one row can
+  // shift which row is currently the rack's effective winner.
+  async function handleRowChanged(rack, rowIndex) {
+    renderRowTiles(rack, rowIndex);
+
+    const row = rack.rows[rowIndex];
+    const word = currentWordForRow(row);
+    const hasUnresolvedWildcard = row.guessSlots.some((e) => e && e.letter === '?');
+    const myRequestId = ++row.requestId;
+
+    if (word.length < MIN_WORD_LEN || hasUnresolvedWildcard) {
+      row.lastEval = { word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: false };
+      renderAllRowMeta(rack);
+      renderHeaderScore();
+      return;
+    }
+
+    row.lastEval = { word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true };
+    renderAllRowMeta(rack);
+
+    const result = await evaluateRowAsync(rack, row, currentIndex);
+    if (row.requestId !== myRequestId) return; // superseded by a newer change in this row
+
+    row.lastEval = result;
+    renderAllRowMeta(rack);
+    renderHeaderScore();
   }
 
   // ---------- Wildcard letter picker ----------
@@ -1186,11 +1166,13 @@
     if (e.key === 'Escape') closeWildcardPicker();
   }
 
-  // Opens the A-Z picker for a wildcard already sitting in guess slot
-  // `slot`, letting its displayed letter be assigned/reassigned. Points
-  // stay 0 regardless of what's picked (see renderGuess).
-  function openWildcardPicker(rack, slot, tileEl) {
+  // Opens the A-Z picker for a wildcard already sitting in candidate
+  // row `rowIndex`, slot `slot`, letting its displayed letter be
+  // assigned/reassigned. Points stay 0 regardless of what's picked (see
+  // renderRowTiles).
+  function openWildcardPicker(rack, rowIndex, slot, tileEl) {
     closeWildcardPicker();
+    const row = rack.rows[rowIndex];
     const menu = document.createElement('div');
     menu.className = 'letter-menu';
     for (let i = 0; i < 26; i++) {
@@ -1200,9 +1182,9 @@
       btn.textContent = letter;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        rack.guessSlots[slot] = { trayIndex: rack.guessSlots[slot].trayIndex, letter };
+        row.guessSlots[slot] = { trayIndex: row.guessSlots[slot].trayIndex, letter };
         closeWildcardPicker();
-        renderActive();
+        handleRowChanged(rack, rowIndex);
       });
       menu.appendChild(btn);
     }
@@ -1224,188 +1206,86 @@
     }, 0);
   }
 
-  // Color alone carries the verdict (black while forming/checking,
-  // green valid, red invalid) — no icon, no "valid word"/"not a word"
-  // text. This runs continuously as tiles are placed — you always know
-  // whether the word you've built is valid and what it's worth before
-  // deciding to hold or override it. What it never does on its own is
-  // make a sound, touch the header score, or count toward anything —
-  // that's only ever holdWord's/applyOverride's job.
-  function renderWordStatus(evalResult) {
-    const { word, valid, belowMinimum, rawScore, score, checking } = evalResult;
-    const statusEl = document.getElementById('word-status');
-    const state = word.length === 0 ? 'empty'
-      : word.length < MIN_WORD_LEN ? 'building'
-      : checking ? 'building'
-      : valid ? 'valid' : 'invalid';
-    statusEl.className = 'word-status state-' + state;
-    document.getElementById('word-text').textContent = word;
-
-    let scoreText;
-    if (checking) scoreText = '…';
-    else if (state === 'valid') scoreText = score + ' pts';
-    else if (state === 'invalid' && belowMinimum) scoreText = rawScore + ' pts';
-    else scoreText = '0 pts';
-    document.getElementById('verdict-score').textContent = scoreText;
-  }
-
   // The header total is the sum of each rack's computed result (see
-  // computeRackResult) — never the live preview — so it only moves when
-  // you Hold or Override a word, not while you're still fiddling with
-  // tiles.
+  // computeRackResult) — the currently-effective row's live score, not
+  // whatever's being fiddled with in a not-yet-settled row.
   function renderHeaderScore() {
     const total = RACKS.reduce((sum, r) => sum + computeRackResult(r).score, 0);
     document.getElementById('score-value').textContent = total;
+  }
+
+  // Updates one row's total/button/highlight from its current lastEval
+  // plus the rack's overall effective winner — called for every row
+  // whenever any one row's evaluation changes, since a new high score
+  // in row B can change whether row A is still "the" winning row.
+  function renderRowMeta(rack, rowIndex) {
+    const row = rack.rows[rowIndex];
+    const { word, valid, checking, belowMinimum, rawScore, score } = row.lastEval;
+
+    const totalEl = document.getElementById('candidate-total-' + rowIndex);
+    let scoreText;
+    let stateClass = '';
+    if (checking) {
+      scoreText = '…';
+    } else if (valid) {
+      scoreText = score + ' pts';
+      stateClass = ' state-valid';
+    } else if (belowMinimum) {
+      scoreText = rawScore + ' pts';
+      stateClass = ' state-invalid';
+    } else {
+      scoreText = '0 pts';
+      if (word.length > 0) stateClass = ' state-invalid';
+    }
+    totalEl.textContent = scoreText;
+    totalEl.className = 'candidate-total' + stateClass;
+
+    const effIdx = effectiveRowIndex(rack);
+    const btnEl = document.getElementById('use-btn-' + rowIndex);
+    btnEl.disabled = !valid;
+    btnEl.classList.toggle('pressed', rack.pinnedRow === rowIndex);
+    btnEl.classList.toggle('auto-winner', effIdx === rowIndex && rack.pinnedRow !== rowIndex);
+
+    document.getElementById('candidate-row-' + rowIndex).classList.toggle('is-effective', effIdx === rowIndex);
+  }
+
+  function renderAllRowMeta(rack) {
+    for (let i = 0; i < CANDIDATE_ROWS; i++) renderRowMeta(rack, i);
   }
 
   function renderActive() {
     const rack = RACKS[currentIndex];
 
     renderTray(rack);
-    renderGuess(rack);
-    renderCandidates(rack);
+    for (let i = 0; i < CANDIDATE_ROWS; i++) renderRowTiles(rack, i);
+    renderAllRowMeta(rack);
 
     document.getElementById('rack-indicator').textContent = `Rack ${currentIndex + 1} of ${RACKS.length}`;
-    document.getElementById('erase-btn').disabled = rack.guessSlots.every((e) => e === null);
-
-    const word = currentWordForRack(rack);
-    const hasUnresolvedWildcard = rack.guessSlots.some((e) => e && e.letter === '?');
-    const disableActions = word.length < MIN_WORD_LEN || hasUnresolvedWildcard;
-    document.getElementById('hold-btn').disabled = disableActions;
-    document.getElementById('override-btn').disabled = disableActions;
-    const myRequestId = ++rack.requestId;
-
-    if (word.length < MIN_WORD_LEN) {
-      renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0 });
-      return;
-    }
-
-    renderWordStatus({ word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true });
-
-    evaluateRackAsync(rack, currentIndex).then((result) => {
-      if (rack.requestId !== myRequestId) return; // superseded by a newer change
-      renderWordStatus(result); // preview only — no sound, no score update yet
-    });
   }
 
-  // Every word Held for the active rack, shown together so the player
-  // can compare them instead of only seeing whatever's currently on
-  // the tray. The chip for whichever word computeRackResult would
-  // currently pick (auto-highest, or an explicit override) is
-  // highlighted; clicking any other chip chooses it directly — the
-  // same effect as rebuilding that word and clicking Override, without
-  // needing to actually rebuild it.
-  function renderCandidates(rack) {
-    const panel = document.getElementById('candidates-panel');
-    if (rack.heldWords.length === 0) {
-      panel.innerHTML = '';
-      return;
-    }
-    const result = computeRackResult(rack);
-    panel.innerHTML = rack.heldWords.map((h) => `
-      <button type="button" class="candidate-chip${h.word === result.word ? ' active' : ''}" data-word="${h.word}">
-        ${h.word}<span class="candidate-score">${h.score} pts</span>
-      </button>`).join('');
-    Array.from(panel.children).forEach((chip) => {
-      chip.addEventListener('click', () => chooseCandidate(rack, chip.dataset.word));
-    });
-  }
-
-  // Picking a candidate straight from the list — the word and its score
-  // were already validated by the server when it was held, so this is
-  // just a local choice, no need to resubmit anything.
-  function chooseCandidate(rack, word) {
-    if (!rack.heldWords.some((h) => h.word === word)) return;
-    rack.overrideWord = word;
-    renderHeaderScore();
-    renderCandidates(rack);
-  }
-
-  // Hold — remembers the current word as a candidate for this rack
-  // without necessarily becoming the one that's scored. Whichever held
-  // candidate has the highest score is what counts (see
-  // computeRackResult); holding a lower-scoring word never displaces a
-  // better one already held, it just adds another option. Re-checks
-  // with the server rather than trusting whatever the live preview
-  // last showed, so a hold is always accurate even if something
-  // changed mid-flight.
-  async function holdWord(rack) {
-    const word = currentWordForRack(rack);
-    if (word.length < MIN_WORD_LEN) return;
-    if (rack.guessSlots.some((e) => e && e.letter === '?')) return; // unresolved wildcard — shouldn't happen, but don't submit a blank
-
-    document.getElementById('hold-btn').disabled = true;
-    const myRequestId = ++rack.requestId;
-    const result = await evaluateRackAsync(rack, currentIndex);
-    if (rack.requestId !== myRequestId) return; // superseded by a newer change
-
-    fireSaveFeedback(result);
-
-    if (result.valid) {
-      const existing = rack.heldWords.find((h) => h.word === result.word);
-      if (existing) existing.score = result.score;
-      else rack.heldWords.push({ word: result.word, score: result.score });
-
-      renderHeaderScore();
-
-      // Clear the guess row so the tiles return to the tray and the
-      // next candidate can be built fresh, without a manual Erase.
-      // renderActive() also re-renders the candidates panel.
-      rack.guessSlots = rack.guessSlots.map(() => null);
-      renderActive();
+  // Use button — pressing an already-valid row pins it as this rack's
+  // scored word regardless of what scores higher elsewhere; pressing an
+  // already-pinned row's button again releases the pin, reverting to
+  // auto-highest. Only one row can be pinned at a time.
+  function toggleUseRow(rack, rowIndex) {
+    const row = rack.rows[rowIndex];
+    if (!row.lastEval.valid) return;
+    if (rack.pinnedRow === rowIndex) {
+      rack.pinnedRow = null;
     } else {
-      renderWordStatus(result);
-      renderHeaderScore();
-      document.getElementById('hold-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
+      rack.pinnedRow = rowIndex;
+      fireUseFeedback();
     }
-  }
-
-  document.getElementById('hold-btn').addEventListener('click', () => {
-    holdWord(RACKS[currentIndex]);
-  });
-
-  // Override — forces the current word to be the one scored for this
-  // rack, regardless of what's held or what scores higher. Also holds
-  // it (if not already held) so it has a score to report.
-  async function applyOverride(rack) {
-    const word = currentWordForRack(rack);
-    if (word.length < MIN_WORD_LEN) return;
-    if (rack.guessSlots.some((e) => e && e.letter === '?')) return;
-
-    document.getElementById('override-btn').disabled = true;
-    const myRequestId = ++rack.requestId;
-    const result = await evaluateRackAsync(rack, currentIndex);
-    if (rack.requestId !== myRequestId) return;
-
-    renderWordStatus(result);
-    fireSaveFeedback(result);
-
-    if (result.valid) {
-      const existing = rack.heldWords.find((h) => h.word === result.word);
-      if (existing) existing.score = result.score;
-      else rack.heldWords.push({ word: result.word, score: result.score });
-      rack.overrideWord = result.word;
-    }
-
+    renderAllRowMeta(rack);
     renderHeaderScore();
-    renderCandidates(rack);
-    document.getElementById('override-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
   }
 
-  document.getElementById('override-btn').addEventListener('click', () => {
-    applyOverride(RACKS[currentIndex]);
-  });
-
-  // Sends every placed tile back to the tray in one shot, so a dead-end
-  // guess doesn't have to be undone letter by letter.
-  function clearGuess(rack) {
-    rack.guessSlots = rack.guessSlots.map(() => null);
-    renderActive();
+  for (let i = 0; i < CANDIDATE_ROWS; i++) {
+    const rowIndex = i;
+    document.getElementById('use-btn-' + rowIndex).addEventListener('click', () => {
+      toggleUseRow(RACKS[currentIndex], rowIndex);
+    });
   }
-
-  document.getElementById('erase-btn').addEventListener('click', () => {
-    clearGuess(RACKS[currentIndex]);
-  });
 
   document.getElementById('nav-next').addEventListener('click', () => {
     currentIndex = (currentIndex + 1) % RACKS.length;
@@ -1479,8 +1359,8 @@
   const EDITABLE_IDS = [
     'brand-title', 'username-label', 'timer-stat', 'score-stat',
     'mute-btn', 'feedback-btn', 'logout-btn',
-    'tray-tiles', 'guess-tiles', 'hold-btn', 'override-btn', 'erase-btn',
-    'word-status', 'candidates-panel', 'rack-indicator', 'nav-next', 'new-game-btn',
+    'tray-tiles', 'candidate-row-0', 'candidate-row-1', 'candidate-row-2', 'candidate-row-3',
+    'rack-indicator', 'nav-next', 'new-game-btn',
   ];
 
   let layout = {};    // id -> { x, y, w, h, groupId? }
