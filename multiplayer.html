@@ -1622,10 +1622,10 @@
   // Each rack mirrors what the server dealt: tiles [{letter, points}]
   // (10 per rack) and bottomBonuses, a same-length array of
   // null | '2L' | '3L' | '2W' keyed by guess-slot position. `rows` holds
-  // up to CANDIDATE_ROWS independent candidate words being built at
-  // once from the same tray — a tile placed in one row doesn't remove
-  // it from the others, since each row is its own hypothesis, not a
-  // shared consumable pool.
+  // up to CANDIDATE_ROWS candidate words being built at once from the
+  // same tray — but it's one shared rack of 10 physical tiles, not four
+  // independent copies, so a tile placed in one row is unavailable to
+  // the others until it's freed again (see isTrayIndexPlaced).
   function makeRack(scramble) {
     return {
       tiles: scramble.tiles,
@@ -1806,16 +1806,33 @@
     catch { return null; }
   }
 
-  // The tray never dims a tile as "used" — every one of the 10 tiles is
-  // always available to every row, since rows don't consume a shared
-  // pool (see makeRack).
+  // A tray tile is "in the rack" (available to drag) exactly when no
+  // row's guess slot currently holds it — checked across all rows, not
+  // just one, since a tile is shared rack-wide rather than per-row.
+  function isTrayIndexPlaced(rack, trayIndex) {
+    return rack.rows.some((row) => row.guessSlots.some((e) => e && e.trayIndex === trayIndex));
+  }
+
+  // Left-packs a row's guessSlots so every filled slot sits contiguously
+  // from slot 0 with no gaps — called after any removal, so a tile
+  // pulled out of the middle doesn't leave the tiles after it stranded
+  // (which currentWordForRow would silently stop reading at anyway).
+  function closeGaps(row) {
+    const filled = row.guessSlots.filter((e) => e !== null);
+    for (let i = 0; i < row.guessSlots.length; i++) {
+      row.guessSlots[i] = filled[i] || null;
+    }
+  }
+
   function renderTray(rack) {
     const el = document.getElementById('tray-tiles');
-    el.innerHTML = rack.tiles.map((t, i) =>
-      `<div class="tile draggable" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`
-    ).join('');
+    el.innerHTML = rack.tiles.map((t, i) => {
+      const placed = isTrayIndexPlaced(rack, i);
+      return `<div class="tile${placed ? ' used' : ' draggable'}" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
+    }).join('');
 
     Array.from(el.children).forEach((tileEl, i) => {
+      if (isTrayIndexPlaced(rack, i)) return;
       const t = rack.tiles[i];
       tileEl.draggable = true;
       tileEl.addEventListener('dragstart', (e) => {
@@ -1836,7 +1853,9 @@
       e.preventDefault();
       const payload = getDragPayload(e);
       if (!payload || payload.fromRow === null || payload.fromSlot === null) return;
-      rack.rows[payload.fromRow].guessSlots[payload.fromSlot] = null;
+      const originRow = rack.rows[payload.fromRow];
+      originRow.guessSlots[payload.fromSlot] = null;
+      closeGaps(originRow);
       handleRowChanged(rack, payload.fromRow);
     };
   }
@@ -1876,6 +1895,7 @@
             return;
           }
           row.guessSlots[slot] = null;
+          closeGaps(row);
           handleRowChanged(rack, rowIndex);
         });
       }
@@ -1896,29 +1916,48 @@
     });
   }
 
-  // Drops `payload` into row.guessSlots[targetSlot]. Tiles are shared
-  // *across* rows (see makeRack), but the same physical tile can still
-  // only occupy one slot *within* a given row — a tray tile is always
-  // draggable regardless of where else it's used, so this vacates any
-  // other slot in THIS row that already holds the same trayIndex,
-  // whether the drag came from that slot, from elsewhere in this row,
-  // or fresh from the tray while already placed here from an earlier
-  // drag.
+  // Drops `payload` into row.guessSlots[targetSlot]. Whatever already
+  // occupied that slot is displaced back to the tray (not swapped into
+  // the drag source). Two rules keep every row a clean, contiguous
+  // in-progress word:
+  //  - A tile can only sit in one slot rack-wide (see
+  //    isTrayIndexPlaced) — this scans every row itself (rather than
+  //    trusting payload.fromRow/fromSlot) and clears every other
+  //    occurrence of this trayIndex it finds, re-evaluating any other
+  //    row that loses one and closing the gap it leaves — so the
+  //    invariant holds even if a caller ever passes a stale or
+  //    inaccurate origin.
+  //  - A drop past the first open slot would leave a gap — and
+  //    everything after a gap is silently dropped from the word by
+  //    currentWordForRow anyway — so it's rejected outright rather
+  //    than creating a dangling, non-scoring tile.
   function placeTileInRow(rack, rowIndex, targetSlot, payload) {
     if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return;
 
     const row = rack.rows[rowIndex];
+
+    const hypothetical = row.guessSlots.slice();
+    if (payload.fromRow === rowIndex && payload.fromSlot !== null) hypothetical[payload.fromSlot] = null;
+    let firstGap = hypothetical.findIndex((e) => e === null);
+    if (firstGap === -1) firstGap = hypothetical.length;
+    if (targetSlot > firstGap) return; // would leave a gap before it
+
     const needsWildcardPicker = payload.letter === '?';
 
     row.guessSlots[targetSlot] = { trayIndex: payload.trayIndex, letter: payload.letter };
 
-    row.guessSlots.forEach((entry, slot) => {
-      if (slot !== targetSlot && entry && entry.trayIndex === payload.trayIndex) {
-        row.guessSlots[slot] = null;
-      }
+    const otherRows = new Set();
+    rack.rows.forEach((r, i) => {
+      r.guessSlots.forEach((entry, slot) => {
+        if ((i === rowIndex && slot === targetSlot) || !entry || entry.trayIndex !== payload.trayIndex) return;
+        r.guessSlots[slot] = null;
+        if (i !== rowIndex) otherRows.add(i);
+      });
     });
+    otherRows.forEach((i) => closeGaps(rack.rows[i]));
 
     handleRowChanged(rack, rowIndex);
+    otherRows.forEach((i) => handleRowChanged(rack, i));
 
     if (needsWildcardPicker) {
       const tileEl = document.querySelector(`#guess-tiles-${rowIndex} .tile[data-slot="${targetSlot}"]`);
@@ -1926,14 +1965,17 @@
     }
   }
 
-  // Re-evaluates one row after it changes: re-renders its tiles right
-  // away, then checks the word with the server (live preview — no sound
-  // or scoring yet) and, once that resolves, updates every row's
-  // total/button/highlight, since a change in one row can shift which
-  // row is currently the rack's effective winner.
+  // Re-evaluates one row after it changes: re-renders its tiles and the
+  // tray right away (a tile placed or freed here changes what's
+  // available rack-wide, see isTrayIndexPlaced), then checks the word
+  // with the server (live preview — no sound or scoring yet) and, once
+  // that resolves, updates every row's total/button/highlight, since a
+  // change in one row can shift which row is currently the rack's
+  // effective winner.
   async function handleRowChanged(rack, rowIndex) {
     if (roundEnded) return;
     renderRowTiles(rack, rowIndex);
+    renderTray(rack);
 
     const row = rack.rows[rowIndex];
     const word = currentWordForRow(row);
