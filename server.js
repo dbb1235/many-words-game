@@ -32,15 +32,6 @@ const RACK_SIZE = 10;
 const NUM_SCRAMBLES = 6;
 const MIN_WORD_LEN = 3;
 const MAX_DUPLICATE_LETTERS = 2;
-// 20% of a rack's slots are double-letter; of the slots that leaves,
-// 15% are triple-letter (12% absolute, since it's 15% of the remaining
-// 80%) — 32% of slots carry some bonus overall. rollBottomBonuses only
-// evaluates the 3L check once the 2L check has already failed, so this
-// constant is itself the "of remainder" conditional rate (0.15), not
-// the resulting 12% absolute figure — the 80%-remainder math falls out
-// of that structure automatically.
-const DOUBLE_LETTER_CHANCE = 0.20;
-const TRIPLE_LETTER_CHANCE = 0.15;
 const LONG_WORD_MIN_LEN = 8;
 const LONG_WORD_BONUS = 10;
 const WILDCARDS_PER_SCRAMBLE = 1;
@@ -132,12 +123,18 @@ function drawRackLetters(bag, count, maxPerLetter, rng) {
   return drawn;
 }
 
+// Every rack gets exactly one 2L, one 3L, and one 2W slot — no longer a
+// per-slot probability. The three get distinct positions by shuffling
+// all slot indices and claiming the first three: index 0 is 2L, index 1
+// is 3L, index 2 is 2W — so 2W always lands on a slot not already
+// claimed by 2L or 3L.
 function rollBottomBonuses(count, rng) {
-  return Array.from({ length: count }, () => {
-    if (rng() < DOUBLE_LETTER_CHANCE) return '2L';
-    if (rng() < TRIPLE_LETTER_CHANCE) return '3L';
-    return undefined;
-  });
+  const indices = shuffle(Array.from({ length: count }, (_, i) => i), rng);
+  const bonuses = Array.from({ length: count }, () => undefined);
+  bonuses[indices[0]] = '2L';
+  bonuses[indices[1]] = '3L';
+  bonuses[indices[2]] = '2W';
+  return bonuses;
 }
 
 function dealScramble(rng) {
@@ -230,6 +227,12 @@ function scoreGuess(scramble, cells) {
   }, 0);
 
   if (word.length >= LONG_WORD_MIN_LEN) rawScore += LONG_WORD_BONUS;
+
+  // 2W doubles the whole word's score (letter bonuses and the long-word
+  // bonus included) rather than multiplying a single letter's points —
+  // it only applies when a tile actually landed on the 2W slot.
+  const coversDoubleWord = sorted.some((cell) => scramble.bottomBonuses[cell.position] === '2W');
+  if (coversDoubleWord) rawScore *= 2;
 
   // A word must clear a minimum point value to count at all, even if
   // it's real — see MULTIPLAYER_PLAN.md §3a. This was previously only

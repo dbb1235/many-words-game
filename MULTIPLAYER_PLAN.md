@@ -150,18 +150,26 @@ multiplayer (single-player keeps its existing behavior unless noted):
   change single-player, which still explicitly allows repeating a word
   across your own 6 racks (an earlier, separate decision — see
   `SESSION_SUMMARY.md`).
-- **Bonus tile generation rate** — **done** in `server.js`, verified
-  empirically at 9.96%/8.99% over 100k samples: of a rack's 10 guess slots, 10% are
-  double-letter, and 10% of the *remaining* (non-2L) slots are
-  triple-letter — roughly 1 double + ~0.9 triple per 10-slot rack on
-  average, but as a genuine per-cell probability (10% / 9% absolute),
-  not the fixed "always exactly one of each" the current mockups and
-  `server.js` hardcode. This updates the original all6.js rates
-  (`DOUBLE_LETTER_CHANCE = 0.08`, `TRIPLE_LETTER_CHANCE = 0.04`) to
-  10% / 9%. Still open from the brainstorm, not yet resolved: whether
-  bonus tiles are also *scarce across players* (first use consumes the
-  cell for everyone, same as word-locking) — this rule only answers how
-  many exist per rack, not whether they're shared.
+- **Bonus tile generation rate** — **superseded, done** in `server.js`
+  as of 2026-09-01: back to a fixed "exactly one of each" per rack —
+  every 10-slot rack gets exactly one 2L, one 3L, and one 2W slot,
+  assigned to three distinct random positions (`rollBottomBonuses`
+  shuffles all 10 slot indices and claims the first three). This
+  replaces the earlier per-cell-probability approach (10%/9% absolute,
+  itself a revision of the original 8%/4%) — the probability model is
+  no longer in the code at all. Still open from the brainstorm, not yet
+  resolved: whether bonus tiles are also *scarce across players* (first
+  use consumes the cell for everyone, same as word-locking) — this rule
+  only answers how many exist per rack, not whether they're shared.
+- **2W (double word)** — **new, done** in `server.js`: a whole-word
+  score multiplier, distinct from 2L/3L which only multiply one
+  letter's points. If any placed tile lands on the rack's 2W slot, the
+  word's total score (letter bonuses and the long-word bonus both
+  included) is doubled. Rendered as a solid red tile (2L is light red,
+  3L stays light blue) with white "2W" text when empty.
+- **Wildcards per rack** — **changed** as of 2026-09-01: 1 per rack
+  (was 2) — racks now deal 9 real letters + 1 wildcard instead of 8 + 2
+  (`WILDCARDS_PER_SCRAMBLE` in `server.js`).
 - **Long-word bonus** — **done** in `server.js`: +10 flat points for any word 8 letters or
   longer, on top of normal scoring (including any bonus-tile
   multipliers on that word). Straightforward addition, no interaction
