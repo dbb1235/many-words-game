@@ -145,6 +145,13 @@
   .tile-row.guess .tile.dragging { opacity: 0.35; }
   .tile-row.guess .tile.wildcard-placed { cursor: pointer; }
 
+  /* A row's tile strip is focusable so it can receive typed letters
+     (see handleRowKeydown) — this replaces the default focus ring with
+     one that wraps the whole strip, making it obvious which row typing
+     will land in. */
+  .tile-row.guess { outline: none; border-radius: 8px; cursor: text; }
+  .tile-row.guess:focus { outline: 3px solid var(--gold); outline-offset: 4px; }
+
   /* Bonus cells are colored, and an empty one also spells out "2L"/"3L"
      so its effect is obvious before anything's placed there. A tile
      keeps the color for as long as it sits there — the tile itself
@@ -1008,6 +1015,21 @@
     return rack.rows.some((row) => row.guessSlots.some((e) => e && e.trayIndex === trayIndex));
   }
 
+  // For typing: finds a tray tile to use for a typed letter, same as
+  // reaching for it by hand would — an unplaced real tile of that exact
+  // letter first, falling back to an unplaced wildcard (auto-resolved to
+  // that letter, same end state as dragging a wildcard then picking a
+  // letter). Returns -1 if neither is available.
+  function findAvailableTrayIndexForLetter(rack, letter) {
+    for (let i = 0; i < rack.tiles.length; i++) {
+      if (rack.tiles[i].letter === letter && !isTrayIndexPlaced(rack, i)) return i;
+    }
+    for (let i = 0; i < rack.tiles.length; i++) {
+      if (rack.tiles[i].letter === '?' && !isTrayIndexPlaced(rack, i)) return i;
+    }
+    return -1;
+  }
+
   // Left-packs a row's guessSlots so every filled slot sits contiguously
   // from slot 0 with no gaps — called after any removal, so a tile
   // pulled out of the middle doesn't leave the tiles after it stranded
@@ -1339,6 +1361,52 @@
     document.getElementById('use-btn-' + rowIndex).addEventListener('click', () => {
       toggleUseRow(RACKS[currentIndex], rowIndex);
     });
+  }
+
+  // ---------- Typing a word directly into a row ----------
+  //
+  // A candidate row's tile strip is focusable (tabindex + click-to-focus,
+  // since a click may land on a child tile div rather than the strip
+  // itself) — while focused, letter keys place tiles the same way a drag
+  // from the tray would (goes through placeTileInRow, so the no-gap and
+  // rack-wide-exclusivity rules apply identically either way), and
+  // Backspace/Delete remove the last one. The strip's own innerHTML is
+  // rebuilt on every change but the element itself is never replaced, so
+  // focus survives across keystrokes without needing to be restored.
+  function handleRowKeydown(e, rack, rowIndex) {
+    const row = rack.rows[rowIndex];
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      let lastFilled = -1;
+      for (let i = row.guessSlots.length - 1; i >= 0; i--) {
+        if (row.guessSlots[i]) { lastFilled = i; break; }
+      }
+      if (lastFilled === -1) return;
+      row.guessSlots[lastFilled] = null;
+      handleRowChanged(rack, rowIndex);
+      return;
+    }
+
+    if (!/^[a-zA-Z]$/.test(e.key)) return;
+    e.preventDefault();
+
+    let targetSlot = row.guessSlots.findIndex((s) => s === null);
+    if (targetSlot === -1) return; // row already full
+
+    const letter = e.key.toUpperCase();
+    const trayIndex = findAvailableTrayIndexForLetter(rack, letter);
+    if (trayIndex === -1) return; // don't have that letter, or a spare wildcard, available
+
+    placeTileInRow(rack, rowIndex, targetSlot, { trayIndex, letter, fromRow: null, fromSlot: null });
+  }
+
+  for (let i = 0; i < CANDIDATE_ROWS; i++) {
+    const rowIndex = i;
+    const el = document.getElementById('guess-tiles-' + rowIndex);
+    el.tabIndex = 0;
+    el.addEventListener('click', () => el.focus());
+    el.addEventListener('keydown', (e) => handleRowKeydown(e, RACKS[currentIndex], rowIndex));
   }
 
   document.getElementById('nav-next').addEventListener('click', () => {
