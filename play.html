@@ -1325,18 +1325,26 @@
     const result = await evaluateRackAsync(rack, currentIndex);
     if (rack.requestId !== myRequestId) return; // superseded by a newer change
 
-    renderWordStatus(result);
     fireSaveFeedback(result);
 
     if (result.valid) {
       const existing = rack.heldWords.find((h) => h.word === result.word);
       if (existing) existing.score = result.score;
       else rack.heldWords.push({ word: result.word, score: result.score });
-    }
 
-    renderHeaderScore();
-    renderRackSummary();
-    document.getElementById('hold-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
+      renderHeaderScore();
+      renderRackSummary();
+
+      // Clear the guess row so the tiles return to the tray and the
+      // next candidate can be built fresh, without a manual Erase.
+      rack.guessSlots = rack.guessSlots.map(() => null);
+      renderActive();
+    } else {
+      renderWordStatus(result);
+      renderHeaderScore();
+      renderRackSummary();
+      document.getElementById('hold-btn').disabled = currentWordForRack(rack).length < MIN_WORD_LEN;
+    }
   }
 
   document.getElementById('hold-btn').addEventListener('click', () => {
