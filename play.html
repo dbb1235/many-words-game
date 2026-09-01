@@ -134,6 +134,24 @@
 
   .tile .pts { position: absolute; bottom: 3%; right: 6%; font-size: clamp(14px, 2.2vw, 25px); font-weight: 700; }
 
+  /* Slot-machine spin-in for a rack's tray, first view only — see
+     spinInTray. The tile itself becomes a windowed viewport (overflow
+     hidden, no padding) onto a tall vertical strip of letters; the
+     strip is what actually animates. */
+  .tile.spinning { overflow: hidden; padding: 0; cursor: default; }
+  .tile.spinning .reel { display: flex; flex-direction: column; }
+  .reel-cell {
+    flex-shrink: 0;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    font-weight: 700;
+    font-size: clamp(28px, 6.2vw, 64px);
+  }
+
   .tile-row.tray .tile.draggable { cursor: grab; }
   .tile-row.tray .tile.draggable:hover { outline: 2px solid var(--gold); outline-offset: 1px; }
   .tile-row.tray .tile.used { opacity: 0.28; }
@@ -825,6 +843,7 @@
       bottomBonuses: scramble.bottomBonuses,
       rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
       pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
+      seen: false, // flips true the first time this rack's tray finishes its slot-machine spin-in
     };
   }
 
@@ -1084,6 +1103,69 @@
     };
   }
 
+  // ---------- Slot-machine spin-in for a rack's tray (first view only) ----------
+  //
+  // Each tile gets its own vertical "reel" of random letters ending on
+  // the real one, scrolled up via a CSS transition rather than
+  // keyframes (the reel's content — how many random letters, which
+  // ones — differs per tile and per rack, so it can't be baked into a
+  // shared @keyframes rule). translateY uses a percentage of the reel's
+  // own height, so the scroll distance doesn't need to be measured in
+  // pixels — it's exactly (REEL_LENGTH-1)/REEL_LENGTH of the reel's
+  // height regardless of how large the tiles render at the current
+  // viewport width. Reels are staggered slightly and finish in
+  // sequence, like an actual one-armed bandit, landing around 2.5-3.2s.
+  const REEL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const REEL_LENGTH = 18;
+  const SPIN_BASE_MS = 2500;
+  const SPIN_STAGGER_MS = 80;
+
+  function spinInTray(rack, onDone) {
+    const el = document.getElementById('tray-tiles');
+    el.innerHTML = rack.tiles.map((t, i) => {
+      const randomCells = Array.from({ length: REEL_LENGTH - 1 }, () =>
+        `<div class="reel-cell">${REEL_LETTERS[Math.floor(Math.random() * REEL_LETTERS.length)]}</div>`
+      ).join('');
+      return `<div class="tile spinning" data-i="${i}"><div class="reel">${randomCells}<div class="reel-cell">${t.letter}<span class="pts">${t.points}</span></div></div></div>`;
+    }).join('');
+
+    // Next Rack is briefly disabled so clicking through mid-spin can't
+    // overlap two spins on top of each other.
+    const nextBtn = document.getElementById('nav-next');
+    const wasNextDisabled = nextBtn.disabled;
+    nextBtn.disabled = true;
+
+    // `transitionend` isn't fully reliable (a hidden/backgrounded tab can
+    // throttle it, and browsers occasionally drop it for one of several
+    // simultaneous transitions) — finish() is guarded so whichever fires
+    // first, the last real transitionend or the timeout fallback below,
+    // wins and the tray is never left stuck mid-spin.
+    let settled = false;
+    function finish() {
+      if (settled) return;
+      settled = true;
+      renderTray(rack); // swap in the normal, interactive tile markup
+      nextBtn.disabled = wasNextDisabled;
+      if (onDone) onDone();
+    }
+
+    let remaining = rack.tiles.length;
+    Array.from(el.children).forEach((tileEl, i) => {
+      const reel = tileEl.querySelector('.reel');
+      const duration = SPIN_BASE_MS + i * SPIN_STAGGER_MS;
+      reel.style.transition = `transform ${duration}ms cubic-bezier(0.1, 0.85, 0.25, 1)`;
+      void reel.offsetHeight; // force the starting position to commit before animating
+      reel.style.transform = `translateY(-${((REEL_LENGTH - 1) / REEL_LENGTH) * 100}%)`;
+      reel.addEventListener('transitionend', () => {
+        remaining--;
+        if (remaining === 0) finish();
+      }, { once: true });
+    });
+
+    const maxDuration = SPIN_BASE_MS + (rack.tiles.length - 1) * SPIN_STAGGER_MS;
+    setTimeout(finish, maxDuration + 400);
+  }
+
   function renderRowTiles(rack, rowIndex) {
     const row = rack.rows[rowIndex];
     const el = document.getElementById('guess-tiles-' + rowIndex);
@@ -1340,7 +1422,17 @@
   function renderActive() {
     const rack = RACKS[currentIndex];
 
-    renderTray(rack);
+    // The very first time this rack's tray is shown (a new game, or
+    // switching to a scramble not yet visited this game), it spins in
+    // like a one-armed bandit instead of just appearing (see
+    // spinInTray). Every later view of the same rack renders instantly.
+    if (rack.seen) {
+      renderTray(rack);
+    } else {
+      rack.seen = true;
+      spinInTray(rack);
+    }
+
     for (let i = 0; i < CANDIDATE_ROWS; i++) renderRowTiles(rack, i);
     renderAllRowMeta(rack);
 
