@@ -214,12 +214,16 @@ function cellsAreSourceable(cells, scramble) {
   return true;
 }
 
-// The locked slot only constrains a guess that actually reaches it — a
-// word that stops before that position never has to address it at all.
+// The locked slot only constrains a guess that actually occupies it —
+// leaving it open is always fine, whether the word stops before that
+// position or routes around it and continues past it. `word` is built
+// from `cells` sorted by position regardless of which positions are
+// present (see scoreGuess), so a guess that skips this one slot still
+// reads as one continuous word, just without whatever letter (and
+// bonus) would have sat there.
 function lockedLetterSatisfied(scramble, cells) {
   const atLocked = cells.find((c) => c.position === scramble.lockedPosition);
-  if (atLocked) return atLocked.letter === scramble.lockedLetter;
-  return !cells.some((c) => c.position > scramble.lockedPosition);
+  return !atLocked || atLocked.letter === scramble.lockedLetter;
 }
 
 function scoreGuess(scramble, cells) {

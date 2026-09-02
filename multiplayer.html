@@ -1738,24 +1738,36 @@
     return 1;
   }
 
-  function currentWordForRow(row) {
+  // Skips over the locked slot if it's been left open (a deliberate
+  // route around it) rather than stopping there — any *other* open slot
+  // still ends the word, since that can only mean a gap the UI itself
+  // wouldn't have allowed to happen.
+  function currentWordForRow(row, lockedPosition) {
     let word = '';
-    for (const entry of row.guessSlots) {
-      if (!entry) break;
+    for (let slot = 0; slot < row.guessSlots.length; slot++) {
+      const entry = row.guessSlots[slot];
+      if (!entry) {
+        if (slot === lockedPosition) continue;
+        break;
+      }
       word += entry.letter;
     }
     return word;
   }
 
-  // The server payload for a row's contiguous run of placed tiles —
-  // rows are never cleared after evaluation, so this can always be
-  // recomputed fresh on demand (e.g. to resubmit with a different
-  // `force` value from toggleUseRow) without needing a separate cache.
-  function cellsForRow(row, tiles) {
+  // The server payload for a row's placed tiles — rows are never
+  // cleared after evaluation, so this can always be recomputed fresh on
+  // demand (e.g. to resubmit with a different `force` value from
+  // toggleUseRow) without needing a separate cache. Same
+  // skip-the-open-locked-slot rule as currentWordForRow.
+  function cellsForRow(row, tiles, lockedPosition) {
     const filled = [];
     for (let slot = 0; slot < row.guessSlots.length; slot++) {
       const entry = row.guessSlots[slot];
-      if (!entry) break;
+      if (!entry) {
+        if (slot === lockedPosition) continue;
+        break;
+      }
       filled.push({ entry, slot });
     }
     return filled.map(({ entry, slot }) => ({
@@ -1788,8 +1800,8 @@
   }
 
   async function evaluateRowAsync(rack, row, scrambleIndex) {
-    const result = await submitCells(cellsForRow(row, rack.tiles), scrambleIndex, false);
-    if (!result.word) result.word = currentWordForRow(row);
+    const result = await submitCells(cellsForRow(row, rack.tiles, rack.lockedPosition), scrambleIndex, false);
+    if (!result.word) result.word = currentWordForRow(row, rack.lockedPosition);
     return result;
   }
 
@@ -1848,13 +1860,26 @@
   }
 
   // Left-packs a row's guessSlots so every filled slot sits contiguously
-  // from slot 0 with no gaps — called after any removal, so a tile
-  // pulled out of the middle doesn't leave the tiles after it stranded
-  // (which currentWordForRow would silently stop reading at anyway).
-  function closeGaps(row) {
-    const filled = row.guessSlots.filter((e) => e !== null);
-    for (let i = 0; i < row.guessSlots.length; i++) {
-      row.guessSlots[i] = filled[i] || null;
+  // with no *unintended* gaps — called after any removal, so a tile
+  // pulled out of the middle doesn't leave the tiles after it stranded.
+  // If the locked slot is currently sitting open (a deliberate route
+  // around it, not just "not reached yet"), the two sides of it are
+  // packed independently and the gap itself is preserved rather than
+  // collapsed — otherwise this is the original single-run left-pack.
+  function closeGaps(row, lockedPosition) {
+    if (lockedPosition == null || row.guessSlots[lockedPosition]) {
+      const filled = row.guessSlots.filter((e) => e !== null);
+      for (let i = 0; i < row.guessSlots.length; i++) {
+        row.guessSlots[i] = filled[i] || null;
+      }
+      return;
+    }
+    const before = row.guessSlots.slice(0, lockedPosition).filter((e) => e !== null);
+    const after = row.guessSlots.slice(lockedPosition + 1).filter((e) => e !== null);
+    for (let i = 0; i < lockedPosition; i++) row.guessSlots[i] = before[i] || null;
+    row.guessSlots[lockedPosition] = null;
+    for (let i = lockedPosition + 1; i < row.guessSlots.length; i++) {
+      row.guessSlots[i] = after[i - lockedPosition - 1] || null;
     }
   }
 
@@ -1890,7 +1915,7 @@
       if (!payload || payload.fromRow === null || payload.fromSlot === null) return;
       const originRow = rack.rows[payload.fromRow];
       originRow.guessSlots[payload.fromSlot] = null;
-      closeGaps(originRow);
+      closeGaps(originRow, rack.lockedPosition);
       handleRowChanged(rack, payload.fromRow);
     };
   }
@@ -1933,7 +1958,7 @@
             return;
           }
           row.guessSlots[slot] = null;
-          closeGaps(row);
+          closeGaps(row, rack.lockedPosition);
           handleRowChanged(rack, rowIndex);
         });
       }
@@ -1966,10 +1991,14 @@
   //    never touches any other row, since tiles are shared across rows
   //    by design (see makeRack) — that's what lets WATER sit in one row
   //    and WATERY in another at the same time.
-  //  - A drop past the first open slot would leave a gap — and
-  //    everything after a gap is silently dropped from the word by
-  //    currentWordForRow anyway — so it's rejected outright rather
-  //    than creating a dangling, non-scoring tile.
+  //  - A drop past an open slot would normally leave a gap — and
+  //    everything after a gap used to be silently dropped from the word
+  //    by currentWordForRow — so it's rejected, with one exception: the
+  //    locked slot (rack.lockedPosition) is allowed to sit open while
+  //    tiles are placed past it, since a word can legitimately route
+  //    around it (currentWordForRow/cellsForRow skip it, not stop at
+  //    it). Any *other* open slot before the target still blocks the
+  //    drop outright, same as before.
   function placeTileInRow(rack, rowIndex, targetSlot, payload) {
     if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return;
 
@@ -1977,9 +2006,9 @@
 
     const hypothetical = row.guessSlots.slice();
     if (payload.fromRow === rowIndex && payload.fromSlot !== null) hypothetical[payload.fromSlot] = null;
-    let firstGap = hypothetical.findIndex((e) => e === null);
-    if (firstGap === -1) firstGap = hypothetical.length;
-    if (targetSlot > firstGap) return; // would leave a gap before it
+    for (let i = 0; i < targetSlot; i++) {
+      if (hypothetical[i] === null && i !== rack.lockedPosition) return; // would leave a real gap before it
+    }
 
     const needsWildcardPicker = payload.letter === '?';
 
@@ -1995,7 +2024,7 @@
     if (payload.fromRow !== null && payload.fromRow !== rowIndex && payload.fromSlot !== null) {
       otherRowIndex = payload.fromRow;
       rack.rows[otherRowIndex].guessSlots[payload.fromSlot] = null;
-      closeGaps(rack.rows[otherRowIndex]);
+      closeGaps(rack.rows[otherRowIndex], rack.lockedPosition);
     }
 
     handleRowChanged(rack, rowIndex);
@@ -2017,7 +2046,7 @@
     renderRowTiles(rack, rowIndex);
 
     const row = rack.rows[rowIndex];
-    const word = currentWordForRow(row);
+    const word = currentWordForRow(row, rack.lockedPosition);
     const hasUnresolvedWildcard = row.guessSlots.some((e) => e && e.letter === '?');
     const myRequestId = ++row.requestId;
 
@@ -2336,10 +2365,19 @@
     if (!/^[a-zA-Z]$/.test(e.key)) return;
     e.preventDefault();
 
+    const letter = e.key.toUpperCase();
+
     let targetSlot = row.guessSlots.findIndex((s) => s === null);
+    // Typing always fills the next open slot — except the locked slot,
+    // which only accepts its exact required letter. Typing anything
+    // else there routes straight past it to the slot after, the same
+    // way a drag-and-drop would; typing the matching letter fills it
+    // normally, same as any other slot.
+    if (targetSlot === rack.lockedPosition && letter !== rack.lockedLetter) {
+      targetSlot = row.guessSlots.findIndex((s, i) => s === null && i > rack.lockedPosition);
+    }
     if (targetSlot === -1) return; // row already full
 
-    const letter = e.key.toUpperCase();
     const trayIndex = findAvailableTrayIndexForLetter(rack, row, letter);
     if (trayIndex === -1) return; // don't have that letter, or a spare wildcard, available in this row
 
