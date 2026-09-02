@@ -1238,7 +1238,13 @@
 
     const tileEl = el.children[sampleIndex];
     const reel = tileEl.querySelector('.reel');
-    const cellHeight = tileEl.getBoundingClientRect().height;
+    // Measured off an actual rendered cell, NOT off the tile — the tile's
+    // border-box height includes its 1.5px borders, while a cell sizes to
+    // the tile's *content* box, so the tile reads ~2px taller per cell.
+    // Multiplied across 48 cells that overshot the final letter by ~3
+    // cells of empty strip, and since the overshoot fell in the slowest
+    // part of the deceleration it showed as seconds of blank tile.
+    const cellHeight = reel.querySelector('.reel-cell').getBoundingClientRect().height;
     reel.style.setProperty('--spin-target', `-${(REEL_LENGTH - 1) * cellHeight}px`);
     reel.style.animationDuration = `${SPIN_DURATION_MS}ms`;
     reel.addEventListener('animationend', finish, { once: true });
