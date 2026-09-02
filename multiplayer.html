@@ -2367,15 +2367,15 @@
 
     const letter = e.key.toUpperCase();
 
-    let targetSlot = row.guessSlots.findIndex((s) => s === null);
-    // Typing always fills the next open slot — except the locked slot,
-    // which only accepts its exact required letter. Typing anything
-    // else there routes straight past it to the slot after, the same
-    // way a drag-and-drop would; typing the matching letter fills it
-    // normally, same as any other slot.
-    if (targetSlot === rack.lockedPosition && letter !== rack.lockedLetter) {
-      targetSlot = row.guessSlots.findIndex((s, i) => s === null && i > rack.lockedPosition);
-    }
+    // Typing always fills the next open slot, full stop — including the
+    // locked slot. Typing the wrong letter there just lands it there
+    // and the guess reads as invalid, same as any other wrong letter;
+    // it does NOT silently reroute past the lock (that would turn
+    // e.g. "DIME" typed straight through a required O into a hidden
+    // skip nobody asked for). Deliberately routing around the locked
+    // slot is still possible, just via drag-and-drop onto a slot past
+    // it — see placeTileInRow.
+    const targetSlot = row.guessSlots.findIndex((s) => s === null);
     if (targetSlot === -1) return; // row already full
 
     const trayIndex = findAvailableTrayIndexForLetter(rack, row, letter);
