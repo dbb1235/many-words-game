@@ -152,11 +152,14 @@
   .tile-row.guess { outline: none; border-radius: 8px; cursor: text; }
   .tile-row.guess:focus { outline: 3px solid var(--gold); outline-offset: 4px; }
 
-  /* An empty bonus cell is colored and spells out "2L"/"3L"/"2W" so its
-     effect is obvious before anything's placed there. */
-  .tile-row.guess .tile.empty.bonus2 { background: var(--bonus2-bg) !important; border-color: var(--bonus2-border); }
-  .tile-row.guess .tile.empty.bonus3 { background: var(--bonus3-bg) !important; border-color: var(--bonus3-border); }
-  .tile-row.guess .tile.empty.bonus2w { background: var(--bonus2w-bg) !important; border-color: var(--bonus2w-border); }
+  /* Bonus cells are colored, and an empty one also spells out "2L"/"3L"
+     so its effect is obvious before anything's placed there. A tile
+     keeps the color for as long as it sits there — the tile itself
+     reads as "boosted," not just its point number. Move the tile off
+     this slot and the color, label, and ×2/×3 all go away together. */
+  .tile-row.guess .tile.bonus2 { background: var(--bonus2-bg) !important; border-color: var(--bonus2-border); }
+  .tile-row.guess .tile.bonus3 { background: var(--bonus3-bg) !important; border-color: var(--bonus3-border); }
+  .tile-row.guess .tile.bonus2w { background: var(--bonus2w-bg) !important; border-color: var(--bonus2w-border); color: #fff; }
   .tile-row.guess .tile.empty .bonus-label {
     font-size: clamp(14px, 3vw, 26px);
     font-weight: 800;
@@ -165,30 +168,6 @@
     opacity: 0.75;
   }
   .tile-row.guess .tile.empty.bonus2w .bonus-label { color: #fff; opacity: 0.9; }
-
-  /* A tile placed on a bonus cell reads as boosted via a thick colored
-     border only — the interior stays plain white with black text, same
-     as every other placed tile, across all four candidate rows. */
-  .tile-row.guess .tile.draggable.bonus2 { border: 5px solid var(--bonus2-border); background: #fff; color: #000; }
-  .tile-row.guess .tile.draggable.bonus3 { border: 5px solid var(--bonus3-border); background: #fff; color: #000; }
-  .tile-row.guess .tile.draggable.bonus2w { border: 5px solid var(--bonus2w-border); background: #fff; color: #000; }
-
-  /* Permanent per-column key beneath the last candidate row — once a
-     bonus cell in every row holds a placed tile, that tile's own
-     bonus-label is long gone, so this static row is the only remaining
-     way to see which columns were ever bonus columns. */
-  .tile-row.legend .tile.legend-cell { border: none; background: transparent; }
-  .tile-row.legend .tile.legend-cell.bonus2 { background: var(--bonus2-bg); border: 1.5px solid var(--bonus2-border); }
-  .tile-row.legend .tile.legend-cell.bonus3 { background: var(--bonus3-bg); border: 1.5px solid var(--bonus3-border); }
-  .tile-row.legend .tile.legend-cell.bonus2w { background: var(--bonus2w-bg); border: 1.5px solid var(--bonus2w-border); }
-  .tile-row.legend .tile.legend-cell .bonus-label {
-    font-size: clamp(14px, 3vw, 26px);
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    color: var(--dark);
-    opacity: 0.75;
-  }
-  .tile-row.legend .tile.legend-cell.bonus2w .bonus-label { color: #fff; opacity: 0.9; }
 
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
@@ -577,12 +556,6 @@
       <div class="tile-row guess" id="guess-tiles-3"></div>
       <div class="candidate-total" id="candidate-total-3">0 pts</div>
       <button type="button" class="use-btn" id="use-btn-3" disabled>Use</button>
-    </div>
-
-    <div class="candidate-row">
-      <div class="tile-row legend" id="bonus-legend"></div>
-      <div class="candidate-total ghost" aria-hidden="true">0 pts</div>
-      <button type="button" class="use-btn ghost" aria-hidden="true" tabindex="-1">Use</button>
     </div>
 
     <div class="rack-nav">
@@ -1364,27 +1337,12 @@
     for (let i = 0; i < CANDIDATE_ROWS; i++) renderRowMeta(rack, i);
   }
 
-  // Static per-column key beneath the last candidate row — unlike a
-  // candidate row's own bonus cells, these never hold a placed tile, so
-  // which columns are bonus columns stays visible no matter what's
-  // placed in any of the four rows above.
-  function renderBonusLegend(rack) {
-    const el = document.getElementById('bonus-legend');
-    el.innerHTML = rack.tiles.map((_, slot) => {
-      const bonus = rack.bottomBonuses[slot];
-      const bonusClass = bonus === '2L' ? ' bonus2' : bonus === '3L' ? ' bonus3' : bonus === '2W' ? ' bonus2w' : '';
-      const label = bonus === '2L' ? '2L' : bonus === '3L' ? '3L' : bonus === '2W' ? '2W' : '';
-      return `<div class="tile legend-cell${bonusClass}" data-slot="${slot}">${label ? `<span class="bonus-label">${label}</span>` : ''}</div>`;
-    }).join('');
-  }
-
   function renderActive() {
     const rack = RACKS[currentIndex];
 
     renderTray(rack);
     for (let i = 0; i < CANDIDATE_ROWS; i++) renderRowTiles(rack, i);
     renderAllRowMeta(rack);
-    renderBonusLegend(rack);
 
     document.getElementById('rack-indicator').textContent = `Rack ${currentIndex + 1}`;
   }
