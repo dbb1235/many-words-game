@@ -167,54 +167,6 @@
 
   .tile .pts { position: absolute; bottom: 3%; right: 6%; font-size: clamp(14px, 2.2vw, 25px); font-weight: 700; }
 
-  /* Slot-machine spin-in for a rack's tray, first view only — see
-     spinInTray. The tile itself becomes a windowed viewport (overflow
-     hidden, no padding) onto a tall vertical strip of letters; the
-     strip is what actually animates.
-
-     Uses an explicit-keyframe animation rather than a transition with
-     an easing curve — a curve aggressive enough to feel like a "fast
-     spin" also reaches ~99% of its travel distance well before 100% of
-     its declared duration, which visually freezes the reel on its
-     final letter for a long silent stretch before the JS-side "still
-     spinning" state actually clears (found by measuring reel position
-     over time: it stopped moving around 5.3s into an 8s transition).
-     Named keyframes with explicit percentages keep real, gradually
-     slowing motion spread across the *entire* declared duration
-     instead. --spin-target (an exact pixel distance, set per tile in
-     spinInTray since it depends on that tile's own measured height) is
-     a custom property so one shared @keyframes rule can drive every
-     tile's differently-sized scroll with plain calc() multiples. */
-  @keyframes reelSpin {
-    0%   { transform: translateY(0); }
-    10%  { transform: translateY(calc(var(--spin-target) * 0.14)); }
-    30%  { transform: translateY(calc(var(--spin-target) * 0.42)); }
-    50%  { transform: translateY(calc(var(--spin-target) * 0.65)); }
-    70%  { transform: translateY(calc(var(--spin-target) * 0.83)); }
-    85%  { transform: translateY(calc(var(--spin-target) * 0.93)); }
-    95%  { transform: translateY(calc(var(--spin-target) * 0.98)); }
-    100% { transform: translateY(var(--spin-target)); }
-  }
-  .tile.spinning { overflow: hidden; padding: 0; cursor: default; }
-  .tile.spinning .reel {
-    display: flex;
-    flex-direction: column;
-    animation-name: reelSpin;
-    animation-timing-function: linear; /* the keyframe spacing above already encodes the deceleration */
-    animation-fill-mode: forwards;
-  }
-  .reel-cell {
-    flex-shrink: 0;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    font-weight: 700;
-    font-size: clamp(28px, 6.2vw, 64px);
-  }
-
   .tile-row.tray .tile.draggable { cursor: grab; }
   .tile-row.tray .tile.draggable:hover { outline: 2px solid var(--gold); outline-offset: 1px; }
   .tile-row.tray .tile.used { opacity: 0.28; }
@@ -1689,7 +1641,6 @@
       bottomBonuses: scramble.bottomBonuses,
       rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
       pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
-      seen: false, // flips true the first time this rack's tray finishes its slot-machine spin-in
     };
   }
 
@@ -1937,92 +1888,6 @@
       closeGaps(originRow);
       handleRowChanged(rack, payload.fromRow);
     };
-  }
-
-  // ---------- Slot-machine spin-in for a rack's tray (first view only) ----------
-  //
-  // Each tile gets its own vertical "reel" of random letters ending on
-  // the real one, scrolled up via the reelSpin @keyframes animation (see
-  // CSS) rather than a plain CSS transition — an easing curve aggressive
-  // enough to feel like a fast spin also reaches ~99% of its travel well
-  // before 100% of its declared duration, which visually freezes the
-  // reel on its landed letter for a long silent stretch before the
-  // "still spinning" JS state actually clears (confirmed by sampling
-  // reel position over time — it stopped moving around the 5s mark of
-  // an 8s transition). Named keyframes keep real, gradually-slowing
-  // motion spread across the *entire* declared duration instead. The
-  // scroll distance itself is set as a per-tile CSS custom property
-  // (--spin-target, exact pixels from that tile's own
-  // getBoundingClientRect height — not a percentage of the reel's own
-  // auto-computed height, which resolved unreliably in an earlier
-  // version and could leave a visible blank gap). Reels are staggered
-  // slightly and finish in sequence over about 8-10s, like an actual
-  // one-armed bandit gradually losing momentum rather than snapping to
-  // a stop.
-  const REEL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  // Decorative only — matches server.js's LETTER_DATA point values so a
-  // random letter mid-spin shows the same number it would for real,
-  // rather than sitting blank until the reel lands. Never used for
-  // scoring; the server remains the sole scoring authority.
-  const REEL_LETTER_POINTS = {
-    A: 1, B: 3, C: 2, D: 2, E: 1, F: 5, G: 3, H: 3, I: 1, J: 10, K: 5, L: 2,
-    M: 3, N: 1, O: 1, P: 2, Q: 10, R: 1, S: 1, T: 1, U: 2, V: 5, W: 5, X: 7,
-    Y: 3, Z: 7,
-  };
-  const REEL_LENGTH = 46; // random cells before landing on the real letter — enough to keep visibly scrolling for the full ~10s
-  const SPIN_BASE_MS = 8000; // first tile's duration
-  const SPIN_STAGGER_MS = 222; // added per subsequent tile, so a 10-tile rack's last reel lands ~10000ms in
-
-  function spinInTray(rack, onDone) {
-    if (rack.tiles.length === 0) { renderTray(rack); if (onDone) onDone(); return; }
-
-    const el = document.getElementById('tray-tiles');
-    el.innerHTML = rack.tiles.map((t, i) => {
-      const randomCells = Array.from({ length: REEL_LENGTH - 1 }, () => {
-        const letter = REEL_LETTERS[Math.floor(Math.random() * REEL_LETTERS.length)];
-        return `<div class="reel-cell">${letter}<span class="pts">${REEL_LETTER_POINTS[letter]}</span></div>`;
-      }).join('');
-      return `<div class="tile spinning" data-i="${i}"><div class="reel">${randomCells}<div class="reel-cell">${t.letter}<span class="pts">${t.points}</span></div></div></div>`;
-    }).join('');
-
-    // Next Rack is briefly disabled so clicking through mid-spin can't
-    // overlap two spins on top of each other.
-    const nextBtn = document.getElementById('nav-next');
-    const wasNextDisabled = nextBtn.disabled;
-    nextBtn.disabled = true;
-
-    // `animationend` isn't fully reliable (a hidden/backgrounded tab can
-    // throttle it, and browsers occasionally drop it for one of several
-    // simultaneous animations) — finish() is guarded so whichever fires
-    // first, the last real animationend or the timeout fallback below,
-    // wins and the tray is never left stuck mid-spin.
-    let settled = false;
-    function finish() {
-      if (settled) return;
-      settled = true;
-      renderTray(rack); // swap in the normal, interactive tile markup
-      nextBtn.disabled = wasNextDisabled;
-      if (onDone) onDone();
-    }
-
-    let remaining = rack.tiles.length;
-    Array.from(el.children).forEach((tileEl, i) => {
-      const reel = tileEl.querySelector('.reel');
-      // Measured per tile (not once, shared) so any sub-pixel rounding
-      // difference between tiles can't leave one reel a pixel short of
-      // its own tile's actual height.
-      const cellHeight = tileEl.getBoundingClientRect().height;
-      const duration = SPIN_BASE_MS + i * SPIN_STAGGER_MS;
-      reel.style.setProperty('--spin-target', `-${(REEL_LENGTH - 1) * cellHeight}px`);
-      reel.style.animationDuration = `${duration}ms`;
-      reel.addEventListener('animationend', () => {
-        remaining--;
-        if (remaining === 0) finish();
-      }, { once: true });
-    });
-
-    const maxDuration = SPIN_BASE_MS + (rack.tiles.length - 1) * SPIN_STAGGER_MS;
-    setTimeout(finish, maxDuration + 500);
   }
 
   function renderRowTiles(rack, rowIndex) {
@@ -2344,17 +2209,7 @@
   function renderActive() {
     const rack = RACKS[currentIndex];
 
-    // The very first time this rack's tray is shown (entering the round,
-    // or switching to a scramble not yet visited), it spins in like a
-    // one-armed bandit instead of just appearing (see spinInTray). Every
-    // later view of the same rack renders instantly.
-    if (rack.seen) {
-      renderTray(rack);
-    } else {
-      rack.seen = true;
-      spinInTray(rack);
-    }
-
+    renderTray(rack);
     for (let i = 0; i < CANDIDATE_ROWS; i++) renderRowTiles(rack, i);
     renderAllRowMeta(rack);
 
