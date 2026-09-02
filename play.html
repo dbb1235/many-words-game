@@ -139,31 +139,46 @@
      hidden, no padding) onto a tall vertical strip of letters; the
      strip is what actually animates.
 
-     Uses an explicit-keyframe animation rather than a transition with
-     an easing curve — a curve aggressive enough to feel like a "fast
-     spin" also reaches ~99% of its travel distance well before 100% of
-     its declared duration, which visually freezes the reel on its
-     final letter for a long silent stretch before the JS-side "still
-     spinning" state actually clears (found by measuring reel position
-     over time: it stopped moving around 5.3s into an 8s transition).
-     Named keyframes with explicit percentages keep real, gradually
-     slowing motion spread across the *entire* declared duration
-     instead. --spin-target (an exact pixel distance, set per tile in
-     spinInTray since it depends on that tile's own measured height) is
-     a custom property so one shared @keyframes rule can drive every
+     Exact requested physics: 2 seconds at a constant 8 cells/sec, then
+     an 8-second linear slowdown from 8 cells/sec to 0 (uniform
+     deceleration, i.e. a parabola in position). Position is sampled
+     once per second (11 stops covering the constant-speed phase exactly
+     and the parabola closely) and connected with linear interpolation
+     (animation-timing-function: linear) — an eased CSS transition was
+     tried earlier and rejected: an easing curve aggressive enough to
+     feel like a "fast spin" reaches ~99% of its travel well before 100%
+     of its declared duration, which visually freezes the reel long
+     before the JS-side "still spinning" state actually clears (found by
+     measuring reel position over time: it stopped moving around 5.3s
+     into an 8s transition). --spin-target (an exact pixel distance, set
+     per tile in spinInTray since it depends on that tile's own measured
+     height) is a custom property so this @keyframes rule can drive any
      tile's differently-sized scroll with plain calc() multiples. */
   @keyframes reelSpin {
     0%   { transform: translateY(0); }
-    10%  { transform: translateY(calc(var(--spin-target) * 0.14)); }
-    30%  { transform: translateY(calc(var(--spin-target) * 0.42)); }
-    50%  { transform: translateY(calc(var(--spin-target) * 0.65)); }
-    70%  { transform: translateY(calc(var(--spin-target) * 0.83)); }
-    85%  { transform: translateY(calc(var(--spin-target) * 0.93)); }
-    95%  { transform: translateY(calc(var(--spin-target) * 0.98)); }
+    10%  { transform: translateY(calc(var(--spin-target) * 0.166667)); }
+    20%  { transform: translateY(calc(var(--spin-target) * 0.333333)); }
+    30%  { transform: translateY(calc(var(--spin-target) * 0.489583)); }
+    40%  { transform: translateY(calc(var(--spin-target) * 0.625)); }
+    50%  { transform: translateY(calc(var(--spin-target) * 0.739583)); }
+    60%  { transform: translateY(calc(var(--spin-target) * 0.833333)); }
+    70%  { transform: translateY(calc(var(--spin-target) * 0.90625)); }
+    80%  { transform: translateY(calc(var(--spin-target) * 0.958333)); }
+    90%  { transform: translateY(calc(var(--spin-target) * 0.989583)); }
     100% { transform: translateY(var(--spin-target)); }
   }
   .tile.spinning { overflow: hidden; padding: 0; cursor: default; }
   .tile.spinning .reel {
+    /* .tile's align-items: center (meant for a normal tile's single
+       centered letter) would otherwise vertically center this whole
+       49-cell-tall strip inside the tile's tiny viewport — starting
+       the visible window ~24 cells into the strip instead of at cell
+       0, and the translateY animation below (which assumes cell 0
+       starts flush with the top) would then drift the window straight
+       past the end of the strip into empty space for most of the run.
+       align-self: flex-start anchors the strip's top to the tile's
+       top so the translateY math is actually correct throughout. */
+    align-self: flex-start;
     display: flex;
     flex-direction: column;
     animation-name: reelSpin;
@@ -1135,46 +1150,71 @@
 
   // ---------- Slot-machine spin-in for a rack's tray (first view only) ----------
   //
-  // Each tile gets its own vertical "reel" of random letters ending on
-  // the real one, scrolled up via the reelSpin @keyframes animation (see
-  // CSS) rather than a plain CSS transition — an easing curve aggressive
-  // enough to feel like a fast spin also reaches ~99% of its travel well
-  // before 100% of its declared duration, which visually freezes the
-  // reel on its landed letter for a long silent stretch before the
-  // "still spinning" JS state actually clears (confirmed by sampling
-  // reel position over time — it stopped moving around the 5s mark of
-  // an 8s transition). Named keyframes keep real, gradually-slowing
-  // motion spread across the *entire* declared duration instead. The
-  // scroll distance itself is set as a per-tile CSS custom property
-  // (--spin-target, exact pixels from that tile's own
+  // SAMPLE / PENDING APPROVAL: per explicit instruction, this currently
+  // spins only ONE tile (tray index 0) as a sample of the new design,
+  // while every other tile — including the wildcard, which never spins
+  // — renders normally and immediately. Once approved, the same
+  // per-tile logic below is meant to be applied to the rest of the
+  // real-letter tiles too.
+  //
+  // The spinning tile's vertical "reel" cycles the alphabet in strict
+  // ascending order (A, B, C, ... Z, A, B, ...) rather than random
+  // letters, landing on the real letter in exactly 10 seconds. Motion
+  // is driven by the reelSpin @keyframes animation (see CSS) rather
+  // than a plain CSS transition — an easing curve aggressive enough to
+  // feel like a fast spin also reaches ~99% of its travel well before
+  // 100% of its declared duration, which visually freezes the reel on
+  // its landed letter for a long silent stretch before the "still
+  // spinning" JS state actually clears (confirmed by sampling reel
+  // position over time in an earlier version — it stopped moving
+  // around the 5s mark of an 8s transition). Named keyframes keep real,
+  // gradually-slowing motion spread across the *entire* declared
+  // duration instead. The scroll distance itself is set as a CSS custom
+  // property (--spin-target, exact pixels from the tile's own
   // getBoundingClientRect height — not a percentage of the reel's own
   // auto-computed height, which resolved unreliably in an earlier
-  // version and could leave a visible blank gap). Reels are staggered
-  // slightly and finish in sequence over about 8-10s, like an actual
-  // one-armed bandit gradually losing momentum rather than snapping to
-  // a stop.
+  // version and could leave a visible blank gap).
   const REEL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   // Decorative only — matches server.js's LETTER_DATA point values so a
-  // random letter mid-spin shows the same number it would for real,
-  // rather than sitting blank until the reel lands. Never used for
-  // scoring; the server remains the sole scoring authority.
+  // letter mid-spin shows the same number it would for real, rather
+  // than sitting blank until the reel lands. Never used for scoring;
+  // the server remains the sole scoring authority.
   const REEL_LETTER_POINTS = {
     A: 1, B: 3, C: 2, D: 2, E: 1, F: 5, G: 3, H: 3, I: 1, J: 10, K: 5, L: 2,
     M: 3, N: 1, O: 1, P: 2, Q: 10, R: 1, S: 1, T: 1, U: 2, V: 5, W: 5, X: 7,
     Y: 3, Z: 7,
   };
-  const REEL_LENGTH = 46; // random cells before landing on the real letter — enough to keep visibly scrolling for the full ~10s
-  const SPIN_BASE_MS = 8000; // first tile's duration
-  const SPIN_STAGGER_MS = 222; // added per subsequent tile, so a 10-tile rack's last reel lands ~10000ms in
+  // 49 cells = 48 cell-heights of travel: 2s at 8 cells/sec covers 16,
+  // then the 8s linear slowdown to 0 covers the remaining 32 (average
+  // speed over that phase is 4 cells/sec) — matches the reelSpin
+  // keyframes exactly, so the last (49th) cell lands right at 10s.
+  const REEL_LENGTH = 49;
+  const SPIN_DURATION_MS = 10000; // 2s constant speed + 8s linear slowdown to 0 (see reelSpin keyframes)
+
+  // Builds REEL_LENGTH cells in strict alphabetical order (wrapping
+  // Z -> A), ending on targetLetter as the very last cell.
+  function buildReelCells(targetLetter) {
+    const targetIndex = REEL_LETTERS.indexOf(targetLetter);
+    return Array.from({ length: REEL_LENGTH }, (_, k) => {
+      const idx = (((targetIndex - (REEL_LENGTH - 1 - k)) % 26) + 26) % 26;
+      return REEL_LETTERS[idx];
+    });
+  }
 
   function spinInTray(rack, onDone) {
     const el = document.getElementById('tray-tiles');
+    const sampleIndex = 0; // TEMP: only this tile spins until the sample is approved
+
     el.innerHTML = rack.tiles.map((t, i) => {
-      const randomCells = Array.from({ length: REEL_LENGTH - 1 }, () => {
-        const letter = REEL_LETTERS[Math.floor(Math.random() * REEL_LETTERS.length)];
-        return `<div class="reel-cell">${letter}<span class="pts">${REEL_LETTER_POINTS[letter]}</span></div>`;
+      const isWildcard = t.letter === '?';
+      if (isWildcard || i !== sampleIndex) {
+        return `<div class="tile draggable" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
+      }
+      const cellsHtml = buildReelCells(t.letter).map((letter, idx, arr) => {
+        const pts = idx === arr.length - 1 ? t.points : REEL_LETTER_POINTS[letter];
+        return `<div class="reel-cell">${letter}<span class="pts">${pts}</span></div>`;
       }).join('');
-      return `<div class="tile spinning" data-i="${i}"><div class="reel">${randomCells}<div class="reel-cell">${t.letter}<span class="pts">${t.points}</span></div></div></div>`;
+      return `<div class="tile spinning" data-i="${i}"><div class="reel">${cellsHtml}</div></div>`;
     }).join('');
 
     // Next Rack is briefly disabled so clicking through mid-spin can't
@@ -1184,10 +1224,9 @@
     nextBtn.disabled = true;
 
     // `animationend` isn't fully reliable (a hidden/backgrounded tab can
-    // throttle it, and browsers occasionally drop it for one of several
-    // simultaneous animations) — finish() is guarded so whichever fires
-    // first, the last real animationend or the timeout fallback below,
-    // wins and the tray is never left stuck mid-spin.
+    // throttle it) — finish() is guarded so whichever fires first, the
+    // real animationend or the timeout fallback below, wins and the
+    // tray is never left stuck mid-spin.
     let settled = false;
     function finish() {
       if (settled) return;
@@ -1197,24 +1236,14 @@
       if (onDone) onDone();
     }
 
-    let remaining = rack.tiles.length;
-    Array.from(el.children).forEach((tileEl, i) => {
-      const reel = tileEl.querySelector('.reel');
-      // Measured per tile (not once, shared) so any sub-pixel rounding
-      // difference between tiles can't leave one reel a pixel short of
-      // its own tile's actual height.
-      const cellHeight = tileEl.getBoundingClientRect().height;
-      const duration = SPIN_BASE_MS + i * SPIN_STAGGER_MS;
-      reel.style.setProperty('--spin-target', `-${(REEL_LENGTH - 1) * cellHeight}px`);
-      reel.style.animationDuration = `${duration}ms`;
-      reel.addEventListener('animationend', () => {
-        remaining--;
-        if (remaining === 0) finish();
-      }, { once: true });
-    });
+    const tileEl = el.children[sampleIndex];
+    const reel = tileEl.querySelector('.reel');
+    const cellHeight = tileEl.getBoundingClientRect().height;
+    reel.style.setProperty('--spin-target', `-${(REEL_LENGTH - 1) * cellHeight}px`);
+    reel.style.animationDuration = `${SPIN_DURATION_MS}ms`;
+    reel.addEventListener('animationend', finish, { once: true });
 
-    const maxDuration = SPIN_BASE_MS + (rack.tiles.length - 1) * SPIN_STAGGER_MS;
-    setTimeout(finish, maxDuration + 500);
+    setTimeout(finish, SPIN_DURATION_MS + 500);
   }
 
   function renderRowTiles(rack, rowIndex) {
