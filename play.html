@@ -139,11 +139,15 @@
      hidden, no padding) onto a tall vertical strip of letters; the
      strip is what actually animates.
 
-     Exact requested physics: 2 seconds at a constant 8 cells/sec, then
-     an 8-second linear slowdown from 8 cells/sec to 0 (uniform
-     deceleration, i.e. a parabola in position). Position is sampled
-     once per second (11 stops covering the constant-speed phase exactly
-     and the parabola closely) and connected with linear interpolation
+     Exact physics: 3 seconds at a constant 8 cells/sec, then a
+     7-second linear slowdown from 8 cells/sec to 0 (uniform
+     deceleration, i.e. a parabola in position). That 3s constant phase
+     is not arbitrary — it is the value that makes total travel come to
+     8*3 + 8*7/2 = 52 cells, exactly two complete 26-letter alphabet
+     revolutions, so the wheel lands on the same letter it started on.
+     Position is sampled every half-second (21 stops, covering the
+     constant-speed phase exactly and the parabola closely) and
+     connected with linear interpolation
      (animation-timing-function: linear) — an eased CSS transition was
      tried earlier and rejected: an easing curve aggressive enough to
      feel like a "fast spin" reaches ~99% of its travel well before 100%
@@ -156,15 +160,25 @@
      tile's differently-sized scroll with plain calc() multiples. */
   @keyframes reelSpin {
     0%   { transform: translateY(0); }
-    10%  { transform: translateY(calc(var(--spin-target) * 0.166667)); }
-    20%  { transform: translateY(calc(var(--spin-target) * 0.333333)); }
-    30%  { transform: translateY(calc(var(--spin-target) * 0.489583)); }
-    40%  { transform: translateY(calc(var(--spin-target) * 0.625)); }
-    50%  { transform: translateY(calc(var(--spin-target) * 0.739583)); }
-    60%  { transform: translateY(calc(var(--spin-target) * 0.833333)); }
-    70%  { transform: translateY(calc(var(--spin-target) * 0.90625)); }
-    80%  { transform: translateY(calc(var(--spin-target) * 0.958333)); }
-    90%  { transform: translateY(calc(var(--spin-target) * 0.989583)); }
+    5%   { transform: translateY(calc(var(--spin-target) * 0.076923)); }
+    10%  { transform: translateY(calc(var(--spin-target) * 0.153846)); }
+    15%  { transform: translateY(calc(var(--spin-target) * 0.230769)); }
+    20%  { transform: translateY(calc(var(--spin-target) * 0.307692)); }
+    25%  { transform: translateY(calc(var(--spin-target) * 0.384615)); }
+    30%  { transform: translateY(calc(var(--spin-target) * 0.461538)); }
+    35%  { transform: translateY(calc(var(--spin-target) * 0.535714)); }
+    40%  { transform: translateY(calc(var(--spin-target) * 0.604396)); }
+    45%  { transform: translateY(calc(var(--spin-target) * 0.667582)); }
+    50%  { transform: translateY(calc(var(--spin-target) * 0.725275)); }
+    55%  { transform: translateY(calc(var(--spin-target) * 0.777473)); }
+    60%  { transform: translateY(calc(var(--spin-target) * 0.824176)); }
+    65%  { transform: translateY(calc(var(--spin-target) * 0.865385)); }
+    70%  { transform: translateY(calc(var(--spin-target) * 0.901099)); }
+    75%  { transform: translateY(calc(var(--spin-target) * 0.931319)); }
+    80%  { transform: translateY(calc(var(--spin-target) * 0.956044)); }
+    85%  { transform: translateY(calc(var(--spin-target) * 0.975275)); }
+    90%  { transform: translateY(calc(var(--spin-target) * 0.989011)); }
+    95%  { transform: translateY(calc(var(--spin-target) * 0.997253)); }
     100% { transform: translateY(var(--spin-target)); }
   }
   .tile.spinning { overflow: hidden; padding: 0; cursor: default; }
@@ -1184,12 +1198,21 @@
     M: 3, N: 1, O: 1, P: 2, Q: 10, R: 1, S: 1, T: 1, U: 2, V: 5, W: 5, X: 7,
     Y: 3, Z: 7,
   };
-  // 49 cells = 48 cell-heights of travel: 2s at 8 cells/sec covers 16,
-  // then the 8s linear slowdown to 0 covers the remaining 32 (average
+  // 53 cells = 52 cell-heights of travel: 3s at 8 cells/sec covers 24,
+  // then the 7s linear slowdown to 0 covers the remaining 28 (average
   // speed over that phase is 4 cells/sec) — matches the reelSpin
-  // keyframes exactly, so the last (49th) cell lands right at 10s.
-  const REEL_LENGTH = 49;
-  const SPIN_DURATION_MS = 10000; // 2s constant speed + 8s linear slowdown to 0 (see reelSpin keyframes)
+  // keyframes exactly, so the last (53rd) cell lands right at 10s.
+  // 52 is deliberately two whole 26-letter alphabet cycles, so the reel
+  // stops on the same letter it started on.
+  const REEL_LENGTH = 53;
+  const SPIN_DURATION_MS = 10000; // 3s constant speed + 7s linear slowdown to 0 (see reelSpin keyframes)
+
+  // TEMP (sample only): the sample wheel is aimed at a fixed, known
+  // letter so where it stops can be checked at a glance — with travel
+  // set to exactly two alphabet cycles it must both start and stop on
+  // this letter. The rollout to the remaining tiles targets each tile's
+  // own dealt letter instead.
+  const SAMPLE_TARGET_LETTER = 'A';
 
   // Builds REEL_LENGTH cells in strict alphabetical order (wrapping
   // Z -> A), ending on targetLetter as the very last cell.
@@ -1210,10 +1233,9 @@
       if (isWildcard || i !== sampleIndex) {
         return `<div class="tile draggable" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
       }
-      const cellsHtml = buildReelCells(t.letter).map((letter, idx, arr) => {
-        const pts = idx === arr.length - 1 ? t.points : REEL_LETTER_POINTS[letter];
-        return `<div class="reel-cell">${letter}<span class="pts">${pts}</span></div>`;
-      }).join('');
+      const cellsHtml = buildReelCells(SAMPLE_TARGET_LETTER).map((letter) =>
+        `<div class="reel-cell">${letter}<span class="pts">${REEL_LETTER_POINTS[letter]}</span></div>`
+      ).join('');
       return `<div class="tile spinning" data-i="${i}"><div class="reel">${cellsHtml}</div></div>`;
     }).join('');
 
@@ -1232,6 +1254,18 @@
       if (settled) return;
       settled = true;
       renderTray(rack); // swap in the normal, interactive tile markup
+      // TEMP (sample only): renderTray would otherwise replace the sample
+      // tile with its real dealt letter at the very instant the wheel
+      // stops — which is exactly the moment being checked, so the letter
+      // it landed on would never actually be visible. Park a static tile
+      // showing the target instead. Goes away with the rollout, when each
+      // tile spins to its own real letter and the plain renderTray is correct.
+      const parked = el.children[sampleIndex];
+      if (parked) {
+        parked.className = 'tile';
+        parked.draggable = false;
+        parked.innerHTML = `${SAMPLE_TARGET_LETTER}<span class="pts">${REEL_LETTER_POINTS[SAMPLE_TARGET_LETTER]}</span>`;
+      }
       nextBtn.disabled = wasNextDisabled;
       if (onDone) onDone();
     }
