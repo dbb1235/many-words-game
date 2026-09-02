@@ -146,9 +146,18 @@ function dealScramble(rng) {
   // slots rather than being randomly scattered through the rack.
   shuffle(tiles, rng);
   for (let i = 0; i < WILDCARDS_PER_SCRAMBLE; i++) tiles.push({ letter: '?', points: 0 });
+  // One real (non-wildcard) letter is pinned to a guess-slot position —
+  // same "keyed by slot, not by tile" model as bottomBonuses. A word
+  // only counts if it either reaches that slot with this exact letter,
+  // or is short enough to stop before reaching it at all (no-gap
+  // placement means there's no way to jump past it otherwise).
+  const lockedPosition = Math.floor(rng() * (RACK_SIZE - WILDCARDS_PER_SCRAMBLE));
+  const lockedLetter = tiles[lockedPosition].letter;
   return {
     tiles,
     bottomBonuses: rollBottomBonuses(RACK_SIZE, rng),
+    lockedPosition,
+    lockedLetter,
   };
 }
 
@@ -205,6 +214,14 @@ function cellsAreSourceable(cells, scramble) {
   return true;
 }
 
+// The locked slot only constrains a guess that actually reaches it — a
+// word that stops before that position never has to address it at all.
+function lockedLetterSatisfied(scramble, cells) {
+  const atLocked = cells.find((c) => c.position === scramble.lockedPosition);
+  if (atLocked) return atLocked.letter === scramble.lockedLetter;
+  return !cells.some((c) => c.position > scramble.lockedPosition);
+}
+
 function scoreGuess(scramble, cells) {
   // cells: [{ position, letter, isWildcard }], only occupied positions.
   const empty = { valid: false, word: '', score: 0, belowMinimum: false, rawScore: 0 };
@@ -215,6 +232,10 @@ function scoreGuess(scramble, cells) {
 
   if (!cellsAreSourceable(sorted, scramble)) {
     return { ...empty, word };
+  }
+
+  if (!lockedLetterSatisfied(scramble, sorted)) {
+    return { ...empty, word, lockedLetterViolation: true };
   }
 
   const inDictionary = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
@@ -523,7 +544,7 @@ app.post('/api/game/new', auth.requireAuth, (req, res) => {
 
   res.json({
     gameId,
-    scrambles: scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses })),
+    scrambles: scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses, lockedPosition: s.lockedPosition, lockedLetter: s.lockedLetter })),
   });
 });
 
@@ -656,7 +677,7 @@ app.get('/api/round/:id/current', auth.requireAuth, (req, res) => {
   const response = { roundId: round.id, phase, secondsRemaining };
   if (phase === 'active') {
     const scrambles = regenerateRacks(round.seed);
-    response.scrambles = scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses }));
+    response.scrambles = scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses, lockedPosition: s.lockedPosition, lockedLetter: s.lockedLetter }));
   }
   res.json(response);
 });

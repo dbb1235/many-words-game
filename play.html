@@ -19,6 +19,7 @@
     --bonus3-border: #5f9bd8;
     --bonus2w-bg: #c1443c;
     --bonus2w-border: #8f2e28;
+    --locked-border: #b8860b;
   }
 
   * { box-sizing: border-box; }
@@ -168,6 +169,12 @@
     opacity: 0.75;
   }
   .tile-row.guess .tile.empty.bonus2w .bonus-label { color: #fff; opacity: 0.9; }
+
+  /* The locked slot gets a gold ring on top of whatever else is going
+     on there (empty, bonused, or filled) so it reads as "special"
+     regardless of state — the required letter is spelled out via the
+     same bonus-label mechanism while the slot is still empty. */
+  .tile-row.guess .tile.locked-slot { outline: 3px solid var(--locked-border); outline-offset: -3px; }
 
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
@@ -823,6 +830,8 @@
     return {
       tiles: scramble.tiles,
       bottomBonuses: scramble.bottomBonuses,
+      lockedPosition: scramble.lockedPosition,
+      lockedLetter: scramble.lockedLetter,
       rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
       pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
     };
@@ -1091,13 +1100,16 @@
       const entry = row.guessSlots[slot];
       const bonus = rack.bottomBonuses[slot];
       const bonusClass = bonus === '2L' ? ' bonus2' : bonus === '3L' ? ' bonus3' : bonus === '2W' ? ' bonus2w' : '';
+      const isLocked = slot === rack.lockedPosition;
+      const lockedClass = isLocked ? ' locked-slot' : '';
       if (!entry) {
-        const label = bonus === '2L' ? '2L' : bonus === '3L' ? '3L' : bonus === '2W' ? '2W' : '';
-        return `<div class="tile empty${bonusClass}" data-slot="${slot}">${label ? `<span class="bonus-label">${label}</span>` : ''}</div>`;
+        const bonusLabel = bonus === '2L' ? '2L' : bonus === '3L' ? '3L' : bonus === '2W' ? '2W' : '';
+        const label = isLocked ? rack.lockedLetter + (bonusLabel ? ' ' + bonusLabel : '') : bonusLabel;
+        return `<div class="tile empty${bonusClass}${lockedClass}" data-slot="${slot}">${label ? `<span class="bonus-label">${label}</span>` : ''}</div>`;
       }
       const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
       const pts = rack.tiles[entry.trayIndex].points * bonusMultiplier(rack, slot);
-      return `<div class="tile draggable${bonusClass}${isWildcard ? ' wildcard-placed' : ''}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
+      return `<div class="tile draggable${bonusClass}${lockedClass}${isWildcard ? ' wildcard-placed' : ''}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
     }).join('');
 
     Array.from(el.children).forEach((tileEl, slot) => {
