@@ -1651,6 +1651,7 @@
       bottomBonuses: scramble.bottomBonuses,
       lockedPosition: scramble.lockedPosition,
       lockedLetter: scramble.lockedLetter,
+      lockedLetterPoints: scramble.lockedLetterPoints,
       rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
       pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
     };
@@ -1735,8 +1736,9 @@
   //
   // The dictionary and scoring authority live entirely on the server
   // (see MULTIPLAYER_PLAN.md §1 "one shared rules module") — this file
-  // has no local word list or point math. Only the contiguous run
-  // starting at slot 0 counts as "the word being attempted."
+  // has no local word list or point math. "The word being attempted" is
+  // just whatever's occupied across the row, in slot order, gaps and
+  // all (currentWordForRow) — a tile can sit in any slot.
 
   function bonusMultiplier(rack, slot) {
     const b = rack.bottomBonuses[slot];
@@ -1745,18 +1747,15 @@
     return 1;
   }
 
-  // Skips over the locked slot if it's been left open (a deliberate
-  // route around it) rather than stopping there — any *other* open slot
-  // still ends the word, since that can only mean a gap the UI itself
-  // wouldn't have allowed to happen.
-  function currentWordForRow(row, lockedPosition) {
+  // Reads out the word as whatever's placed, in slot order — a tile can
+  // sit in any slot in any combination now, so this just concatenates
+  // every occupied slot and skips every empty one, with no notion of
+  // "stopping" at a gap at all.
+  function currentWordForRow(row) {
     let word = '';
     for (let slot = 0; slot < row.guessSlots.length; slot++) {
       const entry = row.guessSlots[slot];
-      if (!entry) {
-        if (slot === lockedPosition) continue;
-        break;
-      }
+      if (!entry) continue;
       word += entry.letter;
     }
     return word;
@@ -1766,15 +1765,12 @@
   // cleared after evaluation, so this can always be recomputed fresh on
   // demand (e.g. to resubmit with a different `force` value from
   // toggleUseRow) without needing a separate cache. Same
-  // skip-the-open-locked-slot rule as currentWordForRow.
-  function cellsForRow(row, tiles, lockedPosition) {
+  // skip-every-empty-slot rule as currentWordForRow.
+  function cellsForRow(row, tiles) {
     const filled = [];
     for (let slot = 0; slot < row.guessSlots.length; slot++) {
       const entry = row.guessSlots[slot];
-      if (!entry) {
-        if (slot === lockedPosition) continue;
-        break;
-      }
+      if (!entry) continue;
       filled.push({ entry, slot });
     }
     return filled.map(({ entry, slot }) => ({
@@ -1807,8 +1803,8 @@
   }
 
   async function evaluateRowAsync(rack, row, scrambleIndex) {
-    const result = await submitCells(cellsForRow(row, rack.tiles, rack.lockedPosition), scrambleIndex, false);
-    if (!result.word) result.word = currentWordForRow(row, rack.lockedPosition);
+    const result = await submitCells(cellsForRow(row, rack.tiles), scrambleIndex, false);
+    if (!result.word) result.word = currentWordForRow(row);
     return result;
   }
 
@@ -1866,30 +1862,6 @@
     return -1;
   }
 
-  // Left-packs a row's guessSlots so every filled slot sits contiguously
-  // with no *unintended* gaps — called after any removal, so a tile
-  // pulled out of the middle doesn't leave the tiles after it stranded.
-  // If the locked slot is currently sitting open (a deliberate route
-  // around it, not just "not reached yet"), the two sides of it are
-  // packed independently and the gap itself is preserved rather than
-  // collapsed — otherwise this is the original single-run left-pack.
-  function closeGaps(row, lockedPosition) {
-    if (lockedPosition == null || row.guessSlots[lockedPosition]) {
-      const filled = row.guessSlots.filter((e) => e !== null);
-      for (let i = 0; i < row.guessSlots.length; i++) {
-        row.guessSlots[i] = filled[i] || null;
-      }
-      return;
-    }
-    const before = row.guessSlots.slice(0, lockedPosition).filter((e) => e !== null);
-    const after = row.guessSlots.slice(lockedPosition + 1).filter((e) => e !== null);
-    for (let i = 0; i < lockedPosition; i++) row.guessSlots[i] = before[i] || null;
-    row.guessSlots[lockedPosition] = null;
-    for (let i = lockedPosition + 1; i < row.guessSlots.length; i++) {
-      row.guessSlots[i] = after[i - lockedPosition - 1] || null;
-    }
-  }
-
   // The tray never dims a tile as "used" — every one of the 10 tiles is
   // always available to every row, since a row's own contents are the
   // only thing that limit it (see isTrayIndexPlacedInRow).
@@ -1922,7 +1894,6 @@
       if (!payload || payload.fromRow === null || payload.fromSlot === null) return;
       const originRow = rack.rows[payload.fromRow];
       originRow.guessSlots[payload.fromSlot] = null;
-      closeGaps(originRow, rack.lockedPosition);
       handleRowChanged(rack, payload.fromRow);
     };
   }
@@ -1942,7 +1913,10 @@
         // text label bonus slots use — Chris wants it indistinguishable
         // from a real tile except for the color.
         if (isLocked) {
-          const lockedPts = rack.tiles[rack.lockedPosition].points * bonusMultiplier(rack, slot);
+          // The locked letter isn't necessarily one of the 9 dealt tiles
+          // anymore, so its point value comes from the server
+          // (rack.lockedLetterPoints) rather than a tray lookup.
+          const lockedPts = rack.lockedLetterPoints * bonusMultiplier(rack, slot);
           return `<div class="tile locked-slot" data-slot="${slot}">${rack.lockedLetter}<span class="pts">${lockedPts}</span></div>`;
         }
         const bonusLabel = bonus === '2L' ? '2L' : bonus === '3L' ? '3L' : bonus === '2W' ? '2W' : '';
@@ -1972,7 +1946,6 @@
             return;
           }
           row.guessSlots[slot] = null;
-          closeGaps(row, rack.lockedPosition);
           handleRowChanged(rack, rowIndex);
         });
       }
@@ -1995,34 +1968,21 @@
 
   // Drops `payload` into row.guessSlots[targetSlot]. Whatever already
   // occupied that slot is displaced back to the tray (not swapped into
-  // the drag source). Two rules keep every row a clean, contiguous
-  // in-progress word:
-  //  - A tile can only sit in one slot *within this row* (see
-  //    isTrayIndexPlacedInRow) — clears any other occurrence of this
-  //    trayIndex found in THIS row's own slots. A drag from a
-  //    *different* row is a deliberate move and vacates that other
-  //    row's slot too (closing the gap it leaves); a drag from the tray
-  //    never touches any other row, since tiles are shared across rows
-  //    by design (see makeRack) — that's what lets WATER sit in one row
-  //    and WATERY in another at the same time.
-  //  - A drop past an open slot would normally leave a gap — and
-  //    everything after a gap used to be silently dropped from the word
-  //    by currentWordForRow — so it's rejected, with one exception: the
-  //    locked slot (rack.lockedPosition) is allowed to sit open while
-  //    tiles are placed past it, since a word can legitimately route
-  //    around it (currentWordForRow/cellsForRow skip it, not stop at
-  //    it). Any *other* open slot before the target still blocks the
-  //    drop outright, same as before.
+  // the drag source). A tile can sit in any slot in this row, in any
+  // combination — the row is just a sparse position->letter map, same
+  // as the server has always treated it (currentWordForRow/cellsForRow
+  // read out whatever's occupied, in order, regardless of gaps). The
+  // one remaining rule: a tile can only sit in one slot *within this
+  // row* (see isTrayIndexPlacedInRow) — clears any other occurrence of
+  // this trayIndex found in THIS row's own slots. A drag from a
+  // *different* row is a deliberate move and vacates that other row's
+  // slot too; a drag from the tray never touches any other row, since
+  // tiles are shared across rows by design (see makeRack) — that's what
+  // lets WATER sit in one row and WATERY in another at the same time.
   function placeTileInRow(rack, rowIndex, targetSlot, payload) {
     if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return;
 
     const row = rack.rows[rowIndex];
-
-    const hypothetical = row.guessSlots.slice();
-    if (payload.fromRow === rowIndex && payload.fromSlot !== null) hypothetical[payload.fromSlot] = null;
-    for (let i = 0; i < targetSlot; i++) {
-      if (hypothetical[i] === null && i !== rack.lockedPosition) return; // would leave a real gap before it
-    }
 
     const needsWildcardPicker = payload.letter === '?';
 
@@ -2038,7 +1998,6 @@
     if (payload.fromRow !== null && payload.fromRow !== rowIndex && payload.fromSlot !== null) {
       otherRowIndex = payload.fromRow;
       rack.rows[otherRowIndex].guessSlots[payload.fromSlot] = null;
-      closeGaps(rack.rows[otherRowIndex], rack.lockedPosition);
     }
 
     handleRowChanged(rack, rowIndex);
@@ -2060,7 +2019,7 @@
     renderRowTiles(rack, rowIndex);
 
     const row = rack.rows[rowIndex];
-    const word = currentWordForRow(row, rack.lockedPosition);
+    const word = currentWordForRow(row);
     const hasUnresolvedWildcard = row.guessSlots.some((e) => e && e.letter === '?');
     const myRequestId = ++row.requestId;
 
@@ -2352,9 +2311,9 @@
   // A candidate row's tile strip is focusable (tabindex + click-to-focus,
   // since a click may land on a child tile div rather than the strip
   // itself) — while focused, letter keys place tiles the same way a drag
-  // from the tray would (goes through placeTileInRow, so the no-gap and
-  // rack-wide-exclusivity rules apply identically either way), and
-  // Backspace/Delete remove the last one. The strip's own innerHTML is
+  // from the tray would (goes through placeTileInRow, so the same
+  // per-row-exclusivity rule applies either way), and Backspace/Delete
+  // remove the last one. The strip's own innerHTML is
   // rebuilt on every change but the element itself is never replaced, so
   // focus survives across keystrokes without needing to be restored.
   // roundEnded is checked explicitly here since `pointer-events: none`
