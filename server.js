@@ -231,9 +231,12 @@ function cellsAreSourceable(cells, scramble) {
 // present (see scoreGuess), so a guess that skips this one slot still
 // reads as one continuous word, just without whatever letter (and
 // bonus) would have sat there.
+// Every guess must use the locked letter somewhere -- no longer tied to
+// the specific slot it's displayed at (that slot is now just where the
+// hint is shown; with free placement in any slot, "reaches that
+// position" stopped being a meaningful idea anyway).
 function lockedLetterSatisfied(scramble, cells) {
-  const atLocked = cells.find((c) => c.position === scramble.lockedPosition);
-  return !atLocked || atLocked.letter === scramble.lockedLetter;
+  return cells.some((c) => c.letter === scramble.lockedLetter);
 }
 
 function scoreGuess(scramble, cells) {

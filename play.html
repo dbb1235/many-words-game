@@ -208,6 +208,12 @@
      it's obvious at a glance among the four rows. */
   .candidate-row.is-effective { background: var(--good-green-soft); }
 
+  /* Only one row can be worked on at a time (click a row to switch to
+     it) — this outline marks which one currently accepts edits,
+     independent of is-effective (that's about score, this is about
+     what you're allowed to touch). */
+  .candidate-row.is-active-row { outline: 2px solid #4a7fc9; outline-offset: 1px; }
+
   .candidate-total {
     flex: 0 0 70px;
     text-align: right;
@@ -838,6 +844,7 @@
       lockedLetterPoints: scramble.lockedLetterPoints,
       rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
       pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
+      activeRow: 0, // only this row accepts edits until a different row is clicked into
     };
   }
 
@@ -1084,6 +1091,7 @@
       e.preventDefault();
       const payload = getDragPayload(e);
       if (!payload || payload.fromRow === null || payload.fromSlot === null) return;
+      if (payload.fromRow !== rack.activeRow) return; // only the active row accepts removals
       const originRow = rack.rows[payload.fromRow];
       originRow.guessSlots[payload.fromSlot] = null;
       handleRowChanged(rack, payload.fromRow);
@@ -1138,6 +1146,7 @@
         // tray, same as dragging it there).
         tileEl.addEventListener('dblclick', (e) => {
           e.preventDefault();
+          if (rowIndex !== rack.activeRow) return; // only the active row accepts removals
           const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
           if (isWildcard && entry.letter === '?') {
             openWildcardPicker(rack, rowIndex, slot, tileEl);
@@ -1178,6 +1187,7 @@
   // tiles are shared across rows by design (see makeRack) — that's what
   // lets WATER sit in one row and WATERY in another at the same time.
   function placeTileInRow(rack, rowIndex, targetSlot, payload) {
+    if (rowIndex !== rack.activeRow) return; // only the active row accepts placements
     if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return; // dropped back on itself
 
     const row = rack.rows[rowIndex];
@@ -1339,6 +1349,7 @@
     btnEl.classList.toggle('auto-winner', effIdx === rowIndex && rack.pinnedRow !== rowIndex);
 
     document.getElementById('candidate-row-' + rowIndex).classList.toggle('is-effective', effIdx === rowIndex);
+    document.getElementById('candidate-row-' + rowIndex).classList.toggle('is-active-row', rack.activeRow === rowIndex);
   }
 
   function renderAllRowMeta(rack) {
@@ -1426,11 +1437,24 @@
     placeTileInRow(rack, rowIndex, targetSlot, { trayIndex, letter, fromRow: null, fromSlot: null });
   }
 
+  // Only one row is worked on at a time — focusing a row's tile strip
+  // (by click, or Tab) makes it the rack's activeRow, the only one that
+  // accepts new placements/typing/removals; every other row keeps
+  // showing whatever score it already had, untouched. Listening on
+  // 'focus' rather than just 'click' covers keyboard (Tab) switching
+  // too, so DOM focus and activeRow can never drift apart.
+  function setActiveRow(rack, rowIndex) {
+    if (rack.activeRow === rowIndex) return;
+    rack.activeRow = rowIndex;
+    renderAllRowMeta(rack);
+  }
+
   for (let i = 0; i < CANDIDATE_ROWS; i++) {
     const rowIndex = i;
     const el = document.getElementById('guess-tiles-' + rowIndex);
     el.tabIndex = 0;
     el.addEventListener('click', () => el.focus());
+    el.addEventListener('focus', () => setActiveRow(RACKS[currentIndex], rowIndex));
     el.addEventListener('keydown', (e) => handleRowKeydown(e, RACKS[currentIndex], rowIndex));
   }
 
