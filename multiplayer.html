@@ -1589,7 +1589,13 @@
   // across every rack, that never touches rack.tiles itself (trayIndex
   // has to stay a stable reference to a physical tile regardless of how
   // it's currently displayed, since placed guess-row tiles hold onto it).
-  let trayAlphabetical = false;
+  // Cycles through TRAY_SHUFFLE_STEPS distinct random shuffles, then
+  // alphabetical, then repeats. Steps 0..TRAY_SHUFFLE_STEPS-1 are shuffle
+  // steps (a fresh permutation each time one is entered); step
+  // TRAY_SHUFFLE_STEPS is alphabetical.
+  const TRAY_SHUFFLE_STEPS = 5;
+  let trayCycleIndex = 0;
+  let trayShuffleOrder = null;
   let muted = false;
   let roundEnded = false;
   let timeLeft = 0;
@@ -1770,10 +1776,15 @@
   });
 
   document.getElementById('tray-order-btn').addEventListener('click', () => {
-    trayAlphabetical = !trayAlphabetical;
+    trayCycleIndex = (trayCycleIndex + 1) % (TRAY_SHUFFLE_STEPS + 1);
     const btn = document.getElementById('tray-order-btn');
-    btn.textContent = trayAlphabetical ? '🔤 A-Z' : '🔀 Shuffled';
     const rack = RACKS[currentIndex];
+    if (trayCycleIndex === TRAY_SHUFFLE_STEPS) {
+      btn.textContent = '🔤 A-Z';
+    } else {
+      trayShuffleOrder = rack ? randomTrayShuffleOrder(rack.tiles) : null;
+      btn.textContent = '🔀 Shuffled';
+    }
     if (rack) renderTray(rack);
   });
 
@@ -1936,22 +1947,42 @@
     return -1;
   }
 
+  // A fresh random permutation of tray indices, wildcard(s) forced last.
+  // Generated once per shuffle-button press (see the click handler) and
+  // cached in trayShuffleOrder — never regenerated on every render, or
+  // the tray would visibly reshuffle itself on unrelated re-renders.
+  function randomTrayShuffleOrder(tiles) {
+    const real = [];
+    const wild = [];
+    tiles.forEach((t, i) => (t.letter === '?' ? wild : real).push(i));
+    for (let i = real.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [real[i], real[j]] = [real[j], real[i]];
+    }
+    return real.concat(wild);
+  }
+
   // Indices into rack.tiles in the order the tray should display them —
-  // shuffled mode is just the tiles' own (already-random) order from
-  // the server; alphabetical mode sorts by letter with the wildcard
-  // forced last either way, per Chris's spec. Returns *indices*, not
-  // tiles, so trayIndex (a stable reference to a physical tile, used by
-  // drag payloads and already-placed guess-row tiles) never shifts
-  // just because the display order changed.
+  // alphabetical mode sorts by letter with the wildcard forced last;
+  // every other step shows the cached trayShuffleOrder (falling back to
+  // the tiles' own already-random dealt order before the first press).
+  // Returns *indices*, not tiles, so trayIndex (a stable reference to a
+  // physical tile, used by drag payloads and already-placed guess-row
+  // tiles) never shifts just because the display order changed.
   function trayDisplayOrder(tiles) {
-    const indices = tiles.map((_, i) => i);
-    if (!trayAlphabetical) return indices;
-    return indices.sort((a, b) => {
-      const la = tiles[a].letter, lb = tiles[b].letter;
-      if (la === '?') return 1;
-      if (lb === '?') return -1;
-      return la < lb ? -1 : la > lb ? 1 : 0;
-    });
+    if (trayCycleIndex === TRAY_SHUFFLE_STEPS) {
+      const indices = tiles.map((_, i) => i);
+      return indices.sort((a, b) => {
+        const la = tiles[a].letter, lb = tiles[b].letter;
+        if (la === '?') return 1;
+        if (lb === '?') return -1;
+        return la < lb ? -1 : la > lb ? 1 : 0;
+      });
+    }
+    if (!trayShuffleOrder || trayShuffleOrder.length !== tiles.length) {
+      trayShuffleOrder = tiles.map((_, i) => i);
+    }
+    return trayShuffleOrder;
   }
 
   // The tray never dims a tile as "used" — every one of the 10 tiles is
