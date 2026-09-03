@@ -19,6 +19,8 @@
     --bonus3-border: #5f9bd8;
     --bonus2w-bg: #c1443c;
     --bonus2w-border: #8f2e28;
+    --power-bg: #ffd60a;
+    --power-border: #c9a800;
   }
 
   * { box-sizing: border-box; }
@@ -215,6 +217,12 @@
     opacity: 0.75;
   }
   .tile-row.guess .tile.empty.bonus2w .bonus-label { color: #fff; opacity: 0.9; }
+
+  /* The scramble's power letter — every tile of it, tray or placed,
+     stays yellow wherever it goes (it's an ordinary, freely-placeable
+     tile otherwise, just worth a flat 10 points). A wildcard is never
+     a power tile even if resolved to that same letter. */
+  .tile.power-tile { background: var(--power-bg) !important; border-color: var(--power-border); }
 
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
@@ -1985,7 +1993,7 @@
     const order = trayDisplayOrder(rack.tiles);
     el.innerHTML = order.map((i) => {
       const t = rack.tiles[i];
-      return `<div class="tile draggable" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
+      return `<div class="tile draggable${t.power ? ' power-tile' : ''}" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
     }).join('');
 
     Array.from(el.children).forEach((tileEl, pos) => {
@@ -2029,8 +2037,9 @@
         return `<div class="tile empty${bonusClass}" data-slot="${slot}">${bonusLabel ? `<span class="bonus-label">${bonusLabel}</span>` : ''}</div>`;
       }
       const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
+      const isPower = rack.tiles[entry.trayIndex].power;
       const pts = rack.tiles[entry.trayIndex].points * bonusMultiplier(rack, slot);
-      return `<div class="tile draggable${bonusClass}${isWildcard ? ' wildcard-placed' : ''}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
+      return `<div class="tile draggable${bonusClass}${isWildcard ? ' wildcard-placed' : ''}${isPower ? ' power-tile' : ''}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
     }).join('');
 
     Array.from(el.children).forEach((tileEl, slot) => {

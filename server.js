@@ -49,6 +49,16 @@ const MAX_SCRAMBLE_DEAL_ATTEMPTS = 500;
 const LONG_WORD_MIN_LEN = 8;
 const LONG_WORD_BONUS = 10;
 const WILDCARDS_PER_SCRAMBLE = 1;
+// One letter per scramble is chosen at random from the 9 actually dealt
+// letters (never independently drawn, so it's always a real letter in
+// the rack) — every tile of that letter (there can be at most
+// MAX_DUPLICATE_LETTERS of them) is colored yellow and worth this flat
+// value instead of its normal points. A wildcard resolved to that same
+// letter is NOT affected — it stays white and worth 0, same as any
+// other wildcard use. Otherwise these tiles are entirely ordinary: no
+// fixed slot, no placement restriction, place and type with them like
+// any other letter.
+const POWER_LETTER_POINTS = 10;
 // Temporarily off per earlier request — flip back to true to restore
 // 2L/3L/2W. The client never needs its own toggle: it only colors/labels
 // a slot based on what bottomBonuses says is there, so an all-empty
@@ -184,15 +194,31 @@ function dealScramble(rng) {
     if (scrambleLettersValid(letters)) break;
   }
 
-  const tiles = letters.map((letter) => ({ letter, points: LETTER_DATA[letter].points }));
+  // Chosen from the 9 already-dealt letters, so it's always actually in
+  // the rack (unlike the old lockedLetter, which was an independent draw
+  // that often wasn't). Every tile of this letter gets the power
+  // treatment — there's no separate "how many" step since a tile's
+  // letter alone determines it.
+  const powerLetter = letters[Math.floor(rng() * letters.length)];
+
+  const tiles = letters.map((letter) => ({
+    letter,
+    points: letter === powerLetter ? POWER_LETTER_POINTS : LETTER_DATA[letter].points,
+    power: letter === powerLetter,
+  }));
   // Only the real letters get shuffled — wildcards are appended after,
   // unshuffled, so they always land in the rightmost WILDCARDS_PER_SCRAMBLE
-  // slots rather than being randomly scattered through the rack.
+  // slots rather than being randomly scattered through the rack. A
+  // wildcard is never a power tile, however it ends up resolved.
   shuffle(tiles, rng);
-  for (let i = 0; i < WILDCARDS_PER_SCRAMBLE; i++) tiles.push({ letter: '?', points: 0 });
+  for (let i = 0; i < WILDCARDS_PER_SCRAMBLE; i++) tiles.push({ letter: '?', points: 0, power: false });
   return {
     tiles,
     bottomBonuses: rollBottomBonuses(RACK_SIZE, rng),
+    // Kept on the server-side scramble for scoring (see scoreGuess) —
+    // not sent to the client directly, which reads tiles[i].power
+    // instead for rendering.
+    powerLetter,
   };
 }
 
@@ -264,8 +290,13 @@ function scoreGuess(scramble, cells) {
   const inDictionary = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
   if (!inDictionary) return { ...empty, word };
 
+  // A cell scores the flat power value when its letter is this
+  // scramble's power letter and it's not a wildcard — a wildcard
+  // resolved to that same letter still scores 0, same as any other
+  // wildcard use (see POWER_LETTER_POINTS).
   let rawScore = sorted.reduce((sum, cell) => {
-    const points = cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0);
+    const isPower = !cell.isWildcard && cell.letter === scramble.powerLetter;
+    const points = isPower ? POWER_LETTER_POINTS : (cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0));
     const bonus = bonusMultiplier(scramble.bottomBonuses[cell.position]);
     return sum + points * bonus;
   }, 0);
