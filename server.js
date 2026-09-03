@@ -40,6 +40,13 @@ const MAX_DUPLICATE_LETTERS = 2;
 const LONG_WORD_MIN_LEN = 8;
 const LONG_WORD_BONUS = 10;
 const WILDCARDS_PER_SCRAMBLE = 1;
+// The locked slot always scores this flat value when used, regardless
+// of which letter was actually drawn for it -- previously it scored
+// the letter's own point value, which made the incentive to use it
+// wildly inconsistent (worth nothing if a common 1-point letter got
+// drawn, a lot if a rare one did). A flat value keeps the reward for
+// building around it consistent every round.
+const LOCKED_LETTER_FLAT_POINTS = 10;
 // Temporarily off per request, to isolate the locked-letter mechanic
 // while testing it — flip back to true to restore 2L/3L/2W. The client
 // never needs its own toggle: it only colors/labels a slot based on
@@ -166,7 +173,7 @@ function dealScramble(rng) {
   // case a word has to route around that slot instead).
   const lockedPosition = Math.floor(rng() * (RACK_SIZE - WILDCARDS_PER_SCRAMBLE));
   const lockedLetter = buildLetterBag(rng)[0];
-  const lockedLetterPoints = LETTER_DATA[lockedLetter].points;
+  const lockedLetterPoints = LOCKED_LETTER_FLAT_POINTS;
   return {
     tiles,
     bottomBonuses: rollBottomBonuses(RACK_SIZE, rng),
@@ -253,12 +260,13 @@ function scoreGuess(scramble, cells) {
   const inDictionary = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
   if (!inDictionary) return { ...empty, word };
 
-  // The locked letter is a fixed, always-available tile now (not
-  // routed through the wildcard), so it scores like any other ordinary
-  // non-wildcard letter via the branch below — no special-casing
-  // needed here anymore.
+  // The locked slot always scores LOCKED_LETTER_FLAT_POINTS when used,
+  // not the drawn letter's own value — see the constant's definition.
+  // Every other cell (including the wildcard, always 0) scores normally.
   let rawScore = sorted.reduce((sum, cell) => {
-    const points = cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0);
+    const points = cell.position === scramble.lockedPosition
+      ? LOCKED_LETTER_FLAT_POINTS
+      : (cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0));
     const bonus = bonusMultiplier(scramble.bottomBonuses[cell.position]);
     return sum + points * bonus;
   }, 0);
