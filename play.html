@@ -953,6 +953,16 @@
     }
   }
 
+  // A short, deliberately harsher buzz (square wave, distinct from the
+  // sine-wave chime/countdown sounds) for a typed letter that can't be
+  // placed — no matching tile left in this row and the wildcard is
+  // already spoken for by a different letter.
+  function playErrorBeep() {
+    if (muted) return;
+    const c = ctx(); const now = c.currentTime;
+    tone(220, now, 0.14, 'square', 0.12);
+  }
+
   document.getElementById('mute-btn').addEventListener('click', () => {
     muted = !muted;
     const btn = document.getElementById('mute-btn');
@@ -1580,7 +1590,14 @@
     if (targetSlot === -1) return; // row already full
 
     const trayIndex = findAvailableTrayIndexForLetter(rack, row, letter);
-    if (trayIndex === -1) return; // don't have that letter, or a spare wildcard, available in this row
+    if (trayIndex === -1) {
+      // Don't have that letter, or a spare wildcard, available in this
+      // row — the wildcard is always what makes any letter typeable in
+      // principle, so reaching this means it's already spoken for by a
+      // different letter here.
+      playErrorBeep();
+      return;
+    }
 
     placeTileInRow(rack, rowIndex, targetSlot, { trayIndex, letter, fromRow: null, fromSlot: null });
   }
