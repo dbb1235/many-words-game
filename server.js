@@ -59,6 +59,13 @@ const WILDCARDS_PER_SCRAMBLE = 1;
 // fixed slot, no placement restriction, place and type with them like
 // any other letter.
 const POWER_LETTER_POINTS = 10;
+// A second, independent bonus letter per scramble — same rules as the
+// power letter (chosen from the 9 dealt letters, every tile of it
+// colored/flat-valued, a wildcard resolved to it unaffected), just a
+// different color and a lower flat value. Always a different letter
+// than the power letter (drawn only from the remaining dealt letters),
+// so no tile is ever asked to be both at once.
+const ORANGE_LETTER_POINTS = 5;
 // Temporarily off per earlier request — flip back to true to restore
 // 2L/3L/2W. The client never needs its own toggle: it only colors/labels
 // a slot based on what bottomBonuses says is there, so an all-empty
@@ -200,25 +207,35 @@ function dealScramble(rng) {
   // treatment — there's no separate "how many" step since a tile's
   // letter alone determines it.
   const powerLetter = letters[Math.floor(rng() * letters.length)];
+  // The orange letter is drawn the same way, but only from tiles that
+  // aren't already the power letter — always at least 7 of the 9 dealt
+  // letters qualify (MAX_DUPLICATE_LETTERS caps any one letter at 2), so
+  // this is never empty.
+  const nonPowerLetters = letters.filter((l) => l !== powerLetter);
+  const orangeLetter = nonPowerLetters[Math.floor(rng() * nonPowerLetters.length)];
 
   const tiles = letters.map((letter) => ({
     letter,
-    points: letter === powerLetter ? POWER_LETTER_POINTS : LETTER_DATA[letter].points,
+    points: letter === powerLetter ? POWER_LETTER_POINTS
+      : letter === orangeLetter ? ORANGE_LETTER_POINTS
+      : LETTER_DATA[letter].points,
     power: letter === powerLetter,
+    orange: letter === orangeLetter,
   }));
   // Only the real letters get shuffled — wildcards are appended after,
   // unshuffled, so they always land in the rightmost WILDCARDS_PER_SCRAMBLE
   // slots rather than being randomly scattered through the rack. A
-  // wildcard is never a power tile, however it ends up resolved.
+  // wildcard is never a power or orange tile, however it ends up resolved.
   shuffle(tiles, rng);
-  for (let i = 0; i < WILDCARDS_PER_SCRAMBLE; i++) tiles.push({ letter: '?', points: 0, power: false });
+  for (let i = 0; i < WILDCARDS_PER_SCRAMBLE; i++) tiles.push({ letter: '?', points: 0, power: false, orange: false });
   return {
     tiles,
     bottomBonuses: rollBottomBonuses(RACK_SIZE, rng),
     // Kept on the server-side scramble for scoring (see scoreGuess) —
-    // not sent to the client directly, which reads tiles[i].power
-    // instead for rendering.
+    // not sent to the client directly, which reads tiles[i].power /
+    // tiles[i].orange instead for rendering.
     powerLetter,
+    orangeLetter,
   };
 }
 
@@ -290,13 +307,16 @@ function scoreGuess(scramble, cells) {
   const inDictionary = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
   if (!inDictionary) return { ...empty, word };
 
-  // A cell scores the flat power value when its letter is this
-  // scramble's power letter and it's not a wildcard — a wildcard
-  // resolved to that same letter still scores 0, same as any other
-  // wildcard use (see POWER_LETTER_POINTS).
+  // A cell scores the flat power/orange value when its letter matches
+  // one of this scramble's two bonus letters and it's not a wildcard —
+  // a wildcard resolved to either letter still scores 0, same as any
+  // other wildcard use (see POWER_LETTER_POINTS/ORANGE_LETTER_POINTS).
   let rawScore = sorted.reduce((sum, cell) => {
     const isPower = !cell.isWildcard && cell.letter === scramble.powerLetter;
-    const points = isPower ? POWER_LETTER_POINTS : (cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0));
+    const isOrange = !cell.isWildcard && cell.letter === scramble.orangeLetter;
+    const points = isPower ? POWER_LETTER_POINTS
+      : isOrange ? ORANGE_LETTER_POINTS
+      : (cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0));
     const bonus = bonusMultiplier(scramble.bottomBonuses[cell.position]);
     return sum + points * bonus;
   }, 0);

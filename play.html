@@ -23,6 +23,9 @@
     --power-border: #c9a800;
     --power-bg-pending: #fff3b0;
     --letter-pending: #b3b3b3;
+    --orange-bg: #ff9500;
+    --orange-border: #cc7700;
+    --orange-bg-pending: #ffdbb0;
   }
 
   * { box-sizing: border-box; }
@@ -185,16 +188,22 @@
      a power tile even if resolved to that same letter. */
   .tile.power-tile { background: var(--power-bg) !important; border-color: var(--power-border); }
 
+  /* A second, independent bonus letter — same rules as power-tile
+     (every tile of the letter, wildcards unaffected), just orange and
+     worth less. Always a different letter than the power one. */
+  .tile.orange-tile { background: var(--orange-bg) !important; border-color: var(--orange-border); }
+
   /* While a row's current word isn't valid yet (still typing, or plain
-     invalid), its letters render light gray and any power tile(s) in
-     it render a pale yellow — both snap to full color the moment a
-     valid word is formed (renderRowMeta toggles is-valid-word on the
-     row), so typing has a visible "not there yet" vs "that's a word"
-     distinction. Tray tiles are untouched — this only applies inside
-     a candidate row. */
+     invalid), its letters render light gray and any power/orange
+     tile(s) in it render a paler version of their color — both snap to
+     full color the moment a valid word is formed (renderRowMeta
+     toggles is-valid-word on the row), so typing has a visible "not
+     there yet" vs "that's a word" distinction. Tray tiles are
+     untouched — this only applies inside a candidate row. */
   .tile-row.guess .tile { color: var(--letter-pending); transition: color 0.15s ease; }
   .tile-row.guess.is-valid-word .tile { color: var(--dark); }
   .tile-row.guess:not(.is-valid-word) .tile.power-tile { background: var(--power-bg-pending) !important; }
+  .tile-row.guess:not(.is-valid-word) .tile.orange-tile { background: var(--orange-bg-pending) !important; }
 
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
@@ -1169,7 +1178,8 @@
     const order = trayDisplayOrder(rack.tiles);
     el.innerHTML = order.map((i) => {
       const t = rack.tiles[i];
-      return `<div class="tile draggable${t.power ? ' power-tile' : ''}" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
+      const specialClass = t.power ? ' power-tile' : t.orange ? ' orange-tile' : '';
+      return `<div class="tile draggable${specialClass}" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
     }).join('');
 
     Array.from(el.children).forEach((tileEl, pos) => {
@@ -1214,8 +1224,10 @@
       }
       const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
       const isPower = rack.tiles[entry.trayIndex].power;
+      const isOrange = rack.tiles[entry.trayIndex].orange;
+      const specialClass = isPower ? ' power-tile' : isOrange ? ' orange-tile' : '';
       const pts = rack.tiles[entry.trayIndex].points * bonusMultiplier(rack, slot);
-      return `<div class="tile draggable${bonusClass}${isWildcard ? ' wildcard-placed' : ''}${isPower ? ' power-tile' : ''}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
+      return `<div class="tile draggable${bonusClass}${isWildcard ? ' wildcard-placed' : ''}${specialClass}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
     }).join('');
 
     Array.from(el.children).forEach((tileEl, slot) => {
