@@ -256,7 +256,11 @@
     color: var(--dark);
   }
   .candidate-total.state-invalid { color: var(--red); }
-  .candidate-total.state-valid { color: var(--good-green); }
+  /* A valid word still being worked on (this row is active) reads red,
+     same as an invalid one — both are provisional. It settles to the
+     default --dark (effectively black) once finalized, with no class
+     needed for that state. */
+  .candidate-total.state-active { color: var(--red); }
 
   .use-btn {
     flex-shrink: 0;
@@ -1669,6 +1673,10 @@
       guessSlots: scramble.tiles.map(() => null),
       requestId: 0,
       lastEval: { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: false },
+      // Which slots made up the currently-winning segment, if this row
+      // holds more than one space-separated word attempt — used by
+      // finalizeRow to prune down to just the winner.
+      winningSegmentSlots: null,
     };
   }
 
@@ -1768,23 +1776,39 @@
     return word;
   }
 
-  // The server payload for a row's placed tiles — rows are never
-  // cleared after evaluation, so this can always be recomputed fresh on
-  // demand (e.g. to resubmit with a different `force` value from
-  // toggleUseRow) without needing a separate cache. Same
-  // skip-every-empty-slot rule as currentWordForRow.
-  function cellsForRow(row, tiles) {
-    const filled = [];
+  // With free placement, a gap in the middle of a row now reads as a
+  // space separating two independent word attempts, not just an
+  // unfinished spot — so a row is split into its contiguous runs
+  // ("segments") and each is evaluated as its own candidate word.
+  function getRowSegments(row) {
+    const segments = [];
+    let current = null;
     for (let slot = 0; slot < row.guessSlots.length; slot++) {
-      const entry = row.guessSlots[slot];
-      if (!entry) continue;
-      filled.push({ entry, slot });
+      if (row.guessSlots[slot]) {
+        if (!current) { current = { slots: [] }; segments.push(current); }
+        current.slots.push(slot);
+      } else {
+        current = null;
+      }
     }
-    return filled.map(({ entry, slot }) => ({
-      position: slot,
-      letter: entry.letter,
-      isWildcard: tiles[entry.trayIndex].letter === '?',
-    }));
+    return segments;
+  }
+
+  // The server payload for just one segment's placed tiles — rows are
+  // never cleared after evaluation, so this can always be recomputed
+  // fresh on demand (e.g. to resubmit with a different `force` value
+  // from toggleUseRow) without needing a separate cache. Positions stay
+  // absolute (not re-indexed to the segment's own start) since bonus
+  // lookups on the server are keyed by absolute slot.
+  function cellsForSegment(row, tiles, segment) {
+    return segment.slots.map((slot) => {
+      const entry = row.guessSlots[slot];
+      return {
+        position: slot,
+        letter: entry.letter,
+        isWildcard: tiles[entry.trayIndex].letter === '?',
+      };
+    });
   }
 
   async function submitCells(cells, scrambleIndex, force) {
@@ -1809,9 +1833,9 @@
     return res.json();
   }
 
-  async function evaluateRowAsync(rack, row, scrambleIndex) {
-    const result = await submitCells(cellsForRow(row, rack.tiles), scrambleIndex, false);
-    if (!result.word) result.word = currentWordForRow(row);
+  async function evaluateSegmentAsync(rack, row, scrambleIndex, segment) {
+    const result = await submitCells(cellsForSegment(row, rack.tiles, segment), scrambleIndex, false);
+    if (!result.word) result.word = segment.slots.map((slot) => row.guessSlots[slot].letter).join('');
     return result;
   }
 
@@ -1979,7 +2003,7 @@
   // occupied that slot is displaced back to the tray (not swapped into
   // the drag source). A tile can sit in any slot in this row, in any
   // combination — the row is just a sparse position->letter map, same
-  // as the server has always treated it (currentWordForRow/cellsForRow
+  // as the server has always treated it (currentWordForRow/getRowSegments
   // read out whatever's occupied, in order, regardless of gaps). The
   // one remaining rule: a tile can only sit in one slot *within this
   // row* (see isTrayIndexPlacedInRow) — clears any other occurrence of
@@ -2020,34 +2044,66 @@
   }
 
   // Re-evaluates one row after it changes: re-renders its tiles right
-  // away, then checks the word with the server (live preview — no sound
-  // or scoring yet) and, once that resolves, updates every row's
+  // away, then checks every space-separated segment against the server
+  // in parallel (live preview — no sound while typing) and shows
+  // whichever valid one scores higher — updating every row's
   // total/button/highlight, since a change in one row can shift which
-  // row is currently the rack's effective winner.
+  // row is currently the rack's effective winner. row.winningSegmentSlots
+  // remembers which segment won, so finalizeRow knows what to keep when
+  // this row stops being worked on.
   async function handleRowChanged(rack, rowIndex) {
     if (roundEnded) return;
     renderRowTiles(rack, rowIndex);
 
     const row = rack.rows[rowIndex];
-    const word = currentWordForRow(row);
     const hasUnresolvedWildcard = row.guessSlots.some((e) => e && e.letter === '?');
+    const segments = getRowSegments(row).filter((seg) => seg.slots.length >= MIN_WORD_LEN);
     const myRequestId = ++row.requestId;
 
-    if (word.length < MIN_WORD_LEN || hasUnresolvedWildcard) {
-      row.lastEval = { word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: false };
+    if (segments.length === 0 || hasUnresolvedWildcard) {
+      row.lastEval = { word: currentWordForRow(row), valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: false };
+      row.winningSegmentSlots = null;
       renderAllRowMeta(rack);
       return;
     }
 
-    row.lastEval = { word, valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: true };
+    row.lastEval = { ...row.lastEval, checking: true };
     renderAllRowMeta(rack);
 
-    const result = await evaluateRowAsync(rack, row, currentIndex);
+    const results = await Promise.all(segments.map((seg) => evaluateSegmentAsync(rack, row, currentIndex, seg)));
     if (row.requestId !== myRequestId) return; // superseded by a newer change in this row
 
-    row.lastEval = result;
+    let bestIdx = 0;
+    for (let i = 1; i < results.length; i++) {
+      if (results[i].valid && (!results[bestIdx].valid || results[i].score > results[bestIdx].score)) bestIdx = i;
+    }
+
+    row.lastEval = results[bestIdx];
+    row.winningSegmentSlots = results[bestIdx].valid ? segments[bestIdx].slots : null;
     renderAllRowMeta(rack);
-    if (result.valid) refreshLeaderboard();
+    if (results[bestIdx].valid) refreshLeaderboard();
+  }
+
+  // When a row stops being actively worked on (another row clicked
+  // into, or Use pressed for this one), prune it down to just its
+  // best-scoring word if it currently holds more than one
+  // space-separated attempt — the loser's tiles go back to the tray,
+  // "only that one word" stays placed. A no-op if there was only ever
+  // one segment, or nothing valid to prune to yet. Async and awaited by
+  // callers that need the pruned state settled first (toggleUseRow's
+  // resubmission relies on this).
+  async function finalizeRow(rack, rowIndex) {
+    const row = rack.rows[rowIndex];
+    if (!row.winningSegmentSlots) return;
+    const keep = new Set(row.winningSegmentSlots);
+    let changed = false;
+    for (let slot = 0; slot < row.guessSlots.length; slot++) {
+      if (row.guessSlots[slot] && !keep.has(slot)) {
+        row.guessSlots[slot] = null;
+        changed = true;
+      }
+    }
+    if (changed) await handleRowChanged(rack, rowIndex);
   }
 
   // ---------- Wildcard letter picker ----------
@@ -2252,7 +2308,11 @@
       scoreText = '…';
     } else if (valid) {
       scoreText = score + ' pts';
-      stateClass = ' state-valid';
+      // Red while this row is still being worked on — the score is
+      // provisional (possibly the higher of two space-separated word
+      // attempts). Settles to black once finalized (another row
+      // clicked into, or Use pressed).
+      stateClass = rack.activeRow === rowIndex ? ' state-active' : '';
     } else if (belowMinimum) {
       scoreText = rawScore + ' pts';
       stateClass = ' state-invalid';
@@ -2300,12 +2360,16 @@
       rack.pinnedRow = rowIndex;
       force = true;
       fireUseFeedback();
+      await finalizeRow(rack, rowIndex); // pressing Use also counts as "done working on this row"
     }
     renderAllRowMeta(rack);
 
     const idx = effectiveRowIndex(rack);
     if (idx !== null) {
-      await submitCells(cellsForRow(rack.rows[idx], rack.tiles), currentIndex, force);
+      const segments = getRowSegments(rack.rows[idx]);
+      if (segments.length > 0) {
+        await submitCells(cellsForSegment(rack.rows[idx], rack.tiles, segments[0]), currentIndex, force);
+      }
     }
     refreshLeaderboard();
   }
@@ -2374,9 +2438,11 @@
   // showing whatever score it already had, untouched. Listening on
   // 'focus' rather than just 'click' covers keyboard (Tab) switching
   // too, so DOM focus and activeRow can never drift apart.
-  function setActiveRow(rack, rowIndex) {
+  async function setActiveRow(rack, rowIndex) {
     if (rack.activeRow === rowIndex) return;
+    const previousRow = rack.activeRow;
     rack.activeRow = rowIndex;
+    await finalizeRow(rack, previousRow);
     renderAllRowMeta(rack);
   }
 
