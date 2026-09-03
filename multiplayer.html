@@ -2106,6 +2106,11 @@
         tileEl.classList.remove('drop-hover');
         const payload = getDragPayload(e);
         if (!payload) return;
+        // Dropping onto a row is a deliberate choice to work on it, same
+        // as clicking into it first would be — without this,
+        // placeTileInRow's active-row-only guard silently rejects the
+        // drop and the tile visually snaps back with no explanation.
+        if (rowIndex !== rack.activeRow) setActiveRow(rack, rowIndex);
         placeTileInRow(rack, rowIndex, slot, payload);
       });
     });
