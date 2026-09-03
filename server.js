@@ -37,6 +37,17 @@ const RACK_SIZE = 10;
 const NUM_SCRAMBLES = 3;
 const MIN_WORD_LEN = 3;
 const MAX_DUPLICATE_LETTERS = 2;
+// Vowel/duplicate bounds for a whole scramble (the 9 dealt letters plus
+// the independently-drawn locked letter) — the wildcard is exempt from
+// both since it can stand in for any letter, so it never enters either
+// count. Enforced by re-rolling the whole scramble until it fits (see
+// scrambleLettersValid/dealScramble) rather than trying to constrain the
+// draw incrementally, since the locked letter can push a real letter's
+// count or the vowel total over the line after the 9 are already drawn.
+const VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
+const MAX_VOWELS_PER_SCRAMBLE = 5;
+const MIN_VOWELS_PER_SCRAMBLE = 2;
+const MAX_SCRAMBLE_DEAL_ATTEMPTS = 500;
 const LONG_WORD_MIN_LEN = 8;
 const LONG_WORD_BONUS = 10;
 const WILDCARDS_PER_SCRAMBLE = 1;
@@ -141,6 +152,20 @@ function drawRackLetters(bag, count, maxPerLetter, rng) {
   return drawn;
 }
 
+// Checks the vowel/duplicate rules against a scramble's real letters
+// (the 9 dealt letters plus the locked letter — never the wildcard,
+// which is exempt because it can stand in for anything).
+function scrambleLettersValid(letters) {
+  const counts = {};
+  let vowels = 0;
+  for (const letter of letters) {
+    counts[letter] = (counts[letter] || 0) + 1;
+    if (counts[letter] > MAX_DUPLICATE_LETTERS) return false;
+    if (VOWELS.has(letter)) vowels++;
+  }
+  return vowels >= MIN_VOWELS_PER_SCRAMBLE && vowels <= MAX_VOWELS_PER_SCRAMBLE;
+}
+
 // Every rack gets exactly one 2L, one 3L, and one 2W slot — no longer a
 // per-slot probability. The three get distinct positions by shuffling
 // all slot indices and claiming the first three: index 0 is 2L, index 1
@@ -157,8 +182,21 @@ function rollBottomBonuses(count, rng) {
 }
 
 function dealScramble(rng) {
-  const bag = buildLetterBag(rng);
-  const letters = drawRackLetters(bag, RACK_SIZE - WILDCARDS_PER_SCRAMBLE, MAX_DUPLICATE_LETTERS, rng);
+  // The 9 dealt letters and the locked letter are drawn together and
+  // re-rolled as a pair until the combined vowel/duplicate rules pass —
+  // the locked letter is an independent draw, so it can push a real
+  // letter's count or the vowel total over the line even though the 9
+  // alone were fine. Attempts are cheap and the bag's vowel share makes
+  // failures rare, so a bounded retry loop is simpler and more robust
+  // than trying to constrain the draw incrementally.
+  let letters, lockedLetter;
+  for (let attempt = 0; attempt < MAX_SCRAMBLE_DEAL_ATTEMPTS; attempt++) {
+    const bag = buildLetterBag(rng);
+    letters = drawRackLetters(bag, RACK_SIZE - WILDCARDS_PER_SCRAMBLE, MAX_DUPLICATE_LETTERS, rng);
+    lockedLetter = buildLetterBag(rng)[0];
+    if (scrambleLettersValid([...letters, lockedLetter])) break;
+  }
+
   const tiles = letters.map((letter) => ({ letter, points: LETTER_DATA[letter].points }));
   // Only the real letters get shuffled — wildcards are appended after,
   // unshuffled, so they always land in the rightmost WILDCARDS_PER_SCRAMBLE
@@ -172,7 +210,6 @@ function dealScramble(rng) {
   // may only be reachable via the wildcard, or not at all (in which
   // case a word has to route around that slot instead).
   const lockedPosition = Math.floor(rng() * (RACK_SIZE - WILDCARDS_PER_SCRAMBLE));
-  const lockedLetter = buildLetterBag(rng)[0];
   const lockedLetterPoints = LOCKED_LETTER_FLAT_POINTS;
   return {
     tiles,
