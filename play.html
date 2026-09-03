@@ -19,8 +19,6 @@
     --bonus3-border: #5f9bd8;
     --bonus2w-bg: #c1443c;
     --bonus2w-border: #8f2e28;
-    --locked-bg: #ffd60a;
-    --locked-border: #c9a800;
   }
 
   * { box-sizing: border-box; }
@@ -184,14 +182,6 @@
     opacity: 0.75;
   }
   .tile-row.guess .tile.empty.bonus2w .bonus-label { color: #fff; opacity: 0.9; }
-
-  /* A filled locked slot renders exactly like any other placed tile
-     (same letter size, same point subscript via .pts) — the only
-     difference is the yellow fill, which also wins out over any bonus
-     color if the two happen to coincide on the same slot. The required
-     letter is still spelled out via the same bonus-label mechanism
-     while the slot is empty. */
-  .tile-row.guess .tile.locked-slot { background: var(--locked-bg) !important; border-color: var(--locked-border); }
 
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
@@ -871,21 +861,15 @@
     return {
       tiles: scramble.tiles,
       bottomBonuses: scramble.bottomBonuses,
-      lockedLetter: scramble.lockedLetter,
-      lockedLetterPoints: scramble.lockedLetterPoints,
-      // One distinct locked-slot position per candidate row (server-
-      // assigned, see lockedPositions) — each row carries its own copy
-      // (row.lockedPosition) rather than the rack sharing a single one.
-      rows: Array.from({ length: CANDIDATE_ROWS }, (_, i) => makeRow(scramble, scramble.lockedPositions[i])),
+      rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
       pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
       activeRow: 0, // only this row accepts edits until a different row is clicked into
     };
   }
 
-  function makeRow(scramble, lockedPosition) {
+  function makeRow(scramble) {
     return {
       guessSlots: scramble.tiles.map(() => null),
-      lockedPosition,
       requestId: 0,
       // Live evaluation of whatever's currently placed in this row.
       lastEval: { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: false },
@@ -1014,17 +998,12 @@
   // With free placement, a gap in the middle of a row now reads as a
   // space separating two independent word attempts, not just an
   // unfinished spot — so a row is split into its contiguous runs
-  // ("segments") and each is evaluated as its own candidate word. The
-  // locked slot is treated as always filled here, even though nothing
-  // can actually be placed there (see placeTileInRow) — it's a fixed
-  // tile that automatically joins whichever segment touches it on
-  // either side, per Chris: "if I put a letter next to it, I am trying
-  // to use that yellow letter."
-  function getRowSegments(row, lockedPosition) {
+  // ("segments") and each is evaluated as its own candidate word.
+  function getRowSegments(row) {
     const segments = [];
     let current = null;
     for (let slot = 0; slot < row.guessSlots.length; slot++) {
-      if (row.guessSlots[slot] || slot === lockedPosition) {
+      if (row.guessSlots[slot]) {
         if (!current) { current = { slots: [] }; segments.push(current); }
         current.slots.push(slot);
       } else {
@@ -1036,15 +1015,9 @@
 
   // Builds the server payload for just one segment's placed tiles.
   // Positions stay absolute (not re-indexed to the segment's own start)
-  // since bonus lookups on the server are keyed by absolute slot. The
-  // locked slot has no real guessSlots entry (nothing can be placed
-  // there), so its cell is synthesized directly from the rack's known
-  // locked letter whenever a segment includes that position.
-  function cellsForSegment(row, tiles, segment, lockedPosition, lockedLetter) {
+  // since bonus lookups on the server are keyed by absolute slot.
+  function cellsForSegment(row, tiles, segment) {
     return segment.slots.map((slot) => {
-      if (slot === lockedPosition) {
-        return { position: slot, letter: lockedLetter, isWildcard: false };
-      }
       const entry = row.guessSlots[slot];
       return {
         position: slot,
@@ -1062,14 +1035,14 @@
   // Promise.all in handleRowChanged and leave that row stuck showing
   // "…" forever, since nothing after it would ever run to clear the
   // checking flag.
-  async function submitCells(cells, scrambleIndex, lockedPosition) {
+  async function submitCells(cells, scrambleIndex) {
     const fallback = { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
     let res;
     try {
       res = await fetch(`/api/game/${GAME_ID}/guess`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scrambleIndex, cells, lockedPosition }),
+        body: JSON.stringify({ scrambleIndex, cells }),
       });
     } catch {
       return fallback;
@@ -1090,9 +1063,9 @@
   }
 
   async function evaluateSegmentAsync(rack, row, scrambleIndex, segment) {
-    const result = await submitCells(cellsForSegment(row, rack.tiles, segment, row.lockedPosition, rack.lockedLetter), scrambleIndex, row.lockedPosition);
+    const result = await submitCells(cellsForSegment(row, rack.tiles, segment), scrambleIndex);
     if (!result.word) {
-      result.word = segment.slots.map((slot) => slot === row.lockedPosition ? rack.lockedLetter : row.guessSlots[slot].letter).join('');
+      result.word = segment.slots.map((slot) => row.guessSlots[slot].letter).join('');
     }
     return result;
   }
@@ -1243,26 +1216,13 @@
       const entry = row.guessSlots[slot];
       const bonus = rack.bottomBonuses[slot];
       const bonusClass = bonus === '2L' ? ' bonus2' : bonus === '3L' ? ' bonus3' : bonus === '2W' ? ' bonus2w' : '';
-      const isLocked = slot === row.lockedPosition;
-      const lockedClass = isLocked ? ' locked-slot' : '';
       if (!entry) {
-        // The empty locked slot previews as a full tile (letter + point
-        // subscript, same markup as a placed one) rather than the small
-        // text label bonus slots use — Chris wants it indistinguishable
-        // from a real tile except for the color.
-        if (isLocked) {
-          // The locked letter isn't necessarily one of the 9 dealt tiles
-          // anymore, so its point value comes from the server
-          // (rack.lockedLetterPoints) rather than a tray lookup.
-          const lockedPts = rack.lockedLetterPoints * bonusMultiplier(rack, slot);
-          return `<div class="tile locked-slot" data-slot="${slot}">${rack.lockedLetter}<span class="pts">${lockedPts}</span></div>`;
-        }
         const bonusLabel = bonus === '2L' ? '2L' : bonus === '3L' ? '3L' : bonus === '2W' ? '2W' : '';
         return `<div class="tile empty${bonusClass}" data-slot="${slot}">${bonusLabel ? `<span class="bonus-label">${bonusLabel}</span>` : ''}</div>`;
       }
       const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
       const pts = rack.tiles[entry.trayIndex].points * bonusMultiplier(rack, slot);
-      return `<div class="tile draggable${bonusClass}${lockedClass}${isWildcard ? ' wildcard-placed' : ''}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
+      return `<div class="tile draggable${bonusClass}${isWildcard ? ' wildcard-placed' : ''}" data-slot="${slot}">${entry.letter}<span class="pts">${pts}</span></div>`;
     }).join('');
 
     Array.from(el.children).forEach((tileEl, slot) => {
@@ -1295,7 +1255,6 @@
         });
       }
 
-      if (slot === row.lockedPosition) return; // fixed tile, never a drop target -- no hover feedback either
       tileEl.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -1322,22 +1281,17 @@
   // the drag source). A tile can sit in any slot in this row, in any
   // combination — the row is just a sparse position->letter map, same
   // as the server has always treated it (currentWordForRow/getRowSegments
-  // read out whatever's occupied, in order, regardless of gaps) —
-  // except the locked slot, which is a fixed tile and never a valid
-  // drop target at all (see getRowSegments/cellsForSegment, which treat
-  // it as always filled without anything ever actually being placed
-  // there). The remaining rule: a tile can only sit in one slot *within
-  // this row* (see isTrayIndexPlacedInRow) — clears any other
-  // occurrence of this trayIndex found in THIS row's own slots. A drag
-  // from a *different* row is a deliberate move and vacates that other
-  // row's slot too; a drag from the tray never touches any other row,
-  // since tiles are shared across rows by design (see makeRack) —
-  // that's what lets WATER sit in one row and WATERY in another at the
-  // same time.
+  // read out whatever's occupied, in order, regardless of gaps). The
+  // remaining rule: a tile can only sit in one slot *within this row*
+  // (see isTrayIndexPlacedInRow) — clears any other occurrence of this
+  // trayIndex found in THIS row's own slots. A drag from a *different*
+  // row is a deliberate move and vacates that other row's slot too; a
+  // drag from the tray never touches any other row, since tiles are
+  // shared across rows by design (see makeRack) — that's what lets
+  // WATER sit in one row and WATERY in another at the same time.
   function placeTileInRow(rack, rowIndex, targetSlot, payload) {
     if (rowIndex !== rack.activeRow) return; // only the active row accepts placements
     const row = rack.rows[rowIndex];
-    if (targetSlot === row.lockedPosition) return; // the locked slot is fixed, never a drop target
     if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return; // dropped back on itself
 
     // An unresolved wildcard (payload.letter still '?') needs its letter
@@ -1381,7 +1335,7 @@
 
     const row = rack.rows[rowIndex];
     const hasUnresolvedWildcard = row.guessSlots.some((e) => e && e.letter === '?');
-    const segments = getRowSegments(row, row.lockedPosition).filter((seg) => seg.slots.length >= MIN_WORD_LEN);
+    const segments = getRowSegments(row).filter((seg) => seg.slots.length >= MIN_WORD_LEN);
     const myRequestId = ++row.requestId;
 
     if (segments.length === 0 || hasUnresolvedWildcard) {
@@ -1612,14 +1566,8 @@
 
     const letter = e.key.toUpperCase();
 
-    // Typing fills the next open slot, skipping the locked slot
-    // unconditionally — it's a fixed tile now, never a valid target for
-    // *any* typed letter (see placeTileInRow), so this isn't guessing
-    // at intent the way the old letter-mismatch auto-skip was (that got
-    // reverted for silently reinterpreting DIME through a required O);
-    // it's simply that the slot doesn't exist as a typing target at
-    // all, regardless of what's typed.
-    const targetSlot = row.guessSlots.findIndex((s, i) => s === null && i !== row.lockedPosition);
+    // Typing fills the next open slot.
+    const targetSlot = row.guessSlots.findIndex((s) => s === null);
     if (targetSlot === -1) return; // row already full
 
     const trayIndex = findAvailableTrayIndexForLetter(rack, row, letter);
