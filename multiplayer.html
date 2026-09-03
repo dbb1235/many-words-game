@@ -136,6 +136,20 @@
     100% { background: var(--card); }
   }
 
+  .tray-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+
+  .tray-order-btn {
+    border: none;
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--dark);
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .tray-order-btn:hover { background: rgba(0, 0, 0, 0.15); }
+
   .round-ended-banner {
     display: none;
     text-align: center;
@@ -791,6 +805,9 @@
 
   <div class="active-card" id="active-card">
     <div class="round-ended-banner" id="round-ended-banner">Round over — final standings below</div>
+    <div class="tray-toolbar">
+      <button type="button" class="tray-order-btn" id="tray-order-btn" title="Toggle scramble order">🔀 Shuffled</button>
+    </div>
     <div class="candidate-row tray-row">
       <div class="tile-row tray" id="tray-tiles"></div>
       <div class="candidate-total ghost" aria-hidden="true">0 pts</div>
@@ -1568,6 +1585,11 @@
   let currentRoundId = null;
   let RACKS = [];
   let currentIndex = 0;
+  // Tray display order only -- a pure presentation preference, shared
+  // across every rack, that never touches rack.tiles itself (trayIndex
+  // has to stay a stable reference to a physical tile regardless of how
+  // it's currently displayed, since placed guess-row tiles hold onto it).
+  let trayAlphabetical = false;
   let muted = false;
   let roundEnded = false;
   let timeLeft = 0;
@@ -1747,6 +1769,14 @@
     btn.classList.toggle('is-muted', muted);
   });
 
+  document.getElementById('tray-order-btn').addEventListener('click', () => {
+    trayAlphabetical = !trayAlphabetical;
+    const btn = document.getElementById('tray-order-btn');
+    btn.textContent = trayAlphabetical ? '🔤 A-Z' : '🔀 Shuffled';
+    const rack = RACKS[currentIndex];
+    if (rack) renderTray(rack);
+  });
+
   // ---------- Scoring / validity for the active rack's current guess ----------
   //
   // The dictionary and scoring authority live entirely on the server
@@ -1906,16 +1936,37 @@
     return -1;
   }
 
+  // Indices into rack.tiles in the order the tray should display them —
+  // shuffled mode is just the tiles' own (already-random) order from
+  // the server; alphabetical mode sorts by letter with the wildcard
+  // forced last either way, per Chris's spec. Returns *indices*, not
+  // tiles, so trayIndex (a stable reference to a physical tile, used by
+  // drag payloads and already-placed guess-row tiles) never shifts
+  // just because the display order changed.
+  function trayDisplayOrder(tiles) {
+    const indices = tiles.map((_, i) => i);
+    if (!trayAlphabetical) return indices;
+    return indices.sort((a, b) => {
+      const la = tiles[a].letter, lb = tiles[b].letter;
+      if (la === '?') return 1;
+      if (lb === '?') return -1;
+      return la < lb ? -1 : la > lb ? 1 : 0;
+    });
+  }
+
   // The tray never dims a tile as "used" — every one of the 10 tiles is
   // always available to every row, since a row's own contents are the
   // only thing that limit it (see isTrayIndexPlacedInRow).
   function renderTray(rack) {
     const el = document.getElementById('tray-tiles');
-    el.innerHTML = rack.tiles.map((t, i) =>
-      `<div class="tile draggable" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`
-    ).join('');
+    const order = trayDisplayOrder(rack.tiles);
+    el.innerHTML = order.map((i) => {
+      const t = rack.tiles[i];
+      return `<div class="tile draggable" data-i="${i}">${t.letter}<span class="pts">${t.points}</span></div>`;
+    }).join('');
 
-    Array.from(el.children).forEach((tileEl, i) => {
+    Array.from(el.children).forEach((tileEl, pos) => {
+      const i = order[pos];
       const t = rack.tiles[i];
       tileEl.draggable = true;
       tileEl.addEventListener('dragstart', (e) => {
