@@ -16,16 +16,21 @@ const mailer = require('./mailer');
 
 const PORT = process.env.PORT || 8420;
 
+// Point values match standard Scrabble exactly (1/2/3/4/5/8/10 tiers) —
+// deliberate choice for familiarity, not because simulation favored
+// these numbers over the higher/wider-variance values tried earlier.
+// Letter *quantities* stay the custom-tuned ones (see
+// project_letter_bag_tuning in memory) — only points reverted.
 const LETTER_DATA = {
-  A: { count: 7, points: 1 }, B: { count: 1, points: 9 }, C: { count: 2, points: 3 },
-  D: { count: 7, points: 3 }, E: { count: 15, points: 1 }, F: { count: 1, points: 10 },
-  G: { count: 6, points: 4 }, H: { count: 1, points: 9 }, I: { count: 9, points: 1 },
-  J: { count: 1, points: 15 }, K: { count: 1, points: 10 }, L: { count: 8, points: 3 },
-  M: { count: 3, points: 4 }, N: { count: 6, points: 1 }, O: { count: 4, points: 1 },
-  P: { count: 1, points: 8 }, Q: { count: 1, points: 15 }, R: { count: 6, points: 1 },
-  S: { count: 5, points: 1 }, T: { count: 3, points: 1 }, U: { count: 5, points: 3 },
-  V: { count: 1, points: 10 }, W: { count: 1, points: 10 }, X: { count: 1, points: 12 },
-  Y: { count: 1, points: 8 }, Z: { count: 1, points: 12 }, '?': { count: 2, points: 0 },
+  A: { count: 7, points: 1 }, B: { count: 1, points: 3 }, C: { count: 2, points: 3 },
+  D: { count: 7, points: 2 }, E: { count: 15, points: 1 }, F: { count: 1, points: 4 },
+  G: { count: 6, points: 2 }, H: { count: 1, points: 4 }, I: { count: 9, points: 1 },
+  J: { count: 1, points: 8 }, K: { count: 1, points: 5 }, L: { count: 8, points: 1 },
+  M: { count: 3, points: 3 }, N: { count: 6, points: 1 }, O: { count: 4, points: 1 },
+  P: { count: 1, points: 3 }, Q: { count: 1, points: 10 }, R: { count: 6, points: 1 },
+  S: { count: 5, points: 1 }, T: { count: 3, points: 1 }, U: { count: 5, points: 1 },
+  V: { count: 1, points: 4 }, W: { count: 1, points: 4 }, X: { count: 1, points: 8 },
+  Y: { count: 1, points: 4 }, Z: { count: 1, points: 10 }, '?': { count: 2, points: 0 },
 };
 
 const RACK_SIZE = 10;
