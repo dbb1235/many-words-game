@@ -21,6 +21,8 @@
     --bonus2w-border: #8f2e28;
     --power-bg: #ffd60a;
     --power-border: #c9a800;
+    --power-bg-pending: #fff3b0;
+    --letter-pending: #b3b3b3;
   }
 
   * { box-sizing: border-box; }
@@ -106,14 +108,6 @@
      card below the header, same white surface, no inset box within it. */
   .active-card {
     padding: 16px 22px 22px;
-    transition: background 0.4s ease;
-  }
-
-  .active-card.flash-good { animation: flashGood 0.9s ease; }
-
-  @keyframes flashGood {
-    0% { background: var(--good-green-soft); }
-    100% { background: var(--card); }
   }
 
   .tray-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
@@ -191,6 +185,17 @@
      a power tile even if resolved to that same letter. */
   .tile.power-tile { background: var(--power-bg) !important; border-color: var(--power-border); }
 
+  /* While a row's current word isn't valid yet (still typing, or plain
+     invalid), its letters render light gray and any power tile(s) in
+     it render a pale yellow — both snap to full color the moment a
+     valid word is formed (renderRowMeta toggles is-valid-word on the
+     row), so typing has a visible "not there yet" vs "that's a word"
+     distinction. Tray tiles are untouched — this only applies inside
+     a candidate row. */
+  .tile-row.guess .tile { color: var(--letter-pending); transition: color 0.15s ease; }
+  .tile-row.guess.is-valid-word .tile { color: var(--dark); }
+  .tile-row.guess:not(.is-valid-word) .tile.power-tile { background: var(--power-bg-pending) !important; }
+
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
 
@@ -241,7 +246,7 @@
      needed for that state. */
   .candidate-total.state-active { color: var(--red); }
 
-  .use-btn {
+  .clear-btn {
     flex-shrink: 0;
     border: none;
     background: #ffd23f;
@@ -253,14 +258,8 @@
     padding: clamp(8px, 1.6vw, 12px) clamp(12px, 2.4vw, 20px);
     cursor: pointer;
   }
-  .use-btn:hover:not(:disabled) { filter: brightness(1.05); }
-  .use-btn:disabled { opacity: 0.35; cursor: default; }
-
-  /* Explicitly pinned via a press — solid green, distinct from the
-     row-level "currently winning" wash so a deliberate pick still reads
-     differently from an automatic one. */
-  .use-btn.pressed { background: var(--good-green); color: #fff; }
-  .use-btn.auto-winner:not(.pressed) { box-shadow: 0 0 0 2px var(--good-green) inset; }
+  .clear-btn:hover:not(:disabled) { filter: brightness(1.05); }
+  .clear-btn:disabled { opacity: 0.35; cursor: default; }
 
   /* Single control for moving through the six racks — no prev, no dots,
      just Next, wrapping 6 back to 1. */
@@ -569,28 +568,28 @@
     <div class="candidate-row tray-row">
       <div class="tile-row tray" id="tray-tiles"></div>
       <div class="candidate-total ghost" aria-hidden="true">0 pts</div>
-      <button type="button" class="use-btn ghost" aria-hidden="true" tabindex="-1">Use</button>
+      <button type="button" class="clear-btn ghost" aria-hidden="true" tabindex="-1">Clear</button>
     </div>
 
     <div class="candidate-row" id="candidate-row-0">
       <div class="tile-row guess" id="guess-tiles-0"></div>
       <div class="candidate-total" id="candidate-total-0">0 pts</div>
-      <button type="button" class="use-btn" id="use-btn-0" disabled>Use</button>
+      <button type="button" class="clear-btn" id="clear-btn-0" disabled>Clear</button>
     </div>
     <div class="candidate-row" id="candidate-row-1">
       <div class="tile-row guess" id="guess-tiles-1"></div>
       <div class="candidate-total" id="candidate-total-1">0 pts</div>
-      <button type="button" class="use-btn" id="use-btn-1" disabled>Use</button>
+      <button type="button" class="clear-btn" id="clear-btn-1" disabled>Clear</button>
     </div>
     <div class="candidate-row" id="candidate-row-2">
       <div class="tile-row guess" id="guess-tiles-2"></div>
       <div class="candidate-total" id="candidate-total-2">0 pts</div>
-      <button type="button" class="use-btn" id="use-btn-2" disabled>Use</button>
+      <button type="button" class="clear-btn" id="clear-btn-2" disabled>Clear</button>
     </div>
     <div class="candidate-row" id="candidate-row-3">
       <div class="tile-row guess" id="guess-tiles-3"></div>
       <div class="candidate-total" id="candidate-total-3">0 pts</div>
-      <button type="button" class="use-btn" id="use-btn-3" disabled>Use</button>
+      <button type="button" class="clear-btn" id="clear-btn-3" disabled>Clear</button>
     </div>
 
     <div class="rack-nav">
@@ -870,7 +869,6 @@
       tiles: scramble.tiles,
       bottomBonuses: scramble.bottomBonuses,
       rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
-      pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
       activeRow: 0, // only this row accepts edits until a different row is clicked into
     };
   }
@@ -888,13 +886,12 @@
     };
   }
 
-  // Which row index is actually in effect for this rack right now: the
-  // pinned row if it's still a valid word, otherwise whichever valid
-  // row scores highest (ties go to the lowest row index, since only a
-  // strictly greater score displaces the current best). Returns null if
-  // no row currently holds a valid word.
+  // Which row index is actually in effect for this rack right now:
+  // whichever valid row scores highest (ties go to the lowest row
+  // index, since only a strictly greater score displaces the current
+  // best) — the best word is always what's used, no manual pick needed.
+  // Returns null if no row currently holds a valid word.
   function effectiveRowIndex(rack) {
-    if (rack.pinnedRow !== null && rack.rows[rack.pinnedRow].lastEval.valid) return rack.pinnedRow;
     let bestIndex = null;
     rack.rows.forEach((row, i) => {
       if (!row.lastEval.valid) return;
@@ -931,14 +928,6 @@
     gain.connect(c.destination);
     osc.start(startTime);
     osc.stop(startTime + duration + 0.02);
-  }
-
-  function playGoodChime() {
-    if (muted) return;
-    const c = ctx(); const now = c.currentTime;
-    tone(523.25, now, 0.16, 'sine', 0.18);
-    tone(659.25, now + 0.1, 0.16, 'sine', 0.18);
-    tone(783.99, now + 0.2, 0.28, 'sine', 0.2);
   }
 
   function playWarnBeep(urgent) {
@@ -1086,21 +1075,6 @@
       result.word = segment.slots.map((slot) => row.guessSlots[slot].letter).join('');
     }
     return result;
-  }
-
-  // ---------- Feedback firing (edge-triggered) ----------
-
-  // Called exactly once per Use press (never while just typing), so
-  // there's no need for edge-triggering — every call here is a
-  // deliberate pin and always fires. Pressing Use is only ever possible
-  // on an already-valid row (see the button's disabled state), so this
-  // is always the "good" feedback — there's no failure path to flash.
-  function fireUseFeedback() {
-    const card = document.getElementById('active-card');
-    card.classList.remove('flash-good');
-    void card.offsetWidth;
-    card.classList.add('flash-good');
-    playGoodChime();
   }
 
   // ---------- Rendering ----------
@@ -1494,7 +1468,7 @@
       // Red while this row is still being worked on — the score is
       // provisional (possibly the higher of two space-separated word
       // attempts). Settles to black once finalized (another row
-      // clicked into, or Use pressed).
+      // clicked into).
       stateClass = rack.activeRow === rowIndex ? ' state-active' : '';
     } else if (belowMinimum) {
       scoreText = rawScore + ' pts';
@@ -1507,13 +1481,11 @@
     totalEl.className = 'candidate-total' + stateClass;
 
     const effIdx = effectiveRowIndex(rack);
-    const btnEl = document.getElementById('use-btn-' + rowIndex);
-    btnEl.disabled = !valid;
-    btnEl.classList.toggle('pressed', rack.pinnedRow === rowIndex);
-    btnEl.classList.toggle('auto-winner', effIdx === rowIndex && rack.pinnedRow !== rowIndex);
+    document.getElementById('clear-btn-' + rowIndex).disabled = !row.guessSlots.some((s) => s !== null);
 
     document.getElementById('candidate-row-' + rowIndex).classList.toggle('is-effective', effIdx === rowIndex);
     document.getElementById('candidate-row-' + rowIndex).classList.toggle('is-active-row', rack.activeRow === rowIndex);
+    document.getElementById('guess-tiles-' + rowIndex).classList.toggle('is-valid-word', valid);
   }
 
   function renderAllRowMeta(rack) {
@@ -1530,28 +1502,21 @@
     document.getElementById('rack-indicator').textContent = `Rack ${currentIndex + 1}`;
   }
 
-  // Use button — pressing an already-valid row pins it as this rack's
-  // scored word regardless of what scores higher elsewhere; pressing an
-  // already-pinned row's button again releases the pin, reverting to
-  // auto-highest. Only one row can be pinned at a time.
-  async function toggleUseRow(rack, rowIndex) {
+  // Clear button — wipes every letter from this row for a quick fresh
+  // start. The best-scoring valid row across the whole rack is always
+  // what's used automatically (see effectiveRowIndex), so there's no
+  // separate "confirm" action anymore, just this cleanup one.
+  function clearRow(rack, rowIndex) {
     const row = rack.rows[rowIndex];
-    if (!row.lastEval.valid) return;
-    if (rack.pinnedRow === rowIndex) {
-      rack.pinnedRow = null;
-    } else {
-      rack.pinnedRow = rowIndex;
-      fireUseFeedback();
-      await finalizeRow(rack, rowIndex); // pressing Use also counts as "done working on this row"
-    }
-    renderAllRowMeta(rack);
-    renderHeaderScore();
+    if (!row.guessSlots.some((s) => s !== null)) return; // nothing to clear
+    row.guessSlots = row.guessSlots.map(() => null);
+    handleRowChanged(rack, rowIndex);
   }
 
   for (let i = 0; i < CANDIDATE_ROWS; i++) {
     const rowIndex = i;
-    document.getElementById('use-btn-' + rowIndex).addEventListener('click', () => {
-      toggleUseRow(RACKS[currentIndex], rowIndex);
+    document.getElementById('clear-btn-' + rowIndex).addEventListener('click', () => {
+      clearRow(RACKS[currentIndex], rowIndex);
     });
   }
 
