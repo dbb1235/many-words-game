@@ -494,7 +494,7 @@ app.post('/api/forgot-password', async (req, res) => {
   const user = db.findUserByUsername(cleanUsername);
 
   await mailer.sendOwnerEmail({
-    subject: `Gerbil password reset request: ${cleanUsername}`,
+    subject: `Tunaword password reset request: ${cleanUsername}`,
     text: [
       `Username: ${cleanUsername}`,
       `Account found: ${user ? 'yes' : 'no'}`,
@@ -520,7 +520,7 @@ app.post('/api/feedback', auth.attachUserIfPresent, async (req, res) => {
   const cleanMessage = message.trim().slice(0, 2000);
 
   await mailer.sendOwnerEmail({
-    subject: `Gerbil feedback${req.user ? ` from ${req.user.username}` : ''}`,
+    subject: `Tunaword feedback${req.user ? ` from ${req.user.username}` : ''}`,
     text: [
       `From: ${req.user ? req.user.username : 'anonymous (not logged in)'}`,
       `Message: ${cleanMessage}`,
