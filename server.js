@@ -224,21 +224,6 @@ function cellsAreSourceable(cells, scramble) {
   return true;
 }
 
-// The locked slot only constrains a guess that actually occupies it —
-// leaving it open is always fine, whether the word stops before that
-// position or routes around it and continues past it. `word` is built
-// from `cells` sorted by position regardless of which positions are
-// present (see scoreGuess), so a guess that skips this one slot still
-// reads as one continuous word, just without whatever letter (and
-// bonus) would have sat there.
-// Every guess must use the locked letter somewhere -- no longer tied to
-// the specific slot it's displayed at (that slot is now just where the
-// hint is shown; with free placement in any slot, "reaches that
-// position" stopped being a meaningful idea anyway).
-function lockedLetterSatisfied(scramble, cells) {
-  return cells.some((c) => c.letter === scramble.lockedLetter);
-}
-
 function scoreGuess(scramble, cells) {
   // cells: [{ position, letter, isWildcard }], only occupied positions.
   const empty = { valid: false, word: '', score: 0, belowMinimum: false, rawScore: 0 };
@@ -251,15 +236,17 @@ function scoreGuess(scramble, cells) {
     return { ...empty, word };
   }
 
-  if (!lockedLetterSatisfied(scramble, sorted)) {
-    return { ...empty, word, lockedLetterViolation: true };
-  }
-
   const inDictionary = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
   if (!inDictionary) return { ...empty, word };
 
+  // Using the locked letter is optional and position-independent — it
+  // can sit anywhere in the word. Its point value always counts, even
+  // when it's supplied by the wildcard (which otherwise always scores
+  // 0 regardless of the letter it's standing in for).
   let rawScore = sorted.reduce((sum, cell) => {
-    const points = cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0);
+    const points = cell.isWildcard
+      ? (cell.letter === scramble.lockedLetter ? scramble.lockedLetterPoints : 0)
+      : (LETTER_DATA[cell.letter]?.points || 0);
     const bonus = bonusMultiplier(scramble.bottomBonuses[cell.position]);
     return sum + points * bonus;
   }, 0);
