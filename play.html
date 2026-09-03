@@ -1131,9 +1131,16 @@
       const isLocked = slot === rack.lockedPosition;
       const lockedClass = isLocked ? ' locked-slot' : '';
       if (!entry) {
+        // The empty locked slot previews as a full tile (letter + point
+        // subscript, same markup as a placed one) rather than the small
+        // text label bonus slots use — Chris wants it indistinguishable
+        // from a real tile except for the color.
+        if (isLocked) {
+          const lockedPts = rack.tiles[rack.lockedPosition].points * bonusMultiplier(rack, slot);
+          return `<div class="tile locked-slot" data-slot="${slot}">${rack.lockedLetter}<span class="pts">${lockedPts}</span></div>`;
+        }
         const bonusLabel = bonus === '2L' ? '2L' : bonus === '3L' ? '3L' : bonus === '2W' ? '2W' : '';
-        const label = isLocked ? rack.lockedLetter + (bonusLabel ? ' ' + bonusLabel : '') : bonusLabel;
-        return `<div class="tile empty${bonusClass}${lockedClass}" data-slot="${slot}">${label ? `<span class="bonus-label">${label}</span>` : ''}</div>`;
+        return `<div class="tile empty${bonusClass}" data-slot="${slot}">${bonusLabel ? `<span class="bonus-label">${bonusLabel}</span>` : ''}</div>`;
       }
       const isWildcard = rack.tiles[entry.trayIndex].letter === '?';
       const pts = rack.tiles[entry.trayIndex].points * bonusMultiplier(rack, slot);
