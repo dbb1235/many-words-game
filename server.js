@@ -77,7 +77,7 @@ const BONUS_TILES_ENABLED = false;
 // A word must clear this many points to count at all, even if it's a
 // real dictionary word — see MULTIPLAYER_PLAN.md §3a. Matches the
 // front-end mockup's previous client-only floor.
-const MIN_WORD_SCORE = 4;
+const MIN_WORD_SCORE = 3;
 
 // Games expire after this long so the in-memory Map doesn't grow forever
 // (no accounts/persistence yet — see plan step 1).
