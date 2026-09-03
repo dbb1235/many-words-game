@@ -35,6 +35,12 @@ const MAX_DUPLICATE_LETTERS = 2;
 const LONG_WORD_MIN_LEN = 8;
 const LONG_WORD_BONUS = 10;
 const WILDCARDS_PER_SCRAMBLE = 1;
+// Temporarily off per request, to isolate the locked-letter mechanic
+// while testing it — flip back to true to restore 2L/3L/2W. The client
+// never needs its own toggle: it only colors/labels a slot based on
+// what bottomBonuses says is there, so an all-empty array here already
+// suppresses the tile coloring and the "2L"/"3L"/"2W" labels too.
+const BONUS_TILES_ENABLED = false;
 // A word must clear this many points to count at all, even if it's a
 // real dictionary word — see MULTIPLAYER_PLAN.md §3a. Matches the
 // front-end mockup's previous client-only floor.
@@ -129,8 +135,9 @@ function drawRackLetters(bag, count, maxPerLetter, rng) {
 // is 3L, index 2 is 2W — so 2W always lands on a slot not already
 // claimed by 2L or 3L.
 function rollBottomBonuses(count, rng) {
-  const indices = shuffle(Array.from({ length: count }, (_, i) => i), rng);
   const bonuses = Array.from({ length: count }, () => undefined);
+  if (!BONUS_TILES_ENABLED) return bonuses;
+  const indices = shuffle(Array.from({ length: count }, (_, i) => i), rng);
   bonuses[indices[0]] = '2L';
   bonuses[indices[1]] = '3L';
   bonuses[indices[2]] = '2W';
