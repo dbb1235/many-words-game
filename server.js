@@ -198,7 +198,12 @@ function bonusMultiplier(bonus) {
 
 // Verifies the claimed cells are actually sourceable from this scramble's
 // dealt rack (multiset check on non-wildcard letters, cap on wildcard
-// count) — a client can't invent letters it was never dealt.
+// count) — a client can't invent letters it was never dealt. The locked
+// slot is exempt from this: it's a fixed, always-available tile, not
+// drawn from the dealt rack at all (it's often not even one of the 9
+// dealt letters) — but a cell claiming that position must be exactly
+// the locked letter, non-wildcard, so a client still can't smuggle an
+// arbitrary free letter through it.
 function cellsAreSourceable(cells, scramble) {
   const rackCounts = {};
   let rackWildcards = 0;
@@ -210,6 +215,10 @@ function cellsAreSourceable(cells, scramble) {
   const usedCounts = {};
   let usedWildcards = 0;
   for (const cell of cells) {
+    if (cell.position === scramble.lockedPosition) {
+      if (cell.isWildcard || cell.letter !== scramble.lockedLetter) return false;
+      continue;
+    }
     if (cell.isWildcard) {
       usedWildcards++;
     } else {
@@ -239,14 +248,12 @@ function scoreGuess(scramble, cells) {
   const inDictionary = word.length >= MIN_WORD_LEN && WORD_LIST.has(word);
   if (!inDictionary) return { ...empty, word };
 
-  // Using the locked letter is optional and position-independent — it
-  // can sit anywhere in the word. Its point value always counts, even
-  // when it's supplied by the wildcard (which otherwise always scores
-  // 0 regardless of the letter it's standing in for).
+  // The locked letter is a fixed, always-available tile now (not
+  // routed through the wildcard), so it scores like any other ordinary
+  // non-wildcard letter via the branch below — no special-casing
+  // needed here anymore.
   let rawScore = sorted.reduce((sum, cell) => {
-    const points = cell.isWildcard
-      ? (cell.letter === scramble.lockedLetter ? scramble.lockedLetterPoints : 0)
-      : (LETTER_DATA[cell.letter]?.points || 0);
+    const points = cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0);
     const bonus = bonusMultiplier(scramble.bottomBonuses[cell.position]);
     return sum + points * bonus;
   }, 0);

@@ -970,12 +970,17 @@
   // With free placement, a gap in the middle of a row now reads as a
   // space separating two independent word attempts, not just an
   // unfinished spot — so a row is split into its contiguous runs
-  // ("segments") and each is evaluated as its own candidate word.
-  function getRowSegments(row) {
+  // ("segments") and each is evaluated as its own candidate word. The
+  // locked slot is treated as always filled here, even though nothing
+  // can actually be placed there (see placeTileInRow) — it's a fixed
+  // tile that automatically joins whichever segment touches it on
+  // either side, per Chris: "if I put a letter next to it, I am trying
+  // to use that yellow letter."
+  function getRowSegments(row, lockedPosition) {
     const segments = [];
     let current = null;
     for (let slot = 0; slot < row.guessSlots.length; slot++) {
-      if (row.guessSlots[slot]) {
+      if (row.guessSlots[slot] || slot === lockedPosition) {
         if (!current) { current = { slots: [] }; segments.push(current); }
         current.slots.push(slot);
       } else {
@@ -987,9 +992,15 @@
 
   // Builds the server payload for just one segment's placed tiles.
   // Positions stay absolute (not re-indexed to the segment's own start)
-  // since bonus lookups on the server are keyed by absolute slot.
-  function cellsForSegment(row, tiles, segment) {
+  // since bonus lookups on the server are keyed by absolute slot. The
+  // locked slot has no real guessSlots entry (nothing can be placed
+  // there), so its cell is synthesized directly from the rack's known
+  // locked letter whenever a segment includes that position.
+  function cellsForSegment(row, tiles, segment, lockedPosition, lockedLetter) {
     return segment.slots.map((slot) => {
+      if (slot === lockedPosition) {
+        return { position: slot, letter: lockedLetter, isWildcard: false };
+      }
       const entry = row.guessSlots[slot];
       return {
         position: slot,
@@ -1019,8 +1030,10 @@
   }
 
   async function evaluateSegmentAsync(rack, row, scrambleIndex, segment) {
-    const result = await submitCells(cellsForSegment(row, rack.tiles, segment), scrambleIndex);
-    if (!result.word) result.word = segment.slots.map((slot) => row.guessSlots[slot].letter).join('');
+    const result = await submitCells(cellsForSegment(row, rack.tiles, segment, rack.lockedPosition, rack.lockedLetter), scrambleIndex);
+    if (!result.word) {
+      result.word = segment.slots.map((slot) => slot === rack.lockedPosition ? rack.lockedLetter : row.guessSlots[slot].letter).join('');
+    }
     return result;
   }
 
@@ -1181,6 +1194,7 @@
         });
       }
 
+      if (slot === rack.lockedPosition) return; // fixed tile, never a drop target -- no hover feedback either
       tileEl.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -1202,16 +1216,21 @@
   // the drag source). A tile can sit in any slot in this row, in any
   // combination — the row is just a sparse position->letter map, same
   // as the server has always treated it (currentWordForRow/getRowSegments
-  // read out whatever's occupied, in order, regardless of gaps). The
-  // one remaining rule: a tile can only sit in one slot *within this
-  // row* (see isTrayIndexPlacedInRow) — clears any other occurrence of
-  // this trayIndex found in THIS row's own slots. A drag from a
-  // *different* row is a deliberate move and vacates that other row's
-  // slot too; a drag from the tray never touches any other row, since
-  // tiles are shared across rows by design (see makeRack) — that's what
-  // lets WATER sit in one row and WATERY in another at the same time.
+  // read out whatever's occupied, in order, regardless of gaps) —
+  // except the locked slot, which is a fixed tile and never a valid
+  // drop target at all (see getRowSegments/cellsForSegment, which treat
+  // it as always filled without anything ever actually being placed
+  // there). The remaining rule: a tile can only sit in one slot *within
+  // this row* (see isTrayIndexPlacedInRow) — clears any other
+  // occurrence of this trayIndex found in THIS row's own slots. A drag
+  // from a *different* row is a deliberate move and vacates that other
+  // row's slot too; a drag from the tray never touches any other row,
+  // since tiles are shared across rows by design (see makeRack) —
+  // that's what lets WATER sit in one row and WATERY in another at the
+  // same time.
   function placeTileInRow(rack, rowIndex, targetSlot, payload) {
     if (rowIndex !== rack.activeRow) return; // only the active row accepts placements
+    if (targetSlot === rack.lockedPosition) return; // the locked slot is fixed, never a drop target
     if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return; // dropped back on itself
 
     const row = rack.rows[rowIndex];
@@ -1257,7 +1276,7 @@
 
     const row = rack.rows[rowIndex];
     const hasUnresolvedWildcard = row.guessSlots.some((e) => e && e.letter === '?');
-    const segments = getRowSegments(row).filter((seg) => seg.slots.length >= MIN_WORD_LEN);
+    const segments = getRowSegments(row, rack.lockedPosition).filter((seg) => seg.slots.length >= MIN_WORD_LEN);
     const myRequestId = ++row.requestId;
 
     if (segments.length === 0 || hasUnresolvedWildcard) {
@@ -1488,15 +1507,14 @@
 
     const letter = e.key.toUpperCase();
 
-    // Typing always fills the next open slot, full stop — including the
-    // locked slot. Typing the wrong letter there just lands it there
-    // and the guess reads as invalid, same as any other wrong letter;
-    // it does NOT silently reroute past the lock (that would turn
-    // e.g. "DIME" typed straight through a required O into a hidden
-    // skip nobody asked for). Deliberately routing around the locked
-    // slot is still possible, just via drag-and-drop onto a slot past
-    // it — see placeTileInRow.
-    const targetSlot = row.guessSlots.findIndex((s) => s === null);
+    // Typing fills the next open slot, skipping the locked slot
+    // unconditionally — it's a fixed tile now, never a valid target for
+    // *any* typed letter (see placeTileInRow), so this isn't guessing
+    // at intent the way the old letter-mismatch auto-skip was (that got
+    // reverted for silently reinterpreting DIME through a required O);
+    // it's simply that the slot doesn't exist as a typing target at
+    // all, regardless of what's typed.
+    const targetSlot = row.guessSlots.findIndex((s, i) => s === null && i !== rack.lockedPosition);
     if (targetSlot === -1) return; // row already full
 
     const trayIndex = findAvailableTrayIndexForLetter(rack, row, letter);
