@@ -419,6 +419,31 @@
   }
   .modal-title { font-size: 16px; font-weight: 800; color: var(--dark); margin-bottom: 16px; }
 
+  /* ---------- Help / tutorial modal ---------- */
+
+  #help-overlay .modal-card { max-width: 540px; max-height: 82vh; overflow-y: auto; }
+  .help-body { color: var(--dark); font-size: 14px; line-height: 1.5; }
+  .help-body p { margin: 0 0 8px; }
+  .help-body h4 {
+    margin: 16px 0 4px;
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .help-body h4:first-of-type { margin-top: 0; }
+  .legend-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid #000;
+    border-radius: 3px;
+    vertical-align: -2px;
+    margin-right: 5px;
+  }
+  .legend-swatch.legend-power { background: var(--power-bg); border-color: var(--power-border); }
+  .legend-swatch.legend-orange { background: var(--orange-bg); border-color: var(--orange-border); }
+
   .loading-note {
     text-align: center;
     padding: 40px 22px;
@@ -565,6 +590,7 @@
       <div class="label">Score</div>
       <div class="value" id="score-value">0</div>
     </div>
+    <button class="icon-btn" id="help-btn" title="How to play">❓</button>
     <button class="icon-btn" id="mute-btn" title="Mute sound">🔔</button>
     <button class="icon-btn" id="feedback-btn" title="Send feedback">💬</button>
     <button class="icon-btn" id="logout-btn" title="Log out">⎋</button>
@@ -639,6 +665,33 @@
       <button class="next-btn auth-submit" id="feedback-submit" type="submit">Send</button>
       <button class="restart-link" id="feedback-cancel" type="button">Cancel</button>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="help-overlay">
+  <div class="modal-card">
+    <div class="modal-title">How to Play</div>
+    <div class="help-body">
+      <p>Build the highest-scoring real word you can out of each rack of letters.</p>
+
+      <h4>Racks &amp; rows</h4>
+      <p>Each rack deals 10 tiles. You get 4 rows to try different words with the same tiles — placing a tile in one row doesn't use it up in the others. Whichever row scores highest counts automatically; there's nothing to confirm.</p>
+
+      <h4>Bonus letters</h4>
+      <p><span class="legend-swatch legend-power"></span>One letter each rack turns <strong>yellow</strong> and is always worth a flat <strong>12 points</strong>.<br>
+      <span class="legend-swatch legend-orange"></span>A different letter turns <strong>orange</strong>, worth a flat <strong>10 points</strong>.</p>
+      <p>These apply no matter where the letter lands in your word, and to every copy of that letter in your rack. A wildcard standing in for a bonus letter does <em>not</em> get the bonus — it's always worth 0.</p>
+
+      <h4>Wildcard (?)</h4>
+      <p>Can become any letter you choose, but always scores 0 points.</p>
+
+      <h4>Word rules</h4>
+      <p>Words must be at least 3 letters long and score at least 3 points to count. Only real dictionary words are accepted — abbreviations and acronyms don't count unless they're pronounced as a word (like SCUBA), not spelled out letter by letter (like FBI).</p>
+
+      <h4>Controls</h4>
+      <p>Drag tiles from the tray into a row, or click a row and type. Click a different row to switch which one you're editing. <strong>Clear</strong> wipes a row's letters. The 🔀 button above the tray reshuffles your tiles — pressing it repeatedly cycles through a few different shuffles before landing on alphabetical order.</p>
+    </div>
+    <button class="restart-link" id="help-close" type="button">Close</button>
   </div>
 </div>
 
@@ -778,6 +831,16 @@
   });
   document.getElementById('feedback-cancel').addEventListener('click', () => {
     feedbackOverlay.classList.remove('open');
+  });
+
+  // ---------- Help / tutorial ----------
+
+  const helpOverlay = document.getElementById('help-overlay');
+  document.getElementById('help-btn').addEventListener('click', () => {
+    helpOverlay.classList.add('open');
+  });
+  document.getElementById('help-close').addEventListener('click', () => {
+    helpOverlay.classList.remove('open');
   });
 
   feedbackForm.addEventListener('submit', async (e) => {
@@ -1674,7 +1737,7 @@
   const LAYOUT_STORAGE_KEY = 'gerbil_layout_v1';
   const EDITABLE_IDS = [
     'brand-title', 'username-label', 'timer-stat', 'score-stat',
-    'mute-btn', 'feedback-btn', 'logout-btn',
+    'help-btn', 'mute-btn', 'feedback-btn', 'logout-btn',
     'tray-tiles', 'candidate-row-0', 'candidate-row-1', 'candidate-row-2', 'candidate-row-3',
     'rack-indicator', 'nav-next', 'new-game-btn',
   ];
