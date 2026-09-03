@@ -2089,11 +2089,20 @@
   // best-scoring word if it currently holds more than one
   // space-separated attempt — the loser's tiles go back to the tray,
   // "only that one word" stays placed. A no-op if there was only ever
-  // one segment, or nothing valid to prune to yet. Async and awaited by
+  // one segment, or nothing valid to prune to. Async and awaited by
   // callers that need the pruned state settled first (toggleUseRow's
   // resubmission relies on this).
+  //
+  // Forces a fresh handleRowChanged first and awaits it, rather than
+  // trusting whatever winningSegmentSlots already holds — placing a
+  // tile triggers handleRowChanged without awaiting it (fire-and-
+  // forget), so if the last placement is immediately followed by a
+  // click to another row or a Use press, winningSegmentSlots could
+  // still reflect an earlier, now-stale evaluation and this would
+  // prune the wrong word.
   async function finalizeRow(rack, rowIndex) {
     const row = rack.rows[rowIndex];
+    await handleRowChanged(rack, rowIndex);
     if (!row.winningSegmentSlots) return;
     const keep = new Set(row.winningSegmentSlots);
     let changed = false;

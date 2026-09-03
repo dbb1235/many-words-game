@@ -1290,9 +1290,17 @@
   // best-scoring word if it currently holds more than one
   // space-separated attempt — the loser's tiles go back to the tray,
   // "only that one word" stays placed. A no-op if there was only ever
-  // one segment, or nothing valid to prune to yet.
-  function finalizeRow(rack, rowIndex) {
+  // one segment, or nothing valid to prune to.
+  //
+  // Forces a fresh handleRowChanged first and awaits it, rather than
+  // trusting whatever winningSegmentSlots already holds — placing a
+  // tile triggers handleRowChanged without awaiting it (fire-and-
+  // forget), so if the last placement is immediately followed by a
+  // click to another row, winningSegmentSlots could still reflect an
+  // earlier, now-stale evaluation and this would prune the wrong word.
+  async function finalizeRow(rack, rowIndex) {
     const row = rack.rows[rowIndex];
+    await handleRowChanged(rack, rowIndex);
     if (!row.winningSegmentSlots) return;
     const keep = new Set(row.winningSegmentSlots);
     let changed = false;
@@ -1302,7 +1310,7 @@
         changed = true;
       }
     }
-    if (changed) handleRowChanged(rack, rowIndex);
+    if (changed) await handleRowChanged(rack, rowIndex);
   }
 
   // ---------- Wildcard letter picker ----------
@@ -1429,7 +1437,7 @@
   // scored word regardless of what scores higher elsewhere; pressing an
   // already-pinned row's button again releases the pin, reverting to
   // auto-highest. Only one row can be pinned at a time.
-  function toggleUseRow(rack, rowIndex) {
+  async function toggleUseRow(rack, rowIndex) {
     const row = rack.rows[rowIndex];
     if (!row.lastEval.valid) return;
     if (rack.pinnedRow === rowIndex) {
@@ -1437,7 +1445,7 @@
     } else {
       rack.pinnedRow = rowIndex;
       fireUseFeedback();
-      finalizeRow(rack, rowIndex); // pressing Use also counts as "done working on this row"
+      await finalizeRow(rack, rowIndex); // pressing Use also counts as "done working on this row"
     }
     renderAllRowMeta(rack);
     renderHeaderScore();
@@ -1503,11 +1511,11 @@
   // showing whatever score it already had, untouched. Listening on
   // 'focus' rather than just 'click' covers keyboard (Tab) switching
   // too, so DOM focus and activeRow can never drift apart.
-  function setActiveRow(rack, rowIndex) {
+  async function setActiveRow(rack, rowIndex) {
     if (rack.activeRow === rowIndex) return;
     const previousRow = rack.activeRow;
     rack.activeRow = rowIndex;
-    finalizeRow(rack, previousRow);
+    await finalizeRow(rack, previousRow);
     renderAllRowMeta(rack);
   }
 
