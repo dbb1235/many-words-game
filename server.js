@@ -37,6 +37,9 @@ const RACK_SIZE = 10;
 const NUM_SCRAMBLES = 3;
 const MIN_WORD_LEN = 3;
 const MAX_DUPLICATE_LETTERS = 2;
+// Must match the client's own CANDIDATE_ROWS (play.html/multiplayer.html)
+// — one distinct locked-slot position gets generated per candidate row.
+const CANDIDATE_ROWS = 4;
 // Vowel/duplicate bounds for a whole scramble (the 9 dealt letters plus
 // the independently-drawn locked letter) — the wildcard is exempt from
 // both since it can stand in for any letter, so it never enters either
@@ -166,6 +169,15 @@ function scrambleLettersValid(letters) {
   return vowels >= MIN_VOWELS_PER_SCRAMBLE && vowels <= MAX_VOWELS_PER_SCRAMBLE;
 }
 
+// One locked-slot position per candidate row, all distinct from each
+// other — same distinct-by-shuffle technique as rollBottomBonuses below.
+// Positions are chosen from the real-letter slots only (never the
+// wildcard slot), same range the old single lockedPosition used.
+function pickDistinctLockedPositions(count, rng) {
+  const positions = shuffle(Array.from({ length: RACK_SIZE - WILDCARDS_PER_SCRAMBLE }, (_, i) => i), rng);
+  return positions.slice(0, count);
+}
+
 // Every rack gets exactly one 2L, one 3L, and one 2W slot — no longer a
 // per-slot probability. The three get distinct positions by shuffling
 // all slot indices and claiming the first three: index 0 is 2L, index 1
@@ -208,13 +220,16 @@ function dealScramble(rng) {
   // independent draw from the same weighted pool the rack itself came
   // from, NOT necessarily one of the 9 letters actually dealt — so it
   // may only be reachable via the wildcard, or not at all (in which
-  // case a word has to route around that slot instead).
-  const lockedPosition = Math.floor(rng() * (RACK_SIZE - WILDCARDS_PER_SCRAMBLE));
+  // case a word has to route around that slot instead). One position
+  // per candidate row, all distinct — each row gets its own locked slot
+  // rather than all four sharing one, though they all share the same
+  // lockedLetter/lockedLetterPoints.
+  const lockedPositions = pickDistinctLockedPositions(CANDIDATE_ROWS, rng);
   const lockedLetterPoints = LOCKED_LETTER_FLAT_POINTS;
   return {
     tiles,
     bottomBonuses: rollBottomBonuses(RACK_SIZE, rng),
-    lockedPosition,
+    lockedPositions,
     lockedLetter,
     lockedLetterPoints,
   };
@@ -245,6 +260,15 @@ function bonusMultiplier(bonus) {
   return 1;
 }
 
+// The client tells us which of the scramble's several lockedPositions
+// applies to a given guess (each candidate row has its own). -1 is a
+// sentinel that never matches a real cell position (0-8), so a missing
+// or out-of-set value just means the locked-letter shortcut doesn't
+// apply to this guess rather than crashing or trusting an unlisted spot.
+function resolveLockedPosition(scramble, requested) {
+  return Number.isInteger(requested) && scramble.lockedPositions.includes(requested) ? requested : -1;
+}
+
 // Verifies the claimed cells are actually sourceable from this scramble's
 // dealt rack (multiset check on non-wildcard letters, cap on wildcard
 // count) — a client can't invent letters it was never dealt. The locked
@@ -252,8 +276,11 @@ function bonusMultiplier(bonus) {
 // drawn from the dealt rack at all (it's often not even one of the 9
 // dealt letters) — but a cell claiming that position must be exactly
 // the locked letter, non-wildcard, so a client still can't smuggle an
-// arbitrary free letter through it.
-function cellsAreSourceable(cells, scramble) {
+// arbitrary free letter through it. `lockedPosition` is the ONE position
+// relevant to this guess — each candidate row has its own (see
+// lockedPositions on the scramble) — supplied by the caller rather than
+// read off the scramble directly, since a scramble now has several.
+function cellsAreSourceable(cells, scramble, lockedPosition) {
   const rackCounts = {};
   let rackWildcards = 0;
   for (const t of scramble.tiles) {
@@ -264,7 +291,7 @@ function cellsAreSourceable(cells, scramble) {
   const usedCounts = {};
   let usedWildcards = 0;
   for (const cell of cells) {
-    if (cell.position === scramble.lockedPosition) {
+    if (cell.position === lockedPosition) {
       if (cell.isWildcard || cell.letter !== scramble.lockedLetter) return false;
       continue;
     }
@@ -282,7 +309,7 @@ function cellsAreSourceable(cells, scramble) {
   return true;
 }
 
-function scoreGuess(scramble, cells) {
+function scoreGuess(scramble, cells, lockedPosition) {
   // cells: [{ position, letter, isWildcard }], only occupied positions.
   const empty = { valid: false, word: '', score: 0, belowMinimum: false, rawScore: 0 };
   if (cells.length === 0) return empty;
@@ -290,7 +317,7 @@ function scoreGuess(scramble, cells) {
   const sorted = [...cells].sort((a, b) => a.position - b.position);
   const word = sorted.map((c) => c.letter).join('').toUpperCase();
 
-  if (!cellsAreSourceable(sorted, scramble)) {
+  if (!cellsAreSourceable(sorted, scramble, lockedPosition)) {
     return { ...empty, word };
   }
 
@@ -301,7 +328,7 @@ function scoreGuess(scramble, cells) {
   // not the drawn letter's own value — see the constant's definition.
   // Every other cell (including the wildcard, always 0) scores normally.
   let rawScore = sorted.reduce((sum, cell) => {
-    const points = cell.position === scramble.lockedPosition
+    const points = cell.position === lockedPosition
       ? LOCKED_LETTER_FLAT_POINTS
       : (cell.isWildcard ? 0 : (LETTER_DATA[cell.letter]?.points || 0));
     const bonus = bonusMultiplier(scramble.bottomBonuses[cell.position]);
@@ -605,7 +632,7 @@ app.post('/api/game/new', auth.requireAuth, (req, res) => {
 
   res.json({
     gameId,
-    scrambles: scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses, lockedPosition: s.lockedPosition, lockedLetter: s.lockedLetter, lockedLetterPoints: s.lockedLetterPoints })),
+    scrambles: scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses, lockedPositions: s.lockedPositions, lockedLetter: s.lockedLetter, lockedLetterPoints: s.lockedLetterPoints })),
   });
 });
 
@@ -614,12 +641,12 @@ app.post('/api/game/:gameId/guess', auth.requireAuth, (req, res) => {
   if (!game) return res.status(404).json({ error: 'Game not found or expired' });
   if (game.userId !== req.user.id) return res.status(403).json({ error: 'Not your game' });
 
-  const { scrambleIndex, cells } = req.body || {};
+  const { scrambleIndex, cells, lockedPosition } = req.body || {};
   const scramble = game.scrambles[scrambleIndex];
   if (!scramble) return res.status(400).json({ error: 'Invalid scrambleIndex' });
   if (!Array.isArray(cells)) return res.status(400).json({ error: 'cells must be an array' });
 
-  const result = scoreGuess(scramble, cells);
+  const result = scoreGuess(scramble, cells, resolveLockedPosition(scramble, lockedPosition));
   res.json(result);
 });
 
@@ -738,7 +765,7 @@ app.get('/api/round/:id/current', auth.requireAuth, (req, res) => {
   const response = { roundId: round.id, phase, secondsRemaining };
   if (phase === 'active') {
     const scrambles = regenerateRacks(round.seed);
-    response.scrambles = scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses, lockedPosition: s.lockedPosition, lockedLetter: s.lockedLetter, lockedLetterPoints: s.lockedLetterPoints }));
+    response.scrambles = scrambles.map((s) => ({ tiles: s.tiles, bottomBonuses: s.bottomBonuses, lockedPositions: s.lockedPositions, lockedLetter: s.lockedLetter, lockedLetterPoints: s.lockedLetterPoints }));
   }
   res.json(response);
 });
@@ -754,13 +781,13 @@ app.post('/api/round/:id/guess', auth.requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Round has ended' });
   }
 
-  const { scrambleIndex, cells, force } = req.body || {};
+  const { scrambleIndex, cells, force, lockedPosition } = req.body || {};
   const scrambles = regenerateRacks(round.seed);
   const scramble = scrambles[scrambleIndex];
   if (!scramble) return res.status(400).json({ error: 'Invalid scrambleIndex' });
   if (!Array.isArray(cells)) return res.status(400).json({ error: 'cells must be an array' });
 
-  const result = scoreGuess(scramble, cells);
+  const result = scoreGuess(scramble, cells, resolveLockedPosition(scramble, lockedPosition));
   if (result.valid) {
     // `force` is the Override button — a player deliberately choosing to
     // score a lower word than one already on record for this rack.

@@ -871,18 +871,21 @@
     return {
       tiles: scramble.tiles,
       bottomBonuses: scramble.bottomBonuses,
-      lockedPosition: scramble.lockedPosition,
       lockedLetter: scramble.lockedLetter,
       lockedLetterPoints: scramble.lockedLetterPoints,
-      rows: Array.from({ length: CANDIDATE_ROWS }, () => makeRow(scramble)),
+      // One distinct locked-slot position per candidate row (server-
+      // assigned, see lockedPositions) — each row carries its own copy
+      // (row.lockedPosition) rather than the rack sharing a single one.
+      rows: Array.from({ length: CANDIDATE_ROWS }, (_, i) => makeRow(scramble, scramble.lockedPositions[i])),
       pinnedRow: null, // row index explicitly chosen via its Use button, or null for auto-highest
       activeRow: 0, // only this row accepts edits until a different row is clicked into
     };
   }
 
-  function makeRow(scramble) {
+  function makeRow(scramble, lockedPosition) {
     return {
       guessSlots: scramble.tiles.map(() => null),
+      lockedPosition,
       requestId: 0,
       // Live evaluation of whatever's currently placed in this row.
       lastEval: { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0, checking: false },
@@ -1059,14 +1062,14 @@
   // Promise.all in handleRowChanged and leave that row stuck showing
   // "…" forever, since nothing after it would ever run to clear the
   // checking flag.
-  async function submitCells(cells, scrambleIndex) {
+  async function submitCells(cells, scrambleIndex, lockedPosition) {
     const fallback = { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
     let res;
     try {
       res = await fetch(`/api/game/${GAME_ID}/guess`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scrambleIndex, cells }),
+        body: JSON.stringify({ scrambleIndex, cells, lockedPosition }),
       });
     } catch {
       return fallback;
@@ -1087,9 +1090,9 @@
   }
 
   async function evaluateSegmentAsync(rack, row, scrambleIndex, segment) {
-    const result = await submitCells(cellsForSegment(row, rack.tiles, segment, rack.lockedPosition, rack.lockedLetter), scrambleIndex);
+    const result = await submitCells(cellsForSegment(row, rack.tiles, segment, row.lockedPosition, rack.lockedLetter), scrambleIndex, row.lockedPosition);
     if (!result.word) {
-      result.word = segment.slots.map((slot) => slot === rack.lockedPosition ? rack.lockedLetter : row.guessSlots[slot].letter).join('');
+      result.word = segment.slots.map((slot) => slot === row.lockedPosition ? rack.lockedLetter : row.guessSlots[slot].letter).join('');
     }
     return result;
   }
@@ -1240,7 +1243,7 @@
       const entry = row.guessSlots[slot];
       const bonus = rack.bottomBonuses[slot];
       const bonusClass = bonus === '2L' ? ' bonus2' : bonus === '3L' ? ' bonus3' : bonus === '2W' ? ' bonus2w' : '';
-      const isLocked = slot === rack.lockedPosition;
+      const isLocked = slot === row.lockedPosition;
       const lockedClass = isLocked ? ' locked-slot' : '';
       if (!entry) {
         // The empty locked slot previews as a full tile (letter + point
@@ -1292,7 +1295,7 @@
         });
       }
 
-      if (slot === rack.lockedPosition) return; // fixed tile, never a drop target -- no hover feedback either
+      if (slot === row.lockedPosition) return; // fixed tile, never a drop target -- no hover feedback either
       tileEl.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -1333,10 +1336,9 @@
   // same time.
   function placeTileInRow(rack, rowIndex, targetSlot, payload) {
     if (rowIndex !== rack.activeRow) return; // only the active row accepts placements
-    if (targetSlot === rack.lockedPosition) return; // the locked slot is fixed, never a drop target
-    if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return; // dropped back on itself
-
     const row = rack.rows[rowIndex];
+    if (targetSlot === row.lockedPosition) return; // the locked slot is fixed, never a drop target
+    if (payload.fromRow === rowIndex && payload.fromSlot === targetSlot) return; // dropped back on itself
 
     // An unresolved wildcard (payload.letter still '?') needs its letter
     // chosen right now, not left blank for later.
@@ -1379,7 +1381,7 @@
 
     const row = rack.rows[rowIndex];
     const hasUnresolvedWildcard = row.guessSlots.some((e) => e && e.letter === '?');
-    const segments = getRowSegments(row, rack.lockedPosition).filter((seg) => seg.slots.length >= MIN_WORD_LEN);
+    const segments = getRowSegments(row, row.lockedPosition).filter((seg) => seg.slots.length >= MIN_WORD_LEN);
     const myRequestId = ++row.requestId;
 
     if (segments.length === 0 || hasUnresolvedWildcard) {
@@ -1617,7 +1619,7 @@
     // reverted for silently reinterpreting DIME through a required O);
     // it's simply that the slot doesn't exist as a typing target at
     // all, regardless of what's typed.
-    const targetSlot = row.guessSlots.findIndex((s, i) => s === null && i !== rack.lockedPosition);
+    const targetSlot = row.guessSlots.findIndex((s, i) => s === null && i !== row.lockedPosition);
     if (targetSlot === -1) return; // row already full
 
     const trayIndex = findAvailableTrayIndexForLetter(rack, row, letter);
