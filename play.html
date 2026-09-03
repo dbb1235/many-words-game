@@ -19,7 +19,8 @@
     --bonus3-border: #5f9bd8;
     --bonus2w-bg: #c1443c;
     --bonus2w-border: #8f2e28;
-    --locked-border: #b8860b;
+    --locked-bg: #ffd60a;
+    --locked-border: #c9a800;
   }
 
   * { box-sizing: border-box; }
@@ -170,11 +171,13 @@
   }
   .tile-row.guess .tile.empty.bonus2w .bonus-label { color: #fff; opacity: 0.9; }
 
-  /* The locked slot gets a gold ring on top of whatever else is going
-     on there (empty, bonused, or filled) so it reads as "special"
-     regardless of state — the required letter is spelled out via the
-     same bonus-label mechanism while the slot is still empty. */
-  .tile-row.guess .tile.locked-slot { outline: 3px solid var(--locked-border); outline-offset: -3px; }
+  /* A filled locked slot renders exactly like any other placed tile
+     (same letter size, same point subscript via .pts) — the only
+     difference is the yellow fill, which also wins out over any bonus
+     color if the two happen to coincide on the same slot. The required
+     letter is still spelled out via the same bonus-label mechanism
+     while the slot is empty. */
+  .tile-row.guess .tile.locked-slot { background: var(--locked-bg) !important; border-color: var(--locked-border); }
 
   /* Drop-target hover feedback while dragging a tile over a cell. */
   .tile.drop-hover { outline: 3px dashed var(--gold); outline-offset: -3px; }
