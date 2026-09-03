@@ -58,14 +58,16 @@ const WILDCARDS_PER_SCRAMBLE = 1;
 // other wildcard use. Otherwise these tiles are entirely ordinary: no
 // fixed slot, no placement restriction, place and type with them like
 // any other letter.
-const POWER_LETTER_POINTS = 10;
+const POWER_LETTER_POINTS = 12;
 // A second, independent bonus letter per scramble — same rules as the
 // power letter (chosen from the 9 dealt letters, every tile of it
 // colored/flat-valued, a wildcard resolved to it unaffected), just a
 // different color and a lower flat value. Always a different letter
 // than the power letter (drawn only from the remaining dealt letters),
-// so no tile is ever asked to be both at once.
-const ORANGE_LETTER_POINTS = 5;
+// so no tile is ever asked to be both at once. Both flat values sit at
+// or above every normal letter's value (max 10, on Q/Z) so neither
+// bonus can ever be a downgrade from the letter's own worth.
+const ORANGE_LETTER_POINTS = 10;
 // Temporarily off per earlier request — flip back to true to restore
 // 2L/3L/2W. The client never needs its own toggle: it only colors/labels
 // a slot based on what bottomBonuses says is there, so an all-empty

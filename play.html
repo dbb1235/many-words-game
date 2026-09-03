@@ -184,13 +184,14 @@
 
   /* The scramble's power letter — every tile of it, tray or placed,
      stays yellow wherever it goes (it's an ordinary, freely-placeable
-     tile otherwise, just worth a flat 10 points). A wildcard is never
+     tile otherwise, just worth a flat 12 points). A wildcard is never
      a power tile even if resolved to that same letter. */
   .tile.power-tile { background: var(--power-bg) !important; border-color: var(--power-border); }
 
   /* A second, independent bonus letter — same rules as power-tile
      (every tile of the letter, wildcards unaffected), just orange and
-     worth less. Always a different letter than the power one. */
+     worth a flat 10 instead of 12. Always a different letter than the
+     power one. */
   .tile.orange-tile { background: var(--orange-bg) !important; border-color: var(--orange-border); }
 
   /* While a row's current word isn't valid yet (still typing, or plain
