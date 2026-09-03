@@ -1863,26 +1863,42 @@
     });
   }
 
+  // Any failure here (dropped connection, a mid-typing server restart, a
+  // malformed response) resolves to the same "not valid" shape rather
+  // than throwing — a rejected promise would otherwise bubble up through
+  // Promise.all in handleRowChanged and leave that row stuck showing
+  // "…" forever, since nothing after it would ever run to clear the
+  // checking flag.
   async function submitCells(cells, scrambleIndex, force) {
-    const res = await fetch(`/api/round/${currentRoundId}/guess`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scrambleIndex, cells, force: !!force }),
-    });
+    const fallback = { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+    let res;
+    try {
+      res = await fetch(`/api/round/${currentRoundId}/guess`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scrambleIndex, cells, force: !!force }),
+      });
+    } catch {
+      return fallback;
+    }
 
     if (res.status === 401) {
       showScreen(authScreen);
-      return { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+      return fallback;
     }
     if (res.status === 400) {
       // Most likely "round has ended" — resync to confirm and lock the board.
       resyncRound();
-      return { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+      return fallback;
     }
     if (!res.ok) {
-      return { word: '', valid: false, belowMinimum: false, rawScore: 0, score: 0 };
+      return fallback;
     }
-    return res.json();
+    try {
+      return await res.json();
+    } catch {
+      return fallback;
+    }
   }
 
   async function evaluateSegmentAsync(rack, row, scrambleIndex, segment) {
