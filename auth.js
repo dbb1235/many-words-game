@@ -12,7 +12,7 @@ const jwt = require('jsonwebtoken');
 
 const SECRET_FILE = path.join(__dirname, '.jwt-secret');
 const COOKIE_NAME = 'gerbil_token';
-const TOKEN_TTL = '30d';
+const TOKEN_TTL = '365d';
 const BCRYPT_ROUNDS = 10;
 
 // Generated once per machine and persisted (gitignored) so existing
@@ -54,7 +54,7 @@ function setAuthCookie(res, token) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: 365 * 24 * 60 * 60 * 1000,
   });
 }
 
