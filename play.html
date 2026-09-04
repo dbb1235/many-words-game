@@ -207,6 +207,12 @@
 
   .tile .pts { position: absolute; bottom: 3%; right: 6%; font-size: clamp(12.6px, 1.98cqw, 22.5px); font-weight: 700; }
 
+  /* Shifted right ~2.5 tile-widths from its natural spot, purely
+     visually — position:relative rather than margin so it doesn't eat
+     into the row's own flex space and shrink the tiles. The candidate
+     rows below are untouched, so they stay aligned with each other
+     (just no longer with the tray above them, which is the point). */
+  .tile-row.tray { position: relative; left: 17.5cqw; }
   .tile-row.tray .tile.draggable { cursor: grab; }
   .tile-row.tray .tile.draggable:hover { outline: 2px solid var(--gold); outline-offset: 1px; }
   .tile-row.tray .tile.used { opacity: 0.28; }
