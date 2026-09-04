@@ -359,7 +359,6 @@
     padding-top: 16px;
   }
 
-  .rack-indicator { font-size: 21px; color: var(--cream); font-weight: 800; text-transform: uppercase; }
 
   .next-btn {
     border: none;
@@ -716,10 +715,9 @@
     </div>
 
     <div class="rack-nav">
-      <span class="rack-indicator" id="rack-indicator"></span>
       <div class="rack-nav-right">
         <button type="button" class="next-btn" id="tray-order-btn" title="Toggle scramble order">Shuffle</button>
-        <button class="next-btn" id="nav-next">Next Rack →</button>
+        <button class="next-btn" id="nav-next">SCROLL →</button>
       </div>
     </div>
   </div>
@@ -1735,8 +1733,6 @@
     renderTray(rack);
     for (let i = 0; i < CANDIDATE_ROWS; i++) renderRowTiles(rack, i);
     renderAllRowMeta(rack);
-
-    document.getElementById('rack-indicator').textContent = `Rack ${currentIndex + 1}`;
   }
 
   // Clear button — wipes every letter from this row for a quick fresh
@@ -1918,7 +1914,7 @@
   const EDITABLE_IDS = [
     'brand-title', 'username-label', 'timer-stat', 'score-stat',
     'tray-tiles', 'candidate-row-0', 'candidate-row-1', 'candidate-row-2', 'candidate-row-3',
-    'rack-indicator', 'tray-order-btn', 'nav-next', 'new-game-btn',
+    'tray-order-btn', 'nav-next', 'new-game-btn',
   ];
 
   let layout = {};    // id -> { x, y, w, h, groupId? }
