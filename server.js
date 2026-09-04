@@ -336,6 +336,56 @@ function scoreGuess(scramble, cells) {
   return { valid, word, score: valid ? rawScore : 0, belowMinimum, rawScore };
 }
 
+// Scans the whole dictionary for the single highest-scoring word this
+// scramble's rack can actually produce — same per-letter scoring as
+// scoreGuess (power/orange flat overrides, wildcard always 0), but
+// ignores bottomBonuses (2L/3L/2W): those are positional, and finding
+// the best *placement* as well as the best word is a different, harder
+// problem not needed while BONUS_TILES_ENABLED is off. ~50k words is
+// cheap enough to brute-force on every call — this only runs once per
+// finished game, not per keystroke.
+function findBestWord(scramble) {
+  const rackCounts = {};
+  let rackWildcards = 0;
+  for (const t of scramble.tiles) {
+    if (t.letter === '?') rackWildcards++;
+    else rackCounts[t.letter] = (rackCounts[t.letter] || 0) + 1;
+  }
+
+  function letterValue(letter) {
+    if (letter === scramble.powerLetter) return POWER_LETTER_POINTS;
+    if (letter === scramble.orangeLetter) return ORANGE_LETTER_POINTS;
+    return LETTER_DATA[letter]?.points || 0;
+  }
+
+  let best = null;
+  for (const word of WORD_LIST) {
+    if (word.length < MIN_WORD_LEN) continue;
+    const need = {};
+    for (const ch of word) need[ch] = (need[ch] || 0) + 1;
+
+    let wildcardsNeeded = 0;
+    let rawScore = 0;
+    let feasible = true;
+    for (const ch in need) {
+      const count = need[ch];
+      const have = rackCounts[ch] || 0;
+      if (have >= count) {
+        rawScore += letterValue(ch) * count;
+      } else {
+        rawScore += letterValue(ch) * have;
+        wildcardsNeeded += count - have;
+        if (wildcardsNeeded > rackWildcards) { feasible = false; break; }
+      }
+    }
+    if (!feasible || rawScore < MIN_WORD_SCORE) continue;
+    if (!best || rawScore > best.score || (rawScore === best.score && word.length > best.word.length)) {
+      best = { word, score: rawScore };
+    }
+  }
+  return best;
+}
+
 // --- HTTP app ----------------------------------------------------------
 
 const app = express();
@@ -632,6 +682,15 @@ app.post('/api/game/:gameId/guess', auth.requireAuth, (req, res) => {
 
   const result = scoreGuess(scramble, cells);
   res.json(result);
+});
+
+app.get('/api/game/:gameId/best-words', auth.requireAuth, (req, res) => {
+  const game = games.get(req.params.gameId);
+  if (!game) return res.status(404).json({ error: 'Game not found or expired' });
+  if (game.userId !== req.user.id) return res.status(403).json({ error: 'Not your game' });
+
+  const results = game.scrambles.map((scramble) => findBestWord(scramble));
+  res.json({ results });
 });
 
 app.post('/api/single/finish', auth.requireAuth, (req, res) => {
