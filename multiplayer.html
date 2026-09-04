@@ -2,6 +2,7 @@
 <meta charset="UTF-8">
 <style>
   :root {
+    --body-pad: 14px;
     --cream: #f4f1ea;
     --dark: #2b2620;
     --gold: #c9a24b;
@@ -38,7 +39,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 14px;
+    padding: var(--body-pad);
   }
 
   /* One continuous panel — header and rack are two zones of the SAME
@@ -46,12 +47,13 @@
      separate green field with a smaller white box inside it. The green
      page background now only shows as a thin frame around this. */
   .screen {
-    width: 100%;
-    max-width: 1180px;
+    width: min(100%, calc((100vh - (var(--body-pad) * 2)) * 16 / 9));
+    aspect-ratio: 16 / 9;
+    container-type: inline-size;
     background: var(--card);
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.35);
-    overflow: hidden;
+    overflow: hidden auto;
   }
 
   /* Doubled from the original 14px/22px/18px/etc. baseline — the whole
@@ -60,17 +62,18 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    column-gap: 44px;
-    row-gap: 14px;
-    padding: 28px 44px;
+    column-gap: clamp(10px, 6cqw, 44px);
+    row-gap: 10px;
+    padding: clamp(12px, 6cqw, 28px) clamp(14px, 7cqw, 44px);
     color: var(--cream);
+    font-size: clamp(9px, 3.6cqw, 16px);
   }
 
-  .brand { font-size: 36px; font-weight: 700; margin-right: auto; }
+  .brand { font-size: 2.25em; font-weight: 700; margin-right: auto; }
 
-  .stat { display: flex; flex-direction: column; align-items: center; min-width: 112px; }
-  .stat .label { font-size: 21px; text-transform: uppercase; opacity: 0.7; letter-spacing: 0.04em; }
-  .stat .value { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .stat .label { font-size: 1.3em; text-transform: uppercase; opacity: 0.7; letter-spacing: 0.04em; }
+  .stat .value { font-size: 2.5em; font-weight: 700; font-variant-numeric: tabular-nums; }
 
   #timer-stat.warn-1min .value { color: #ffcf5c; }
   #timer-stat.warn-15s .value { color: #ff6b5e; animation: timerPulse 0.6s ease infinite; }
@@ -83,13 +86,13 @@
 
   .icon-btn {
     position: relative;
-    width: 64px;
-    height: 64px;
+    width: 4em;
+    height: 4em;
     border-radius: 50%;
     border: 3px solid rgba(244,241,234,0.35);
     background: transparent;
     color: var(--cream);
-    font-size: 28px;
+    font-size: 1.75em;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -99,15 +102,15 @@
 
   .icon-badge {
     position: absolute;
-    top: -8px;
-    right: -8px;
+    top: -0.3em;
+    right: -0.3em;
     background: var(--red);
     color: #fff;
-    font-size: 20px;
+    font-size: 0.7em;
     font-weight: 800;
     border-radius: 999px;
-    min-width: 32px;
-    height: 32px;
+    min-width: 1.15em;
+    height: 1.15em;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -212,7 +215,7 @@
   }
   .round-ended-banner.show { display: block; }
 
-  .tile-row { display: flex; gap: clamp(4px, 0.8vw, 8px); margin-bottom: 10px; }
+  .tile-row { display: flex; gap: clamp(4px, 0.8cqw, 8px); margin-bottom: 10px; }
 
   .tile {
     flex: 1 1 0;
@@ -227,11 +230,11 @@
     justify-content: center;
     position: relative;
     font-weight: 700;
-    font-size: clamp(25.2px, 5.58vw, 57.6px);
+    font-size: clamp(25.2px, 5.58cqw, 57.6px);
     user-select: none;
   }
 
-  .tile .pts { position: absolute; bottom: 3%; right: 6%; font-size: clamp(12.6px, 1.98vw, 22.5px); font-weight: 700; }
+  .tile .pts { position: absolute; bottom: 3%; right: 6%; font-size: clamp(12.6px, 1.98cqw, 22.5px); font-weight: 700; }
 
   .tile-row.tray .tile.draggable { cursor: grab; }
   .tile-row.tray .tile.draggable:hover { outline: 2px solid var(--gold); outline-offset: 1px; }
@@ -260,7 +263,7 @@
   .tile-row.guess .tile.bonus3 { background: var(--bonus3-bg) !important; border-color: var(--bonus3-border); }
   .tile-row.guess .tile.bonus2w { background: var(--bonus2w-bg) !important; border-color: var(--bonus2w-border); color: #fff; }
   .tile-row.guess .tile.empty .bonus-label {
-    font-size: clamp(14px, 3vw, 26px);
+    font-size: clamp(14px, 3cqw, 26px);
     font-weight: 800;
     letter-spacing: 0.02em;
     color: var(--dark);
@@ -301,7 +304,7 @@
   .candidate-row {
     display: flex;
     align-items: center;
-    gap: clamp(6px, 1.4vw, 16px);
+    gap: clamp(6px, 1.4cqw, 16px);
     margin-bottom: 10px;
     padding: 6px;
     border-radius: 12px;
@@ -334,7 +337,7 @@
   .candidate-total {
     flex: 0 0 70px;
     text-align: right;
-    font-size: clamp(15px, 2.6vw, 22px);
+    font-size: clamp(15px, 2.6cqw, 22px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     color: var(--cream);
@@ -351,11 +354,11 @@
     border: none;
     background: #ffd23f;
     color: var(--dark);
-    font-size: clamp(13px, 2vw, 18px);
+    font-size: clamp(13px, 2cqw, 18px);
     font-weight: 800;
     text-transform: uppercase;
     border-radius: 10px;
-    padding: clamp(8px, 1.6vw, 12px) clamp(12px, 2.4vw, 20px);
+    padding: clamp(8px, 1.6cqw, 12px) clamp(12px, 2.4cqw, 20px);
     cursor: pointer;
   }
   .clear-btn:hover:not(:disabled) { filter: brightness(1.05); }
@@ -445,8 +448,7 @@
      accent outline so you can find your own row/chip at a glance. ---------- */
 
   .mp-panel {
-    width: 100%;
-    max-width: 1180px;
+    width: min(100%, calc((100vh - (var(--body-pad) * 2)) * 16 / 9));
     background: var(--card);
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.35);
