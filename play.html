@@ -354,10 +354,17 @@
      element get the exact same 10px, making it truly midway between
      the tray and the first candidate row, not just visually close. */
   .tray-row { margin-bottom: 0; }
+  /* Horizontal position is set precisely in JS (see positionScrambleStats)
+     — centered on the boundary between tile 5 and tile 6 of the tray,
+     not any CSS-fraction approximation of it. position:relative + left
+     is a nudge from this element's own normal (flex-centered-in-
+     active-card) position, recomputed on every tray render since tile
+     positions shift with rack contents and screen size. */
   .scramble-stats {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
     margin: 10px 0;
     color: var(--cream);
     font-size: clamp(11px, 2.2cqw, 15px);
@@ -1145,6 +1152,30 @@
       stat ? `${stat.count} DIFFERENT WORDS POSSIBLE` : '…';
     document.getElementById('scramble-stats-points').textContent =
       stat ? `${stat.score} MAX POINTS POSSIBLE` : '…';
+    positionScrambleStats();
+  }
+
+  // Centers the stats content group's own midpoint (left edge of the
+  // word count text to right edge of the points text) on the exact
+  // pixel boundary between tray tile 5 and tile 6 — not a CSS-fraction
+  // guess at where that boundary probably is. Recomputed every render
+  // since tile positions shift with screen size and the text itself
+  // (different digit counts change the content group's own width, so
+  // its natural center moves even if the target point doesn't).
+  function positionScrambleStats() {
+    const tiles = document.querySelectorAll('#tray-tiles .tile');
+    if (tiles.length < 6) return;
+    const tile5 = tiles[4].getBoundingClientRect();
+    const tile6 = tiles[5].getBoundingClientRect();
+    const targetMidX = (tile5.right + tile6.left) / 2;
+
+    const statsEl = document.getElementById('scramble-stats');
+    statsEl.style.left = '0px';
+    const wordsRect = document.getElementById('scramble-stats-words').getBoundingClientRect();
+    const pointsRect = document.getElementById('scramble-stats-points').getBoundingClientRect();
+    const currentMidX = (wordsRect.left + pointsRect.right) / 2;
+
+    statsEl.style.left = (targetMidX - currentMidX) + 'px';
   }
 
   const CANDIDATE_ROWS = 4;
