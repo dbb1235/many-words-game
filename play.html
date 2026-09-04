@@ -63,8 +63,7 @@
     column-gap: 44px;
     row-gap: 14px;
     padding: 28px 44px;
-    background: var(--dark);
-    color: var(--cream);
+    color: var(--dark);
   }
 
   .brand { font-size: 36px; font-weight: 700; margin-right: auto; }
@@ -86,9 +85,9 @@
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    border: 3px solid rgba(244,241,234,0.35);
+    border: 3px solid rgba(43,38,32,0.35);
     background: transparent;
-    color: var(--cream);
+    color: var(--dark);
     font-size: 28px;
     cursor: pointer;
     display: flex;
@@ -590,10 +589,6 @@
       <div class="label">Score</div>
       <div class="value" id="score-value">0</div>
     </div>
-    <button class="icon-btn" id="help-btn" title="How to play">❓</button>
-    <button class="icon-btn" id="mute-btn" title="Mute sound">🔔</button>
-    <button class="icon-btn" id="feedback-btn" title="Send feedback">💬</button>
-    <button class="icon-btn" id="logout-btn" title="Log out">⎋</button>
     <button class="icon-btn" id="edit-layout-btn" title="Edit layout">✏️</button>
   </div>
 
@@ -758,12 +753,6 @@
     }
   });
 
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    clearInterval(timerHandle);
-    await fetch('/api/logout', { method: 'POST' });
-    showScreen(authScreen);
-  });
-
   // ---------- Forgot password ----------
   // No self-service reset yet — this just relays the request to the
   // site owner's inbox (see mailer.js), who handles it manually.
@@ -823,12 +812,6 @@
   const feedbackSuccess = document.getElementById('feedback-success');
   const feedbackSubmit = document.getElementById('feedback-submit');
 
-  document.getElementById('feedback-btn').addEventListener('click', () => {
-    feedbackForm.reset();
-    feedbackError.textContent = '';
-    feedbackSuccess.style.display = 'none';
-    feedbackOverlay.classList.add('open');
-  });
   document.getElementById('feedback-cancel').addEventListener('click', () => {
     feedbackOverlay.classList.remove('open');
   });
@@ -836,9 +819,6 @@
   // ---------- Help / tutorial ----------
 
   const helpOverlay = document.getElementById('help-overlay');
-  document.getElementById('help-btn').addEventListener('click', () => {
-    helpOverlay.classList.add('open');
-  });
   document.getElementById('help-close').addEventListener('click', () => {
     helpOverlay.classList.remove('open');
   });
@@ -1024,13 +1004,6 @@
     const c = ctx(); const now = c.currentTime;
     tone(220, now, 0.14, 'square', 0.12);
   }
-
-  document.getElementById('mute-btn').addEventListener('click', () => {
-    muted = !muted;
-    const btn = document.getElementById('mute-btn');
-    btn.textContent = muted ? '🔕' : '🔔';
-    btn.classList.toggle('is-muted', muted);
-  });
 
   document.getElementById('tray-order-btn').addEventListener('click', () => {
     trayCycleIndex = (trayCycleIndex + 1) % (TRAY_SHUFFLE_STEPS + 1);
@@ -1737,7 +1710,6 @@
   const LAYOUT_STORAGE_KEY = 'gerbil_layout_v1';
   const EDITABLE_IDS = [
     'brand-title', 'username-label', 'timer-stat', 'score-stat',
-    'help-btn', 'mute-btn', 'feedback-btn', 'logout-btn',
     'tray-tiles', 'candidate-row-0', 'candidate-row-1', 'candidate-row-2', 'candidate-row-3',
     'rack-indicator', 'nav-next', 'new-game-btn',
   ];
