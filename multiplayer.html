@@ -268,6 +268,10 @@
      score) or pinned via its Use button — gets a soft green wash so
      it's obvious at a glance among the four rows. */
   .candidate-row.is-effective { background: var(--good-green-soft); }
+  /* That wash is a light color regardless of the page theme, so the
+     score text needs to stay dark here even though it's cream
+     everywhere else on the black card. */
+  .candidate-row.is-effective .candidate-total { color: var(--dark); }
 
   /* Only one row can be worked on at a time (click a row to switch to
      it) — this outline marks which one currently accepts edits,
