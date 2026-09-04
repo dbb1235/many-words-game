@@ -164,16 +164,16 @@ multiplayer (single-player keeps its existing behavior unless noted):
 - **2W (double word)** — **new, done** in `server.js`: a whole-word
   score multiplier, distinct from 2L/3L which only multiply one
   letter's points. If any placed tile lands on the rack's 2W slot, the
-  word's total score (letter bonuses and the long-word bonus both
-  included) is doubled. Rendered as a solid red tile (2L is light red,
-  3L stays light blue) with white "2W" text when empty.
+  word's total score (letter bonuses included) is doubled. Rendered as
+  a solid red tile (2L is light red, 3L stays light blue) with white
+  "2W" text when empty.
 - **Wildcards per rack** — **changed** as of 2026-09-01: 1 per rack
   (was 2) — racks now deal 9 real letters + 1 wildcard instead of 8 + 2
   (`WILDCARDS_PER_SCRAMBLE` in `server.js`).
-- **Long-word bonus** — **done** in `server.js`: +10 flat points for any word 8 letters or
-  longer, on top of normal scoring (including any bonus-tile
-  multipliers on that word). Straightforward addition, no interaction
-  with the other rules above.
+- ~~**Long-word bonus**~~ — **removed** 2026-09-04: the flat +10 for any
+  word 8 letters or longer (`LONG_WORD_MIN_LEN`/`LONG_WORD_BONUS` in
+  `server.js`) has been taken back out. Also dropped from the How to
+  Play tutorial (`how-to-play.html`).
 
 ---
 

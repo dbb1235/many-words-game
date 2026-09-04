@@ -46,8 +46,6 @@ const VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
 const MAX_VOWELS_PER_SCRAMBLE = 5;
 const MIN_VOWELS_PER_SCRAMBLE = 2;
 const MAX_SCRAMBLE_DEAL_ATTEMPTS = 500;
-const LONG_WORD_MIN_LEN = 8;
-const LONG_WORD_BONUS = 10;
 const WILDCARDS_PER_SCRAMBLE = 1;
 // One letter per scramble is chosen at random from the 9 actually dealt
 // letters (never independently drawn, so it's always a real letter in
@@ -323,11 +321,9 @@ function scoreGuess(scramble, cells) {
     return sum + points * bonus;
   }, 0);
 
-  if (word.length >= LONG_WORD_MIN_LEN) rawScore += LONG_WORD_BONUS;
-
-  // 2W doubles the whole word's score (letter bonuses and the long-word
-  // bonus included) rather than multiplying a single letter's points —
-  // it only applies when a tile actually landed on the 2W slot.
+  // 2W doubles the whole word's score (letter bonuses included) rather
+  // than multiplying a single letter's points — it only applies when a
+  // tile actually landed on the 2W slot.
   const coversDoubleWord = sorted.some((cell) => scramble.bottomBonuses[cell.position] === '2W');
   if (coversDoubleWord) rawScore *= 2;
 
