@@ -404,6 +404,32 @@ function findBestWord(scramble) {
 const app = express();
 app.use(express.json({ limit: '1mb' })); // default 100kb is too tight for a resized profile photo
 app.use(cookieParser());
+
+// express.static(__dirname) below has no concept of "public" vs
+// "private" on its own — it happily serves anything in the directory
+// tree that isn't a dotfile, which meant server.js, db.js, auth.js,
+// words.js, package.json, and even gerbil.db itself (bcrypt hashes,
+// private messages, everything) were all directly downloadable at
+// e.g. GET /gerbil.db. words.js being fetchable also defeated the
+// whole "dictionary lives only on the server" anti-cheat design from
+// MULTIPLAYER_PLAN.md §5. This allowlist runs first and 404s anything
+// not explicitly listed as a real public asset — safer than a denylist,
+// since a new server-side file added later is protected by default
+// instead of needing to be remembered.
+const PUBLIC_STATIC_FILES = new Set([
+  'play.html', 'multiplayer.html', 'how-to-play.html',
+  'all6.html', 'all6.js', 'all6.css',
+  'only-one.html', 'only-one.js', 'only-one.css',
+  'style.css',
+  'all6-feedback-mockup.html', 'gerbil-multiplayer-mockup.html',
+  'gerbil-onboarding-mockup.html', 'leaderboard-mockup.html',
+]);
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) return next(); // not a static-file request — let the real route handle it
+  const name = decodeURIComponent(req.path.replace(/^\/+/, ''));
+  if (name !== '' && !PUBLIC_STATIC_FILES.has(name)) return res.status(404).end();
+  next();
+});
 app.use(express.static(__dirname));
 
 // --- Accounts ---------------------------------------------------------
