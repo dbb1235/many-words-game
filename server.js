@@ -336,15 +336,17 @@ function scoreGuess(scramble, cells) {
   return { valid, word, score: valid ? rawScore : 0, belowMinimum, rawScore };
 }
 
-// Scans the whole dictionary for the single highest-scoring word this
-// scramble's rack can actually produce, and counts every distinct word
-// that's formable at all — same per-letter scoring as scoreGuess
+// Scans the whole dictionary for every distinct word this scramble's
+// rack can actually produce — same per-letter scoring as scoreGuess
 // (power/orange flat overrides, wildcard always 0), but ignores
 // bottomBonuses (2L/3L/2W): those are positional, and finding the best
 // *placement* as well as the best word is a different, harder problem
 // not needed while BONUS_TILES_ENABLED is off. ~50k words is cheap
 // enough to brute-force on every call — this only runs once per
-// finished game, not per keystroke.
+// finished game, not per keystroke. Returns the single best word
+// (highest score, longest as tiebreak), the total count of valid
+// words, and two top-5 lists (longest5, topScore5) derived from the
+// same one pass rather than re-scanning the dictionary per list.
 function findBestWord(scramble) {
   const rackCounts = {};
   let rackWildcards = 0;
@@ -359,8 +361,7 @@ function findBestWord(scramble) {
     return LETTER_DATA[letter]?.points || 0;
   }
 
-  let best = null;
-  let count = 0;
+  const valid = [];
   for (const word of WORD_LIST) {
     if (word.length < MIN_WORD_LEN) continue;
     const need = {};
@@ -370,24 +371,32 @@ function findBestWord(scramble) {
     let rawScore = 0;
     let feasible = true;
     for (const ch in need) {
-      const count = need[ch];
+      const needCount = need[ch];
       const have = rackCounts[ch] || 0;
-      if (have >= count) {
-        rawScore += letterValue(ch) * count;
+      if (have >= needCount) {
+        rawScore += letterValue(ch) * needCount;
       } else {
         rawScore += letterValue(ch) * have;
-        wildcardsNeeded += count - have;
+        wildcardsNeeded += needCount - have;
         if (wildcardsNeeded > rackWildcards) { feasible = false; break; }
       }
     }
     if (!feasible || rawScore < MIN_WORD_SCORE) continue;
-    count++;
-    if (!best || rawScore > best.score || (rawScore === best.score && word.length > best.word.length)) {
-      best = { word, score: rawScore };
-    }
+    valid.push({ word, score: rawScore });
   }
-  if (!best) return null;
-  return { word: best.word, score: best.score, count };
+
+  if (valid.length === 0) return null;
+
+  const byScoreDesc = [...valid].sort((a, b) => b.score - a.score || b.word.length - a.word.length);
+  const byLengthDesc = [...valid].sort((a, b) => b.word.length - a.word.length || b.score - a.score);
+  const best = byScoreDesc[0];
+  return {
+    word: best.word,
+    score: best.score,
+    count: valid.length,
+    longest5: byLengthDesc.slice(0, 5),
+    topScore5: byScoreDesc.slice(0, 5),
+  };
 }
 
 // --- HTTP app ----------------------------------------------------------

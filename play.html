@@ -156,6 +156,39 @@
   .scoreboard-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--cream); opacity: 0.65; margin-bottom: 6px; }
   .scoreboard-stat-value { font-size: 28px; font-weight: 800; color: var(--cream); font-variant-numeric: tabular-nums; }
 
+  /* Fixed to the viewport's right edge, not part of .screen — "the
+     right side of the page," shown once the round ends. Only makes
+     sense where the page is wider than the (16:9-locked) game panel;
+     on a narrow viewport there's nowhere for it to go, so it just sits
+     against the right edge and may overlap — no separate mobile
+     layout for this yet. */
+  .endgame-panel {
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    background: #1e1e1e;
+    border: 1px solid rgba(244,241,234,0.15);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    padding: 16px;
+    color: var(--cream);
+    z-index: 90;
+  }
+  .endgame-panel.open { display: block; }
+  .endgame-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .endgame-panel-title { font-size: 16px; font-weight: 800; }
+  .endgame-rack-section { margin-bottom: 18px; }
+  .endgame-rack-section:last-child { margin-bottom: 0; }
+  .endgame-rack-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.65; font-weight: 800; margin-bottom: 6px; }
+  .endgame-list-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.5; font-weight: 700; margin: 8px 0 4px; }
+  .endgame-word-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 2px 0; }
+  .endgame-word-row .w { font-weight: 700; }
+  .endgame-word-row .s { opacity: 0.75; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
   .icon-btn.is-muted { opacity: 0.5; }
   .icon-btn:hover { border-color: var(--gold); }
 
@@ -842,6 +875,14 @@
     <p class="help-body" id="scoreboard-empty" style="display:none; margin-bottom:16px;">No finished games yet — play a full round or hit New Game to record your first result.</p>
     <button class="restart-link" id="scoreboard-close" type="button">Close</button>
   </div>
+</div>
+
+<div class="endgame-panel" id="endgame-panel">
+  <div class="endgame-panel-head">
+    <div class="endgame-panel-title">Round Results</div>
+    <button class="restart-link" id="endgame-close" type="button">Close</button>
+  </div>
+  <div id="endgame-racks"></div>
 </div>
 
 <script>
@@ -1934,6 +1975,34 @@
     }).catch(() => {}); // best-effort — a failed report shouldn't interrupt play
   }
 
+  // scrambleStats is already fetched in full (all 3 racks) right after
+  // the game starts — see fetchScrambleStats — so this just renders
+  // whatever's cached rather than making a new request at time-up.
+  function wordRow(entry) {
+    return `<div class="endgame-word-row"><span class="w">${entry.word}</span><span class="s">${entry.score} pts</span></div>`;
+  }
+
+  function showEndgamePanel() {
+    const container = document.getElementById('endgame-racks');
+    container.innerHTML = RACKS.map((_, i) => {
+      const stat = scrambleStats[i];
+      if (!stat) return '';
+      return `
+        <div class="endgame-rack-section">
+          <div class="endgame-rack-title">Rack ${i + 1}</div>
+          <div class="endgame-list-title">5 Longest</div>
+          ${stat.longest5.map(wordRow).join('')}
+          <div class="endgame-list-title">5 Highest Scoring</div>
+          ${stat.topScore5.map(wordRow).join('')}
+        </div>
+      `;
+    }).join('');
+    document.getElementById('endgame-panel').classList.add('open');
+  }
+  document.getElementById('endgame-close').addEventListener('click', () => {
+    document.getElementById('endgame-panel').classList.remove('open');
+  });
+
   function formatTime(s) {
     const m = Math.floor(s / 60).toString().padStart(2, '0');
     const sec = (s % 60).toString().padStart(2, '0');
@@ -1951,6 +2020,7 @@
       stat.classList.add('time-up');
       clearInterval(timerHandle);
       reportSinglePlayerResult();
+      showEndgamePanel();
       return;
     }
 
