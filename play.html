@@ -6,11 +6,11 @@
     --dark: #2b2620;
     --gold: #c9a24b;
     --gold-soft: #fbf0d9;
-    --green-bg: #2e7d32;
+    --green-bg: #000000;
     --red: #c1443c;
     --red-soft: #fdeceb;
     --tan: #6b6355;
-    --card: #4caf50;
+    --card: #161616;
     --good-green: #2f8f4e;
     --good-green-soft: #e3f5e9;
     --bonus2-bg: #ef8878;
@@ -63,7 +63,7 @@
     column-gap: 44px;
     row-gap: 14px;
     padding: 28px 44px;
-    color: var(--dark);
+    color: var(--cream);
   }
 
   .brand { font-size: 36px; font-weight: 700; margin-right: auto; }
@@ -85,9 +85,9 @@
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    border: 3px solid rgba(43,38,32,0.35);
+    border: 3px solid rgba(244,241,234,0.35);
     background: transparent;
-    color: var(--dark);
+    color: var(--cream);
     font-size: 28px;
     cursor: pointer;
     display: flex;
@@ -116,15 +116,15 @@
 
   .tray-order-btn {
     border: none;
-    background: rgba(0, 0, 0, 0.08);
-    color: var(--dark);
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--cream);
     font-size: 13px;
     font-weight: 700;
     border-radius: 8px;
     padding: 6px 12px;
     cursor: pointer;
   }
-  .tray-order-btn:hover { background: rgba(0, 0, 0, 0.15); }
+  .tray-order-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
   .tile-row { display: flex; gap: clamp(4px, 0.8vw, 8px); margin-bottom: 10px; }
 
@@ -246,13 +246,13 @@
     font-size: clamp(15px, 2.6vw, 22px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
-    color: var(--dark);
+    color: var(--cream);
   }
   .candidate-total.state-invalid { color: var(--red); }
   /* A valid word still being worked on (this row is active) reads red,
      same as an invalid one — both are provisional. It settles to the
-     default --dark (effectively black) once finalized, with no class
-     needed for that state. */
+     default --cream (light, readable on the black card) once
+     finalized, with no class needed for that state. */
   .candidate-total.state-active { color: var(--red); }
 
   .clear-btn {
@@ -282,7 +282,7 @@
     border-top: 1px solid #ece7db;
   }
 
-  .rack-indicator { font-size: 21px; color: var(--dark); font-weight: 800; text-transform: uppercase; }
+  .rack-indicator { font-size: 21px; color: var(--cream); font-weight: 800; text-transform: uppercase; }
 
   .next-btn {
     border: none;
@@ -306,14 +306,14 @@
   .restart-link {
     border: none;
     background: none;
-    color: var(--dark);
+    color: var(--cream);
     font-size: 11.5px;
     font-weight: 600;
     cursor: pointer;
     text-decoration: underline;
     padding: 0;
   }
-  .restart-link:hover { color: var(--dark); }
+  .restart-link:hover { color: var(--cream); }
 
   /* Wildcard letter picker — appended to body, positioned near the
      clicked wildcard tile (see openWildcardPicker). */
@@ -369,7 +369,7 @@
     display: block;
     font-size: 13px;
     font-weight: 700;
-    color: var(--dark);
+    color: var(--cream);
     margin-bottom: 16px;
   }
 
@@ -382,10 +382,12 @@
     border-radius: 8px;
     font-size: 15px;
     font-family: inherit;
+    background: #fff;
+    color: var(--dark);
   }
   .auth-input:focus { outline: none; border-color: var(--gold); }
 
-  .auth-hint { font-size: 11.5px; color: var(--dark); font-weight: 500; margin-top: 5px; }
+  .auth-hint { font-size: 11.5px; color: var(--cream); font-weight: 500; margin-top: 5px; }
 
   .auth-error {
     color: var(--red);
@@ -416,12 +418,12 @@
     width: 100%;
     max-width: 360px;
   }
-  .modal-title { font-size: 16px; font-weight: 800; color: var(--dark); margin-bottom: 16px; }
+  .modal-title { font-size: 16px; font-weight: 800; color: var(--cream); margin-bottom: 16px; }
 
   /* ---------- Help / tutorial modal ---------- */
 
   #help-overlay .modal-card { max-width: 540px; max-height: 82vh; overflow-y: auto; }
-  .help-body { color: var(--dark); font-size: 14px; line-height: 1.5; }
+  .help-body { color: var(--cream); font-size: 14px; line-height: 1.5; }
   .help-body p { margin: 0 0 8px; }
   .help-body h4 {
     margin: 16px 0 4px;
@@ -446,7 +448,7 @@
   .loading-note {
     text-align: center;
     padding: 40px 22px;
-    color: var(--dark);
+    color: var(--cream);
     font-size: 14px;
     font-weight: 600;
   }
