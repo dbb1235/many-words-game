@@ -186,20 +186,6 @@
     padding: 16px 22px 22px;
   }
 
-  .tray-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
-
-  .tray-order-btn {
-    border: none;
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--cream);
-    font-size: 13px;
-    font-weight: 700;
-    border-radius: 8px;
-    padding: 6px 12px;
-    cursor: pointer;
-  }
-  .tray-order-btn:hover { background: rgba(255, 255, 255, 0.2); }
-
   .tile-row { display: flex; gap: clamp(4px, 0.8cqw, 8px); margin-bottom: 10px; }
 
   .tile {
@@ -377,9 +363,13 @@
   .next-btn:active { transform: translateY(1px); }
   .next-btn:disabled { opacity: 0.5; cursor: default; }
 
-  /* Next Rack only — not the other buttons sharing .next-btn (Log In,
-     Register, Save profile, etc.), which stay their usual orange. */
-  #nav-next { background: #ffd23f; color: var(--dark); font-size: 21px; text-transform: uppercase; }
+  /* Next Rack and Shuffle only — not the other buttons sharing
+     .next-btn (Log In, Register, Save profile, etc.), which stay their
+     usual orange. Shuffle sits directly above Next Rack and is styled
+     to match it exactly, so the two read as one stacked pair. */
+  #nav-next, #tray-order-btn { background: #ffd23f; color: var(--dark); font-size: 21px; text-transform: uppercase; }
+
+  .rack-nav-right { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 
   .restart-link {
     border: none;
@@ -684,9 +674,6 @@
   </div>
 
   <div class="active-card" id="active-card">
-    <div class="tray-toolbar">
-      <button type="button" class="tray-order-btn" id="tray-order-btn" title="Toggle scramble order">🔀 Shuffled</button>
-    </div>
     <div class="candidate-row tray-row">
       <div class="tile-row tray" id="tray-tiles"></div>
       <div class="candidate-total ghost" aria-hidden="true">0 pts</div>
@@ -716,7 +703,10 @@
 
     <div class="rack-nav">
       <span class="rack-indicator" id="rack-indicator"></span>
-      <button class="next-btn" id="nav-next">Next Rack →</button>
+      <div class="rack-nav-right">
+        <button type="button" class="next-btn" id="tray-order-btn" title="Toggle scramble order">Shuffle</button>
+        <button class="next-btn" id="nav-next">Next Rack →</button>
+      </div>
     </div>
   </div>
   <div style="text-align:center; padding: 0 22px 16px;">
@@ -1199,10 +1189,10 @@
     const btn = document.getElementById('tray-order-btn');
     const rack = RACKS[currentIndex];
     if (trayCycleIndex === TRAY_SHUFFLE_STEPS) {
-      btn.textContent = '🔤 A-Z';
+      btn.textContent = 'A-Z';
     } else {
       trayShuffleOrder = rack ? randomTrayShuffleOrder(rack.tiles) : null;
-      btn.textContent = '🔀 Shuffled';
+      btn.textContent = 'Shuffle';
     }
     if (rack) renderTray(rack);
   });
