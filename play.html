@@ -207,12 +207,6 @@
 
   .tile .pts { position: absolute; bottom: 3%; right: 6%; font-size: clamp(12.6px, 1.98cqw, 22.5px); font-weight: 700; }
 
-  /* Shifted right ~2.5 tile-widths from its natural spot, purely
-     visually — position:relative rather than margin so it doesn't eat
-     into the row's own flex space and shrink the tiles. The candidate
-     rows below are untouched, so they stay aligned with each other
-     (just no longer with the tray above them, which is the point). */
-  .tile-row.tray { position: relative; left: 17.5cqw; }
   .tile-row.tray .tile.draggable { cursor: grab; }
   .tile-row.tray .tile.draggable:hover { outline: 2px solid var(--gold); outline-offset: 1px; }
   .tile-row.tray .tile.used { opacity: 0.28; }
@@ -293,7 +287,29 @@
      flex-grow:0 breaks that — see git history) without the row's own
      box, and its focus outline, ballooning past the actual tiles once
      they've hit their cap on wide screens. */
-  .candidate-row .tile-row { flex: 1 1 auto; max-width: 992px; margin-bottom: 0; min-width: 0; }
+  /* Centers this row's midpoint on an imaginary vertical line 70% of
+     the way across .screen (a cqw container), for both the tray and
+     every candidate row alike — same rule, so they all land on that
+     same line together. left:calc(70cqw - 22px) places the row's
+     *normal* (un-shifted) left edge at the 70% mark (22px cancels out
+     .active-card's own left padding, since left on a relatively
+     positioned element is an offset from its normal position, not an
+     absolute one); translateX(-50%) then pulls it back by half its
+     own (dynamic) width so the 70% mark hits its center, not its edge. */
+  .candidate-row .tile-row {
+    flex: 1 1 auto;
+    /* Never wider than 10 tiles actually need (992px = 10*92px tile
+       cap + 9*8px max gap — fixes the row's own box outgrowing its
+       tiles), AND never wider than 58cqw — centered on the 70% line,
+       anything wider than ~60% of the container would spill past
+       .screen's right edge, which clips (overflow-x: hidden). */
+    max-width: min(992px, 58cqw);
+    margin-bottom: 0;
+    min-width: 0;
+    position: relative;
+    left: calc(70cqw - 22px);
+    transform: translateX(-50%);
+  }
 
   /* The tray reuses .candidate-row's exact flex layout (same gap, same
      padding) with a hidden total + button "ghost" filling the same
