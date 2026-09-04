@@ -348,6 +348,21 @@
   .clear-btn:hover:not(:disabled) { filter: brightness(1.05); }
   .clear-btn:disabled { opacity: 0.35; cursor: default; }
 
+  .scramble-stats {
+    display: flex;
+    align-items: baseline;
+    color: var(--cream);
+    font-size: clamp(11px, 2.2cqw, 15px);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 4px 0 10px;
+  }
+  /* One tile-width of empty space between the two stats — 7cqw is the
+     same per-tile calibration used elsewhere (10 tiles at 92px max
+     inside a 992px-capped row ~= 7cqw per tile at typical sizes). */
+  .scramble-stats-spacer { width: 7cqw; flex-shrink: 0; }
+
   /* Single control for moving through the six racks — no prev, no dots,
      just Next, wrapping 6 back to 1. */
   .rack-nav {
@@ -691,6 +706,12 @@
       <div class="tile-row tray" id="tray-tiles"></div>
       <div class="candidate-total ghost" aria-hidden="true">0 pts</div>
       <button type="button" class="clear-btn ghost" aria-hidden="true" tabindex="-1">Clear</button>
+    </div>
+
+    <div class="scramble-stats" id="scramble-stats">
+      <span id="scramble-stats-words">…</span>
+      <span class="scramble-stats-spacer"></span>
+      <span id="scramble-stats-points">…</span>
     </div>
 
     <div class="candidate-row" id="candidate-row-0">
@@ -1055,6 +1076,7 @@
   let GAME_ID = null;
   let RACKS = [];
   let currentIndex = 0;
+  let scrambleStats = []; // [{word,score,count}, ...] per rack, fetched once per game
   // Tray display order only -- a pure presentation preference, shared
   // across every rack, that never touches rack.tiles itself (trayIndex
   // has to stay a stable reference to a physical tile regardless of how
@@ -1089,6 +1111,33 @@
     document.getElementById('nav-next').disabled = false;
     renderActive();
     startTimer();
+    fetchScrambleStats();
+  }
+
+  // One call per game (not per rack) — the endpoint already returns all
+  // 3 racks' {word,score,count} at once. renderActive() reads whatever's
+  // cached here for the currently active rack; this just refreshes the
+  // cache and re-renders once it lands, so switching racks before it
+  // resolves isn't blocked on the network.
+  async function fetchScrambleStats() {
+    const gameId = GAME_ID;
+    try {
+      const res = await fetch(`/api/game/${gameId}/best-words`);
+      const data = await res.json();
+      if (gameId !== GAME_ID) return; // a newer game started while this was in flight
+      scrambleStats = data.results;
+    } catch (err) {
+      scrambleStats = [];
+    }
+    renderScrambleStats();
+  }
+
+  function renderScrambleStats() {
+    const stat = scrambleStats[currentIndex];
+    document.getElementById('scramble-stats-words').textContent =
+      stat ? `${stat.count} DIFFERENT WORDS POSSIBLE` : '…';
+    document.getElementById('scramble-stats-points').textContent =
+      stat ? `${stat.score} MAX POINTS POSSIBLE` : '…';
   }
 
   const CANDIDATE_ROWS = 4;
@@ -1733,6 +1782,7 @@
     renderTray(rack);
     for (let i = 0; i < CANDIDATE_ROWS; i++) renderRowTiles(rack, i);
     renderAllRowMeta(rack);
+    renderScrambleStats();
   }
 
   // Clear button — wipes every letter from this row for a quick fresh

@@ -337,12 +337,13 @@ function scoreGuess(scramble, cells) {
 }
 
 // Scans the whole dictionary for the single highest-scoring word this
-// scramble's rack can actually produce — same per-letter scoring as
-// scoreGuess (power/orange flat overrides, wildcard always 0), but
-// ignores bottomBonuses (2L/3L/2W): those are positional, and finding
-// the best *placement* as well as the best word is a different, harder
-// problem not needed while BONUS_TILES_ENABLED is off. ~50k words is
-// cheap enough to brute-force on every call — this only runs once per
+// scramble's rack can actually produce, and counts every distinct word
+// that's formable at all — same per-letter scoring as scoreGuess
+// (power/orange flat overrides, wildcard always 0), but ignores
+// bottomBonuses (2L/3L/2W): those are positional, and finding the best
+// *placement* as well as the best word is a different, harder problem
+// not needed while BONUS_TILES_ENABLED is off. ~50k words is cheap
+// enough to brute-force on every call — this only runs once per
 // finished game, not per keystroke.
 function findBestWord(scramble) {
   const rackCounts = {};
@@ -359,6 +360,7 @@ function findBestWord(scramble) {
   }
 
   let best = null;
+  let count = 0;
   for (const word of WORD_LIST) {
     if (word.length < MIN_WORD_LEN) continue;
     const need = {};
@@ -379,11 +381,13 @@ function findBestWord(scramble) {
       }
     }
     if (!feasible || rawScore < MIN_WORD_SCORE) continue;
+    count++;
     if (!best || rawScore > best.score || (rawScore === best.score && word.length > best.word.length)) {
       best = { word, score: rawScore };
     }
   }
-  return best;
+  if (!best) return null;
+  return { word: best.word, score: best.score, count };
 }
 
 // --- HTTP app ----------------------------------------------------------
