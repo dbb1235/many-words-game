@@ -286,7 +286,14 @@
     padding: 6px;
     border-radius: 12px;
   }
-  .candidate-row .tile-row { flex: 1 1 auto; margin-bottom: 0; min-width: 0; }
+  /* max-width caps this at exactly what 10 tiles need at their own
+     max-width (92px) plus 9 max-width gaps (8px) — 10*92 + 9*8 = 992px —
+     so flex-grow:1 can still fill available space on narrow screens
+     (needed so children with flex-basis:0 shrink correctly, a plain
+     flex-grow:0 breaks that — see git history) without the row's own
+     box, and its focus outline, ballooning past the actual tiles once
+     they've hit their cap on wide screens. */
+  .candidate-row .tile-row { flex: 1 1 auto; max-width: 992px; margin-bottom: 0; min-width: 0; }
 
   /* The tray reuses .candidate-row's exact flex layout (same gap, same
      padding) with a hidden total + button "ghost" filling the same
@@ -313,6 +320,11 @@
 
   .candidate-total {
     flex: 0 0 70px;
+    /* Once .tile-row hits its max-width cap on a wide screen, this
+       absorbs the leftover row space as margin instead of leaving it
+       as empty gap after the tiles — keeps candidate-total/clear-btn
+       pinned to the row's right edge, same as before the cap existed. */
+    margin-left: auto;
     text-align: right;
     font-size: clamp(15px, 2.6cqw, 22px);
     font-weight: 800;
