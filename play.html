@@ -156,20 +156,6 @@
   .scoreboard-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--cream); opacity: 0.65; margin-bottom: 6px; }
   .scoreboard-stat-value { font-size: 28px; font-weight: 800; color: var(--cream); font-variant-numeric: tabular-nums; }
 
-  .results-list { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
-  .results-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 10px;
-    background: rgba(255,255,255,0.06);
-    border-radius: 10px;
-    padding: 10px 14px;
-  }
-  .results-row-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cream); opacity: 0.65; flex-shrink: 0; }
-  .results-row-word { font-size: 16px; font-weight: 800; color: var(--cream); letter-spacing: 0.02em; }
-  .results-row-score { font-size: 14px; font-weight: 700; color: var(--cream); opacity: 0.85; flex-shrink: 0; }
-
   .icon-btn.is-muted { opacity: 0.5; }
   .icon-btn:hover { border-color: var(--gold); }
 
@@ -825,14 +811,6 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="results-overlay">
-  <div class="modal-card">
-    <div class="modal-title">Time's up!</div>
-    <div class="results-list" id="results-list"></div>
-    <button class="restart-link" id="results-close" type="button">Close</button>
-  </div>
-</div>
-
 <script>
   const MIN_WORD_LEN = 3;   // words shorter than this never even reach the server
   const GAME_SECONDS = 180; // temporarily 3 min for testing — real rule is 600 (10 min)
@@ -1028,9 +1006,6 @@
   });
   document.getElementById('scoreboard-close').addEventListener('click', () => {
     scoreboardOverlay.classList.remove('open');
-  });
-  document.getElementById('results-close').addEventListener('click', () => {
-    document.getElementById('results-overlay').classList.remove('open');
   });
 
   feedbackForm.addEventListener('submit', async (e) => {
@@ -1875,27 +1850,6 @@
     }).catch(() => {}); // best-effort — a failed report shouldn't interrupt play
   }
 
-  // Fetches the actual best-possible word/score per rack (server-side —
-  // the client never gets the dictionary) and pops the results modal.
-  async function showBestWords() {
-    const list = document.getElementById('results-list');
-    list.innerHTML = '<p class="help-body">Finding the best words…</p>';
-    document.getElementById('results-overlay').classList.add('open');
-    try {
-      const res = await fetch(`/api/game/${GAME_ID}/best-words`);
-      const data = await res.json();
-      list.innerHTML = data.results.map((r, i) => `
-        <div class="results-row">
-          <span class="results-row-label">Rack ${i + 1}</span>
-          <span class="results-row-word">${r ? r.word : '—'}</span>
-          <span class="results-row-score">${r ? r.score + ' pts' : ''}</span>
-        </div>
-      `).join('');
-    } catch (err) {
-      list.innerHTML = '<p class="help-body">Couldn\'t load results.</p>';
-    }
-  }
-
   function formatTime(s) {
     const m = Math.floor(s / 60).toString().padStart(2, '0');
     const sec = (s % 60).toString().padStart(2, '0');
@@ -1913,7 +1867,6 @@
       stat.classList.add('time-up');
       clearInterval(timerHandle);
       reportSinglePlayerResult();
-      showBestWords();
       return;
     }
 
