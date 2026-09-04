@@ -2464,10 +2464,6 @@
     "expectedPlural": "CATGUTS"
   },
   {
-    "noun": "CATHOLIC",
-    "expectedPlural": "CATHOLICS"
-  },
-  {
     "noun": "CATNIP",
     "expectedPlural": "CATNIPS"
   },
@@ -7716,10 +7712,6 @@
     "expectedPlural": "HICCUPINGS"
   },
   {
-    "noun": "HIGHNESS",
-    "expectedPlural": "HIGHNESSES"
-  },
-  {
     "noun": "HIKING",
     "expectedPlural": "HIKINGS"
   },
@@ -10060,10 +10052,6 @@
     "expectedPlural": "MAXINGS"
   },
   {
-    "noun": "MAY",
-    "expectedPlural": "MAYS"
-  },
-  {
     "noun": "MAYHEM",
     "expectedPlural": "MAYHEMS"
   },
@@ -10526,10 +10514,6 @@
   {
     "noun": "MOPPING",
     "expectedPlural": "MOPPINGS"
-  },
-  {
-    "noun": "MORALE",
-    "expectedPlural": "MORALES"
   },
   {
     "noun": "MOROCCO",
@@ -19482,10 +19466,6 @@
   {
     "noun": "YULE",
     "expectedPlural": "YULES"
-  },
-  {
-    "noun": "YULETIDE",
-    "expectedPlural": "YULETIDES"
   },
   {
     "noun": "ZAPPING",
