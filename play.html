@@ -1057,9 +1057,11 @@
   // Cycles through TRAY_SHUFFLE_STEPS distinct random shuffles, then
   // alphabetical, then repeats. Steps 0..TRAY_SHUFFLE_STEPS-1 are shuffle
   // steps (a fresh permutation each time one is entered); step
-  // TRAY_SHUFFLE_STEPS is alphabetical.
-  const TRAY_SHUFFLE_STEPS = 5;
-  let trayCycleIndex = 0;
+  // TRAY_SHUFFLE_STEPS is alphabetical. 3 shuffles + 1 alphabetical =
+  // every 4th click lands on alphabetical (wildcard always sorts last —
+  // see trayDisplayOrder).
+  const TRAY_SHUFFLE_STEPS = 3;
+  let trayCycleIndex = -1; // so the 4th *click* (not the 4th state) lands on alphabetical
   let trayShuffleOrder = null;
   let muted = false;
   let timeLeft = GAME_SECONDS;
