@@ -2278,8 +2278,14 @@
     location.reload();
   });
 
-  // Re-applies any previously-saved layout on every load, in or out of
-  // edit mode, so a custom arrangement sticks around across sessions.
-  loadLayoutFromStorage();
-  applyLayoutStyles();
+  // Edit mode's entry point (the header pencil button) was removed —
+  // there's no way to create a new custom layout, or reset a bad one,
+  // any more. Auto-applying an old saved layout is now a pure liability:
+  // today's rack-nav restructuring (Shuffle moved above Next Rack) and
+  // the 16:9/cqw resizing both make any pre-existing saved {x,y,w,h}
+  // coordinates stale, which is exactly what put Next Rack and Shuffle
+  // in the wrong place for anyone with a layout saved from before this
+  // session. Clearing it and skipping the apply is the fix — everything
+  // just renders at its normal, current CSS position, permanently.
+  localStorage.removeItem(LAYOUT_STORAGE_KEY);
 </script>
