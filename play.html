@@ -348,15 +348,22 @@
   .clear-btn:hover:not(:disabled) { filter: brightness(1.05); }
   .clear-btn:disabled { opacity: 0.35; cursor: default; }
 
+  /* .tray-row's own margin-bottom would otherwise make the gap above
+     this bigger than the gap below it (candidate-row-0 has no
+     margin-top to match) — zeroed out here so both sides of this
+     element get the exact same 10px, making it truly midway between
+     the tray and the first candidate row, not just visually close. */
+  .tray-row { margin-bottom: 0; }
   .scramble-stats {
     display: flex;
-    align-items: baseline;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0;
     color: var(--cream);
     font-size: clamp(11px, 2.2cqw, 15px);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    margin: 4px 0 10px;
   }
   /* One tile-width of empty space between the two stats — 7cqw is the
      same per-tile calibration used elsewhere (10 tiles at 92px max
