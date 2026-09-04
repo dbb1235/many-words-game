@@ -530,7 +530,6 @@
 
   /* Stays clickable (to exit edit mode) even though the capture layer
      sits visually above the rest of the top-bar once editing starts. */
-  #edit-layout-btn { position: relative; z-index: 450; }
 </style>
 
 <div class="screen" id="auth-screen" style="display:none;">
@@ -591,7 +590,6 @@
       <div class="label">Score</div>
       <div class="value" id="score-value">0</div>
     </div>
-    <button class="icon-btn" id="edit-layout-btn" title="Edit layout">✏️</button>
   </div>
 
   <div class="active-card" id="active-card">
@@ -2052,9 +2050,6 @@
     clearSelectionVisuals();
   }
 
-  document.getElementById('edit-layout-btn').addEventListener('click', () => {
-    if (editModeOn) exitEditMode(); else enterEditMode();
-  });
   document.getElementById('done-editing-btn').addEventListener('click', exitEditMode);
 
   document.getElementById('reset-layout-btn').addEventListener('click', () => {
