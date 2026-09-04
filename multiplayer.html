@@ -117,6 +117,58 @@
   .icon-btn.is-muted { opacity: 0.5; }
   .icon-btn:hover { border-color: var(--gold); }
 
+  /* ---------- Pulldown nav menu ---------- */
+
+  .nav-menu { position: relative; }
+
+  .nav-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 8px;
+    background: #1e1e1e;
+    border: 1px solid rgba(244,241,234,0.15);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    min-width: 220px;
+    padding: 8px;
+    z-index: 70;
+  }
+  .nav-dropdown.open { display: block; }
+
+  .nav-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: none;
+    color: var(--cream);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .nav-dropdown-item:hover { background: rgba(255,255,255,0.08); }
+  .nav-dropdown-item.is-soon { opacity: 0.6; }
+  .nav-dropdown-item .soon-badge {
+    margin-left: auto;
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: rgba(255,255,255,0.14);
+    padding: 2px 6px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .nav-dropdown-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 6px 4px; }
+  .nav-dropdown-version { padding: 8px 12px 4px; font-size: 11px; color: var(--cream); opacity: 0.5; }
+
   .username-label {
     font-size: 26px;
     font-weight: 600;
@@ -825,6 +877,20 @@
 
 <div class="screen" id="game-screen" style="display:none;">
   <div class="top-bar">
+    <div class="nav-menu">
+      <button class="icon-btn" id="nav-menu-btn" title="Menu">☰</button>
+      <div class="nav-dropdown" id="nav-dropdown">
+        <button class="nav-dropdown-item" id="nav-item-singleplayer" type="button">🎮 Single Player</button>
+        <button class="nav-dropdown-item" id="nav-item-rules" type="button">📖 How to Play</button>
+        <button class="nav-dropdown-item" id="nav-item-messages" type="button">✉️ Messages</button>
+        <div class="nav-dropdown-divider"></div>
+        <button class="nav-dropdown-item is-soon" data-soon="Friends" type="button">👥 Friends <span class="soon-badge">Soon</span></button>
+        <button class="nav-dropdown-item is-soon" data-soon="Scoreboard" type="button">🏆 Scoreboard <span class="soon-badge">Soon</span></button>
+        <button class="nav-dropdown-item is-soon" data-soon="Comments" type="button">💬 Comments <span class="soon-badge">Soon</span></button>
+        <div class="nav-dropdown-divider"></div>
+        <div class="nav-dropdown-version">Tunaword v1.0.0</div>
+      </div>
+    </div>
     <div class="brand">TUNAWORD</div>
     <span class="username-label" id="username-label"></span>
     <div class="stat" id="timer-stat">
@@ -985,6 +1051,14 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="soon-overlay">
+  <div class="modal-card">
+    <div class="modal-title" id="soon-title">Coming soon</div>
+    <p class="help-body" style="margin-bottom:20px;">This feature isn't built yet — it's on the list.</p>
+    <button class="restart-link" id="soon-close" type="button">Close</button>
+  </div>
+</div>
+
 <script>
   const MIN_WORD_LEN = 3;   // words shorter than this never even reach the server
   const NUM_SCRAMBLES = 3;
@@ -1131,6 +1205,45 @@
   const helpOverlay = document.getElementById('help-overlay');
   document.getElementById('help-close').addEventListener('click', () => {
     helpOverlay.classList.remove('open');
+  });
+
+  // ---------- Pulldown nav menu ----------
+
+  const navMenuBtn = document.getElementById('nav-menu-btn');
+  const navDropdown = document.getElementById('nav-dropdown');
+  const soonOverlay = document.getElementById('soon-overlay');
+  const soonTitle = document.getElementById('soon-title');
+
+  navMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (navDropdown.classList.contains('open') && !navDropdown.contains(e.target) && e.target !== navMenuBtn) {
+      navDropdown.classList.remove('open');
+    }
+  });
+
+  document.getElementById('nav-item-singleplayer').addEventListener('click', () => {
+    location.href = 'play.html';
+  });
+  document.getElementById('nav-item-rules').addEventListener('click', () => {
+    navDropdown.classList.remove('open');
+    helpOverlay.classList.add('open');
+  });
+  document.getElementById('nav-item-messages').addEventListener('click', () => {
+    navDropdown.classList.remove('open');
+    document.getElementById('messages-btn').click();
+  });
+  document.querySelectorAll('.nav-dropdown-item.is-soon').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      navDropdown.classList.remove('open');
+      soonTitle.textContent = btn.dataset.soon;
+      soonOverlay.classList.add('open');
+    });
+  });
+  document.getElementById('soon-close').addEventListener('click', () => {
+    soonOverlay.classList.remove('open');
   });
 
   feedbackForm.addEventListener('submit', async (e) => {
