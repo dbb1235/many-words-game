@@ -151,6 +151,11 @@
   .nav-dropdown-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 6px 4px; }
   .nav-dropdown-version { padding: 8px 12px 4px; font-size: 11px; color: var(--cream); opacity: 0.5; }
 
+  .scoreboard-stats { display: flex; gap: 14px; margin-bottom: 20px; }
+  .scoreboard-stat { flex: 1; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; text-align: center; }
+  .scoreboard-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--cream); opacity: 0.65; margin-bottom: 6px; }
+  .scoreboard-stat-value { font-size: 28px; font-weight: 800; color: var(--cream); font-variant-numeric: tabular-nums; }
+
   .icon-btn.is-muted { opacity: 0.5; }
   .icon-btn:hover { border-color: var(--gold); }
 
@@ -647,7 +652,7 @@
         <button class="nav-dropdown-item" id="nav-item-rules" type="button">📖 How to Play</button>
         <div class="nav-dropdown-divider"></div>
         <button class="nav-dropdown-item is-soon" data-soon="Friends" type="button">👥 Friends <span class="soon-badge">Soon</span></button>
-        <button class="nav-dropdown-item is-soon" data-soon="Scoreboard" type="button">🏆 Scoreboard <span class="soon-badge">Soon</span></button>
+        <button class="nav-dropdown-item" id="nav-item-scoreboard" type="button">🏆 Scoreboard</button>
         <button class="nav-dropdown-item is-soon" data-soon="Comments" type="button">💬 Comments <span class="soon-badge">Soon</span></button>
         <div class="nav-dropdown-divider"></div>
         <div class="nav-dropdown-version">Tunaword v1.0.0</div>
@@ -768,6 +773,24 @@
     <div class="modal-title" id="soon-title">Coming soon</div>
     <p class="help-body" style="margin-bottom:20px;">This feature isn't built yet — it's on the list.</p>
     <button class="restart-link" id="soon-close" type="button">Close</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="scoreboard-overlay">
+  <div class="modal-card">
+    <div class="modal-title">Scoreboard</div>
+    <div class="scoreboard-stats">
+      <div class="scoreboard-stat">
+        <div class="scoreboard-stat-label">Personal Best</div>
+        <div class="scoreboard-stat-value" id="scoreboard-best">—</div>
+      </div>
+      <div class="scoreboard-stat">
+        <div class="scoreboard-stat-label">Daily Average</div>
+        <div class="scoreboard-stat-value" id="scoreboard-avg">—</div>
+      </div>
+    </div>
+    <p class="help-body" id="scoreboard-empty" style="display:none; margin-bottom:16px;">No finished games yet — play a full round or hit New Game to record your first result.</p>
+    <button class="restart-link" id="scoreboard-close" type="button">Close</button>
   </div>
 </div>
 
@@ -939,6 +962,31 @@
     soonOverlay.classList.remove('open');
   });
 
+  const scoreboardOverlay = document.getElementById('scoreboard-overlay');
+  document.getElementById('nav-item-scoreboard').addEventListener('click', async () => {
+    navDropdown.classList.remove('open');
+    scoreboardOverlay.classList.add('open');
+    const bestEl = document.getElementById('scoreboard-best');
+    const avgEl = document.getElementById('scoreboard-avg');
+    const emptyEl = document.getElementById('scoreboard-empty');
+    bestEl.textContent = '…';
+    avgEl.textContent = '…';
+    emptyEl.style.display = 'none';
+    try {
+      const res = await fetch('/api/single/scoreboard');
+      const data = await res.json();
+      bestEl.textContent = data.personalBest;
+      avgEl.textContent = data.dailyAverage;
+      emptyEl.style.display = data.personalBest ? 'none' : 'block';
+    } catch (err) {
+      bestEl.textContent = '—';
+      avgEl.textContent = '—';
+    }
+  });
+  document.getElementById('scoreboard-close').addEventListener('click', () => {
+    scoreboardOverlay.classList.remove('open');
+  });
+
   feedbackForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     feedbackError.textContent = '';
@@ -1002,6 +1050,7 @@
   let muted = false;
   let timeLeft = GAME_SECONDS;
   let timerHandle = null;
+  let sessionResultRecorded = false;
   let warned1min = false;
   let warned15s = false;
 
@@ -1762,6 +1811,22 @@
 
   // ---------- Countdown timer with 1:00 / 0:15 warnings ----------
 
+  // Fires once per session, whenever it ends — timer hitting 0, or the
+  // player bailing early via New Game. Whatever's in the header score
+  // right then is the session's final total; there's no separate
+  // "submit" in single player (see the mode-card copy in the help
+  // modal), so this is the only place a result gets persisted.
+  function reportSinglePlayerResult() {
+    if (sessionResultRecorded) return;
+    sessionResultRecorded = true;
+    const totalScore = Number(document.getElementById('score-value').textContent) || 0;
+    fetch('/api/single/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ totalScore }),
+    }).catch(() => {}); // best-effort — a failed report shouldn't interrupt play
+  }
+
   function formatTime(s) {
     const m = Math.floor(s / 60).toString().padStart(2, '0');
     const sec = (s % 60).toString().padStart(2, '0');
@@ -1778,6 +1843,7 @@
       valueEl.textContent = '00:00';
       stat.classList.add('time-up');
       clearInterval(timerHandle);
+      reportSinglePlayerResult();
       return;
     }
 
@@ -1800,6 +1866,7 @@
     timeLeft = GAME_SECONDS;
     warned1min = false;
     warned15s = false;
+    sessionResultRecorded = false;
     const stat = document.getElementById('timer-stat');
     stat.classList.remove('warn-1min', 'warn-15s', 'time-up');
     document.getElementById('timer-value').textContent = formatTime(timeLeft);
@@ -1807,6 +1874,7 @@
   }
 
   document.getElementById('new-game-btn').addEventListener('click', () => {
+    reportSinglePlayerResult();
     startGame();
   });
 

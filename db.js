@@ -81,6 +81,13 @@ db.exec(`
     created_at INTEGER NOT NULL,
     UNIQUE (round_id, user_id)
   );
+
+  CREATE TABLE IF NOT EXISTS single_player_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    total_score INTEGER NOT NULL,
+    played_at INTEGER NOT NULL
+  );
 `);
 
 // users.avatar_data/location were added after the table already existed
@@ -218,6 +225,34 @@ function getRoundPlayers(roundId) {
   const round = getRound(roundId);
   if (!round || !round.lobby_id) return [];
   return getLobbyRoster(round.lobby_id);
+}
+
+// ---------- Single-player results ----------
+
+function recordSinglePlayerResult(userId, totalScore, playedAt) {
+  db.prepare('INSERT INTO single_player_results (user_id, total_score, played_at) VALUES (?, ?, ?)')
+    .run(userId, totalScore, playedAt);
+}
+
+// Daily average groups sessions by calendar day (played_at is ms-since-
+// epoch, SQLite's date() wants seconds) and sums same-day sessions
+// before averaging across days — a person who plays 3 games in one day
+// gets that day counted once, at its combined total, not three times.
+function getSinglePlayerScoreboard(userId) {
+  const personalBest = db.prepare(
+    'SELECT MAX(total_score) AS best FROM single_player_results WHERE user_id = ?'
+  ).get(userId).best || 0;
+
+  const dailyAverage = db.prepare(`
+    SELECT AVG(day_total) AS avg FROM (
+      SELECT SUM(total_score) AS day_total
+      FROM single_player_results
+      WHERE user_id = ?
+      GROUP BY date(played_at / 1000, 'unixepoch')
+    )
+  `).get(userId).avg || 0;
+
+  return { personalBest, dailyAverage: Math.round(dailyAverage) };
 }
 
 // ---------- Scores ----------
@@ -371,6 +406,7 @@ module.exports = {
   removePlayerFromLobby, getLobby, getLobbyRoster, startLobbyCountdown,
   resetLobbyToWaiting, attachRoundToLobby,
   createRound, getRound, getRoundPlayers,
+  recordSinglePlayerResult, getSinglePlayerScoreboard,
   upsertBestScore, forceSetBestScore, getBestScore, getRoundScores, upsertRoundComment, getRoundComment,
   blockUser, unblockUser, isBlocked, isBlockedEitherWay, getBlockedUsers,
   createMessage, getConversation, markMessagesRead, getConversations,

@@ -634,6 +634,19 @@ app.post('/api/game/:gameId/guess', auth.requireAuth, (req, res) => {
   res.json(result);
 });
 
+app.post('/api/single/finish', auth.requireAuth, (req, res) => {
+  const totalScore = Number(req.body?.totalScore);
+  if (!Number.isFinite(totalScore) || totalScore < 0) {
+    return res.status(400).json({ error: 'totalScore must be a non-negative number' });
+  }
+  db.recordSinglePlayerResult(req.user.id, Math.round(totalScore), Date.now());
+  res.json({ ok: true });
+});
+
+app.get('/api/single/scoreboard', auth.requireAuth, (req, res) => {
+  res.json(db.getSinglePlayerScoreboard(req.user.id));
+});
+
 // --- Lobbies & multiplayer rounds --------------------------------------
 // See MULTIPLAYER_PLAN.md §2. Lobby/round phase is computed lazily from
 // stored timestamps on every read — no background scheduler needed, same
